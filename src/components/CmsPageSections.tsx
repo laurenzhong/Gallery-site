@@ -157,7 +157,7 @@ function RenderSection({ section, onOpen }: { section: PageSection; onOpen: CmsP
 
 export function CmsPageSections({ layout, categories, onOpen }: CmsPageSectionsProps) {
   return (
-    <div className="cms-page-sections">
+    <div className="cms-page-sections" id={layout.pageKey === "home" ? "photography" : undefined}>
       {layout.pageKey === "home" && categories?.length ? (
         <nav className="category-index" aria-label="Photography categories">
           {categories.map((category) => (
