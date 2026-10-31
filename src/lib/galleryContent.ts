@@ -82,7 +82,8 @@ const productionFallbackContent: GalleryContent = {
 const remoteOnly = import.meta.env.PROD || import.meta.env.VITE_SANITY_REMOTE_ONLY === "true";
 const fallbackContent = remoteOnly ? productionFallbackContent : staticContent;
 
-const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v6";
+const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v7";
+const LEGACY_CMS_CONTENT_CACHE_KEYS = ["queenstown.cmsContent.v6"];
 
 function blockToText(block: PortableTextBlock) {
   return block.children?.map((child) => child.text ?? "").join("") ?? "";
@@ -529,6 +530,9 @@ function readCachedCmsContent(): GalleryContent | undefined {
   }
 
   try {
+    for (const key of LEGACY_CMS_CONTENT_CACHE_KEYS) {
+      window.localStorage.removeItem(key);
+    }
     const cached = window.localStorage.getItem(CMS_CONTENT_CACHE_KEY);
     if (!cached) {
       return undefined;
