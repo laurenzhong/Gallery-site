@@ -308,10 +308,47 @@ main {
   filter: brightness(1.08) saturate(1.04);
 }
 
+.hero-subtitle {
+  position: absolute;
+  right: clamp(20px, 5vw, 72px);
+  bottom: 28px;
+  z-index: 3;
+  max-width: min(560px, 72vw);
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  text-align: right;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+}
+
 .reference-content {
   position: relative;
   z-index: 3;
   background: var(--black);
+}
+
+.category-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  padding: 18px clamp(18px, 4vw, 56px);
+  border-bottom: 1px solid rgba(232, 230, 230, 0.12);
+}
+
+.category-index a {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+
+.category-index a:hover,
+.category-index a:focus-visible {
+  color: var(--aqua);
 }
 
 .feature-grid {
@@ -738,6 +775,211 @@ main {
 
   .landscape-thumbs-track {
     height: 96px;
+  }
+}
+
+/* Sanity-driven page sections */
+.cms-page-sections {
+  display: grid;
+  gap: clamp(3rem, 8vw, 8rem);
+}
+
+.cms-section {
+  position: relative;
+  display: grid;
+  gap: 1.5rem;
+  padding-inline: clamp(1rem, 4vw, 4rem);
+}
+
+.cms-section--dark {
+  color: #f7f4ee;
+  background: #111;
+  padding-block: clamp(2rem, 5vw, 5rem);
+}
+
+.cms-section-heading {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 48rem;
+}
+
+.cms-section-heading h2 {
+  margin: 0;
+  font-family: var(--font-display, "Playfair Display", serif);
+  font-size: clamp(1.8rem, 4vw, 3.5rem);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.cms-section-eyebrow {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+.cms-section-description {
+  max-width: 42rem;
+  margin: 0;
+  line-height: 1.7;
+  opacity: 0.72;
+}
+
+.cms-section-link {
+  justify-self: start;
+  color: inherit;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.cms-section--hero {
+  min-height: min(78vh, 54rem);
+  padding: 0;
+  overflow: hidden;
+  color: #fff;
+  background: #111;
+}
+
+.cms-hero-photo,
+.cms-banner-photo,
+.cms-split-photo {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cms-hero-photo img,
+.cms-banner-photo img,
+.cms-split-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.cms-section--hero .cms-hero-photo,
+.cms-section--hero .cms-hero-photo img {
+  height: 100%;
+}
+
+.cms-section--hero .cms-hero-photo img {
+  min-height: min(78vh, 54rem);
+}
+
+.cms-section-overlay {
+  position: absolute;
+  right: clamp(1.25rem, 5vw, 5rem);
+  bottom: clamp(1.25rem, 5vw, 5rem);
+  left: clamp(1.25rem, 5vw, 5rem);
+  display: grid;
+  gap: 1rem;
+  max-width: 44rem;
+  text-shadow: 0 0.15rem 1.2rem rgb(0 0 0 / 45%);
+}
+
+.cms-section--banner,
+.cms-section--split,
+.cms-section--feature-cards {
+  max-width: 100rem;
+  margin-inline: auto;
+}
+
+.cms-section--split {
+  grid-template-columns: minmax(0, 1.3fr) minmax(16rem, 0.7fr);
+  align-items: center;
+}
+
+.cms-split-copy {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 5vw, 4rem);
+}
+
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--section-grid-columns, 4), minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.section-grid-photo,
+.section-stack-photo {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.section-grid-photo img,
+.section-stack-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 500ms ease;
+}
+
+.section-grid-photo:hover img,
+.section-stack-photo:hover img {
+  transform: scale(1.02);
+}
+
+.section-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.section-carousel {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.section-carousel-main {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.section-carousel-main img {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.cms-section--dark .section-carousel button,
+.cms-section--dark .section-grid button,
+.cms-section--dark .section-stack button {
+  color: inherit;
+}
+
+@media (max-width: 760px) {
+  .cms-section--split {
+    grid-template-columns: 1fr;
+  }
+
+  .section-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .section-carousel {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.35rem;
   }
 }
 
@@ -1207,8 +1449,7 @@ main {
 .site-footer--photo {
   background:
     linear-gradient(90deg, rgba(5, 5, 5, 0.95) 0%, rgba(5, 5, 5, 0.86) 48%, rgba(5, 5, 5, 0.58) 100%),
-    linear-gradient(180deg, rgba(5, 5, 5, 0.86) 0%, rgba(5, 5, 5, 0.62) 46%, rgba(5, 5, 5, 0.92) 100%),
-    url("/photos/石塘度假区/DSC_0257.JPG") center 44% / cover no-repeat;
+    linear-gradient(180deg, rgba(5, 5, 5, 0.86) 0%, rgba(5, 5, 5, 0.62) 46%, rgba(5, 5, 5, 0.92) 100%);
 }
 
 .site-footer--photo::before {
@@ -1621,8 +1862,7 @@ main {
   gap: 10px;
   padding: calc(var(--header-h) + 24px) 6vw clamp(44px, 7vw, 80px);
   background:
-    linear-gradient(180deg, rgba(5, 5, 5, 0.18), rgba(5, 5, 5, 0.96)),
-    url("/photos/石塘度假区/DSC_0257.JPG") center / cover no-repeat;
+    linear-gradient(180deg, rgba(5, 5, 5, 0.18), rgba(5, 5, 5, 0.96));
   color: #ffffff;
 }
 
@@ -2813,11 +3053,27 @@ main {
   font-style: italic;
 }
 
-.story-entry-paragraph {
+.story-entry-paragraph,
+.story-entry-rich-body p {
   margin: 0;
   font-size: 15px;
   line-height: 1.8;
   color: var(--muted);
+}
+
+.story-entry-rich-body {
+  display: grid;
+  gap: 14px;
+}
+
+.portable-text-image {
+  margin: 8px 0;
+}
+
+.portable-text-image img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .story-meta-card-link {
@@ -2880,6 +3136,16 @@ main {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.photo-detail-image figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .story-detail-cover {

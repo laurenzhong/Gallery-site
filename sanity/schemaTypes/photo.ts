@@ -72,7 +72,21 @@ export const photoType = defineType({
       fieldset: "identity",
       options: { source: "title", maxLength: 96 },
       description: "用于照片详情/灯箱页 URL 的稳定地址段，分享链接后请勿修改。",
-      validation: (Rule) => Rule.required(),
+      validation: (Rule) =>
+        Rule.required().custom(async (value, context) => {
+          if (!value?.current) return true;
+          const documentId = context.document?._id?.replace(/^drafts\./, "");
+          const client = context.getClient({ apiVersion: "2025-02-19" });
+          const duplicateCount = await client.fetch<number>(
+            `count(*[_type == "photo" && slug.current == $slug && !(_id in [$publishedId, $draftId])])`,
+            {
+              slug: value.current,
+              publishedId: documentId ?? "",
+              draftId: documentId ? `drafts.${documentId}` : "",
+            },
+          );
+          return duplicateCount ? "此 URL 标识已被其他照片使用。" : true;
+        }),
     }),
     defineField({
       name: "image",
@@ -82,6 +96,29 @@ export const photoType = defineType({
       options: { hotspot: true, metadata: ["blurhash", "lqip", "palette"] },
       description:
         "在此上传或替换照片资源。是否在首页中显示，由下方的「是否隐藏」「分类」「排序」共同控制。",
+    }),
+    defineField({
+      name: "altText",
+      title: "替代文本",
+      type: "string",
+      fieldset: "identity",
+      description: "用于图片无障碍和搜索引擎。请描述画面内容，建议控制在 160 个字符以内。",
+      validation: (Rule) => Rule.max(160).warning("替代文本过长，建议控制在 160 个字符以内。"),
+    }),
+    defineField({
+      name: "caption",
+      title: "图片说明",
+      type: "text",
+      rows: 2,
+      fieldset: "identity",
+      description: "可选的图片说明，会用于照片详情和灯箱信息。",
+    }),
+    defineField({
+      name: "credit",
+      title: "署名 / 版权",
+      type: "string",
+      fieldset: "identity",
+      description: "可选的摄影师署名或版权说明。",
     }),
     defineField({
       name: "category",

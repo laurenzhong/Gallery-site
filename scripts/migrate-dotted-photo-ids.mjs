@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
-const referenceTypes = ["category", "homepageLayout", "photobalconyLayout", "siteSettings", "story"];
+const referenceTypes = ["category", "homepageLayout", "pageLayout", "photobalconyLayout", "siteSettings", "story"];
 
 async function loadEnvFile(filename) {
   const filePath = path.join(projectRoot, filename);

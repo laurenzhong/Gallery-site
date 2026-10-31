@@ -64,6 +64,9 @@ async function fetchStatusCounts({ projectId, dataset, token }) {
     "photosWithImages": count(*[_type == "photo" && defined(image.asset)]),
     "stories": count(*[_type == "story"]),
     "siteSettings": count(*[_type == "siteSettings"]),
+    "pageLayouts": count(*[_type == "pageLayout"]),
+    "siteCopy": count(*[_type == "siteCopy"]),
+    "siteHeroCount": count(*[_type == "siteSettings" && defined(heroPhoto._ref)]),
     "heroPhotos": count(*[_type == "photo" && isHero == true])
   }`;
   const url = new URL(`https://${projectId}.api.sanity.io/v2025-02-19/data/query/${dataset}`);
@@ -89,6 +92,9 @@ async function fetchStatusCountsWithPowerShell({ projectId, dataset, token }) {
     "photosWithImages": count(*[_type == "photo" && defined(image.asset)]),
     "stories": count(*[_type == "story"]),
     "siteSettings": count(*[_type == "siteSettings"]),
+    "pageLayouts": count(*[_type == "pageLayout"]),
+    "siteCopy": count(*[_type == "siteCopy"]),
+    "siteHeroCount": count(*[_type == "siteSettings" && defined(heroPhoto._ref)]),
     "heroPhotos": count(*[_type == "photo" && isHero == true])
   }`;
   const url = new URL(`https://${projectId}.api.sanity.io/v2025-02-19/data/query/${dataset}`);
@@ -118,11 +124,19 @@ async function getStatusCounts(config) {
     return await fetchStatusCounts(config);
   } catch (error) {
     if (process.platform !== "win32") {
-      throw error;
+      throw new Error(`Sanity status unavailable: ${error instanceof Error ? error.message : String(error)}`);
     }
 
-    console.log("Node fetch timed out; retrying with Windows web request...");
-    return fetchStatusCountsWithPowerShell(config);
+    console.log("Node fetch failed; retrying with Windows web request...");
+    try {
+      return await fetchStatusCountsWithPowerShell(config);
+    } catch (fallbackError) {
+      throw new Error(
+        `Sanity status unavailable after both HTTP clients: ${
+          fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+        }`,
+      );
+    }
   }
 }
 
@@ -165,8 +179,20 @@ async function main() {
     issues.push("No site settings document found.");
   }
 
+  if (result.pageLayouts < 2) {
+    issues.push(`Expected homepage and Photobalcony page layouts, found ${result.pageLayouts}.`);
+  }
+
+  if (result.siteCopy < 1) {
+    issues.push("No site copy document found.");
+  }
+
   if (result.heroPhotos !== 1) {
     issues.push(`Expected exactly 1 homepage hero photo, got ${result.heroPhotos}.`);
+  }
+
+  if (result.siteHeroCount !== 1) {
+    issues.push(`Expected exactly 1 Site Settings hero reference, got ${result.siteHeroCount}.`);
   }
 
   if (issues.length > 0) {

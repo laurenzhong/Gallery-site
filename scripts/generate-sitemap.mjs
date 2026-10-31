@@ -93,7 +93,7 @@ async function fetchCmsEntries() {
   }
 
   const client = createClient({ projectId, dataset, apiVersion: "2025-02-19", useCdn: false });
-  const photosQuery = `*[_type == "photo" && isHidden != true]{
+  const photosQuery = `*[_type == "photo" && isHidden != true && category->isVisible != false]{
       "slug": slug.current,
       "filename": sourceFilename,
       title,
@@ -180,8 +180,13 @@ let entries;
 try {
   entries = await fetchCmsEntries();
 } catch (error) {
-  if (error instanceof Error) throw error;
-  throw new Error(`Sitemap: unexpected error while fetching Sanity entries: ${String(error)}`);
+  const message = error instanceof Error ? error.message : String(error);
+  if (process.env.SANITY_BUILD_STRICT === "1") {
+    throw new Error(`Sitemap: Sanity query failed in strict mode (${message})`);
+  }
+
+  console.warn(`Sitemap: Sanity unavailable (${message}); falling back to local static data.`);
+  entries = await loadStaticEntries();
 }
 
 if (!entries) {

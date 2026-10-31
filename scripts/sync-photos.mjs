@@ -112,7 +112,7 @@ async function fetchCmsHeroPhoto() {
 
   const query = `{
     "hero": coalesce(
-      *[_type == "photo" && isHidden != true && isHero == true][0]{
+      *[_type == "photo" && isHidden != true && category->isVisible != false && isHero == true][0]{
         "id": _id,
         "src": image.asset->url,
         title,
@@ -189,6 +189,7 @@ async function removeStaleFiles(root, expected) {
 async function collectPhotos(heroFilename) {
   const photos = [];
   const expectedFiles = new Set();
+  let foundSourceCategory = false;
 
   await mkdir(publicPhotoRoot, { recursive: true });
 
@@ -196,9 +197,19 @@ async function collectPhotos(heroFilename) {
     const sourceCategoryDir = path.join(sourceRoot, category);
     const targetCategoryDir = path.join(publicPhotoRoot, category);
 
+    let entries;
+    try {
+      entries = await readdir(sourceCategoryDir, { withFileTypes: true });
+    } catch (error) {
+      if (error?.code === "ENOENT") {
+        continue;
+      }
+      throw error;
+    }
+
+    foundSourceCategory = true;
     await mkdir(targetCategoryDir, { recursive: true });
 
-    const entries = await readdir(sourceCategoryDir, { withFileTypes: true });
     const files = entries
       .filter((entry) => entry.isFile() && imageExtensions.has(path.extname(entry.name).toLowerCase()))
       .map((entry) => entry.name)
@@ -230,7 +241,9 @@ async function collectPhotos(heroFilename) {
     }
   }
 
-  await removeStaleFiles(publicPhotoRoot, expectedFiles);
+  if (foundSourceCategory) {
+    await removeStaleFiles(publicPhotoRoot, expectedFiles);
+  }
 
   return photos;
 }
@@ -265,6 +278,9 @@ function serializeData(photos, initialHeroPhoto) {
   width: number;
   height: number;
   isHero?: boolean;
+  altText?: string;
+  caption?: string;
+  credit?: string;
 };
 
 export const categories = ${JSON.stringify(categories, null, 2)} as const;
@@ -280,7 +296,10 @@ const heroFilename = cmsHero.photo?.filename ?? (cmsHero.configured ? undefined 
 const photos = await collectPhotos(heroFilename);
 const initialHeroPhoto = toInitialHeroPhoto(cmsHero.photo, photos);
 
-await mkdir(path.dirname(dataFile), { recursive: true });
-await writeFile(dataFile, serializeData(photos, initialHeroPhoto), "utf8");
-
-console.log(`Synced ${photos.length} photos into public/photos and generated src/data/photos.ts`);
+if (photos.length > 0) {
+  await mkdir(path.dirname(dataFile), { recursive: true });
+  await writeFile(dataFile, serializeData(photos, initialHeroPhoto), "utf8");
+  console.log(`Synced ${photos.length} photos into public/photos and generated src/data/photos.ts`);
+} else {
+  console.log("No local source photos found; keeping the existing static data file for remote CMS builds.");
+}

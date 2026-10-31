@@ -21,7 +21,7 @@ const storyList = (S: Parameters<StructureResolver>[0], title: string, filter: s
 
 const homepageReferenceFilter = `
   _type == "photo" &&
-  count(*[_type == "homepageLayout" && references(^._id)]) > 0
+  count(*[_type in ["homepageLayout", "pageLayout"] && references(^._id)]) > 0
 `;
 
 const siteHeroReferenceFilter = `
@@ -71,7 +71,7 @@ const journalRelatedFilter = `
 
 const anyPageOrStoryReferenceFilter = `
   count(*[
-    _type in ["homepageLayout", "photobalconyLayout", "siteSettings", "story"] &&
+    _type in ["homepageLayout", "pageLayout", "photobalconyLayout", "siteSettings", "story"] &&
     references(^._id)
   ]) > 0
 `;
@@ -199,6 +199,10 @@ export const structure: StructureResolver = (S, context) =>
                 .title("缺少分类的照片")
                 .schemaType("photo")
                 .child(photoList(S, "缺少分类的照片", '_type == "photo" && !defined(category._ref)')),
+              li(S, "publishing.photos-missing-alt-text")
+                .title("缺少替代文本的照片")
+                .schemaType("photo")
+                .child(photoList(S, "缺少替代文本的照片", '_type == "photo" && isHidden != true && !defined(altText)')),
               li(S, "publishing.multiple-hero-flags")
                 .title("被标记多个主视觉备选的照片")
                 .schemaType("photo")
@@ -224,6 +228,42 @@ export const structure: StructureResolver = (S, context) =>
                   S.documentTypeList("photobalconyLayout")
                     .title("影像阳台布局未配置的模块")
                     .filter(photobalconyLayoutEmptyModulesFilter),
+                ),
+            ]),
+        ),
+      li(S, "content-control")
+        .title("页面内容控制")
+        .child(
+          S.list()
+            .id("content-control-list")
+            .title("页面内容控制")
+            .items([
+              li(S, "content-control.site-copy")
+                .title("全站文案")
+                .schemaType("siteCopy")
+                .child(
+                  S.document()
+                    .schemaType("siteCopy")
+                    .documentId("siteCopy-main")
+                    .title("全站文案"),
+                ),
+              li(S, "content-control.home-layout")
+                .title("首页通用布局")
+                .schemaType("pageLayout")
+                .child(
+                  S.document()
+                    .schemaType("pageLayout")
+                    .documentId("pageLayout-home")
+                    .title("首页通用布局"),
+                ),
+              li(S, "content-control.photobalcony-layout")
+                .title("影像阳台通用布局")
+                .schemaType("pageLayout")
+                .child(
+                  S.document()
+                    .schemaType("pageLayout")
+                    .documentId("pageLayout-photobalcony")
+                    .title("影像阳台通用布局"),
                 ),
             ]),
         ),
@@ -399,39 +439,39 @@ export const structure: StructureResolver = (S, context) =>
                         .schemaType("photo")
                         .child(photoList(S, "影像阳台主视觉", photobalconySingleReferenceFilter("heroPhoto"))),
                       li(S, "photo-placement.photobalcony.may")
-                        .title("2025 年 5 月轮播")
+                        .title("第一组轮播")
                         .schemaType("photo")
-                        .child(photoList(S, "2025 年 5 月轮播", photobalconyArrayReferenceFilter("mayPhotos"))),
+                        .child(photoList(S, "第一组轮播", photobalconyArrayReferenceFilter("mayPhotos"))),
                       li(S, "photo-placement.photobalcony.march-portraits")
-                        .title("2025 年 3 月竖幅照片行")
+                        .title("第二组竖幅照片行")
                         .schemaType("photo")
                         .child(
                           photoList(
                             S,
-                            "2025 年 3 月竖幅照片行",
+                            "第二组竖幅照片行",
                             photobalconyArrayReferenceFilter("marchPortraitPhotos"),
                           ),
                         ),
                       li(S, "photo-placement.photobalcony.march-wide")
-                        .title("2025 年 3 月轮播")
+                        .title("第二组宽幅轮播")
                         .schemaType("photo")
-                        .child(photoList(S, "2025 年 3 月轮播", photobalconyArrayReferenceFilter("marchWidePhotos"))),
+                        .child(photoList(S, "第二组宽幅轮播", photobalconyArrayReferenceFilter("marchWidePhotos"))),
                       li(S, "photo-placement.photobalcony.february")
-                        .title("2025 年 2 月轮播")
+                        .title("第三组轮播")
                         .schemaType("photo")
-                        .child(photoList(S, "2025 年 2 月轮播", photobalconyArrayReferenceFilter("februaryPhotos"))),
+                        .child(photoList(S, "第三组轮播", photobalconyArrayReferenceFilter("februaryPhotos"))),
                       li(S, "photo-placement.photobalcony.january")
-                        .title("2025 年 1 月网格")
+                        .title("第四组网格")
                         .schemaType("photo")
-                        .child(photoList(S, "2025 年 1 月网格", photobalconyArrayReferenceFilter("januaryPhotos"))),
+                        .child(photoList(S, "第四组网格", photobalconyArrayReferenceFilter("januaryPhotos"))),
                       li(S, "photo-placement.photobalcony.winter")
-                        .title("2024 年 11–12 月网格")
+                        .title("第五组网格")
                         .schemaType("photo")
-                        .child(photoList(S, "2024 年 11–12 月网格", photobalconyArrayReferenceFilter("winterPhotos"))),
+                        .child(photoList(S, "第五组网格", photobalconyArrayReferenceFilter("winterPhotos"))),
                       li(S, "photo-placement.photobalcony.summer")
-                        .title("2024 年 7–8 月堆叠")
+                        .title("第六组堆叠")
                         .schemaType("photo")
-                        .child(photoList(S, "2024 年 7–8 月堆叠", photobalconyArrayReferenceFilter("summerPhotos"))),
+                        .child(photoList(S, "第六组堆叠", photobalconyArrayReferenceFilter("summerPhotos"))),
                     ]),
                 ),
               li(S, "photo-placement.journal")

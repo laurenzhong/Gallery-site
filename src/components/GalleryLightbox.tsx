@@ -43,7 +43,7 @@ export function GalleryLightbox({
 }: GalleryLightboxProps) {
   const slides = photos.map((photo) => ({
     src: photo.src,
-    alt: `${photo.category} ${photo.title}`,
+    alt: photo.altText ?? `${photo.category} ${photo.title}`,
     width: photo.width,
     height: photo.height,
   }));
@@ -69,7 +69,7 @@ export function GalleryLightbox({
           }
 
           const meta = photoMeta[photo.filename];
-          const story = photoStories[photo.filename]?.[0];
+          const story = (photoStories[photo.id] ?? photoStories[photo.filename] ?? staticPhotoStories[photo.filename])?.[0];
           const title = photo.title;
           const exposure = meta
             ? [

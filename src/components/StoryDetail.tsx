@@ -2,6 +2,8 @@ import type { Photo } from "../data/photos";
 import type { PhotoStory } from "../data/stories";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { photoPath } from "../lib/routes";
+import { useSiteCopy } from "../lib/siteCopyContext";
+import { PortableTextContent } from "./PortableTextContent";
 
 type StoryDetailProps = {
   photo: Photo;
@@ -9,6 +11,7 @@ type StoryDetailProps = {
 };
 
 export function StoryDetail({ photo, story }: StoryDetailProps) {
+  const copy = useSiteCopy();
   return (
     <article className="detail-page story-detail-page">
       <header className="detail-hero">
@@ -22,7 +25,7 @@ export function StoryDetail({ photo, story }: StoryDetailProps) {
           src={sizedImageUrl(photo.src, 2200, 88)}
           srcSet={imageSrcSet(photo.src, [1000, 1600, 2400], 88)}
           sizes="100vw"
-          alt={`${photo.category} ${photo.title}`}
+          alt={photo.altText ?? `${photo.category} ${photo.title}`}
           width={photo.width}
           height={photo.height}
           loading="eager"
@@ -32,13 +35,11 @@ export function StoryDetail({ photo, story }: StoryDetailProps) {
       </figure>
 
       <div className="story-detail-body">
-        {story.body.map((paragraph, index) => (
-          <p key={index}>{paragraph}</p>
-        ))}
+        <PortableTextContent blocks={story.bodyBlocks} fallback={story.body} />
       </div>
 
       <footer className="detail-related">
-        <h2>Related Photo</h2>
+        <h2>{copy.sections.relatedPhoto}</h2>
         <a className="detail-related-link" href={photoPath(photo)}>
           <span>{photo.title}</span>
           <small>{photo.category} / {photo.filename}</small>

@@ -17,6 +17,8 @@ const expectedMinimums = {
   siteSettings: 1,
   homepageLayouts: 1,
   photobalconyLayouts: 1,
+  pageLayouts: 2,
+  siteCopy: 1,
   sitemapUrls: 10,
 };
 
@@ -115,17 +117,19 @@ async function checkSanity() {
     "siteSettings": count(*[_type == "siteSettings"]),
     "homepageLayouts": count(*[_type == "homepageLayout"]),
     "photobalconyLayouts": count(*[_type == "photobalconyLayout"]),
+    "pageLayouts": count(*[_type == "pageLayout"]),
+    "siteCopy": count(*[_type == "siteCopy"]),
     "photoIds": *[_type == "photo"]._id,
     "heroFlags": count(*[_type == "photo" && isHero == true]),
     "hiddenHomepagePhotos": count(*[
       _type == "photo" &&
       isHidden == true &&
-      count(*[_type == "homepageLayout" && references(^._id)]) > 0
+      count(*[_type in ["homepageLayout", "pageLayout"] && references(^._id)]) > 0
     ]),
     "hiddenPhotobalconyPhotos": count(*[
       _type == "photo" &&
       isHidden == true &&
-      count(*[_type == "photobalconyLayout" && references(^._id)]) > 0
+      count(*[_type in ["photobalconyLayout", "pageLayout"] && references(^._id)]) > 0
     ])
   }`;
 
@@ -165,6 +169,8 @@ async function checkSanity() {
   if (counts.photobalconyLayouts < expectedMinimums.photobalconyLayouts) {
     issues.push("No photobalconyLayout document found.");
   }
+  if (counts.pageLayouts < expectedMinimums.pageLayouts) issues.push("Homepage/Photobalcony pageLayout documents are incomplete.");
+  if (counts.siteCopy < expectedMinimums.siteCopy) issues.push("No siteCopy document found.");
   if (counts.heroFlags !== 1) issues.push(`Expected exactly 1 hero flag photo, got ${counts.heroFlags}.`);
   if (counts.hiddenHomepagePhotos > 0) issues.push(`${counts.hiddenHomepagePhotos} hidden photos are still used on Homepage.`);
   if (counts.hiddenPhotobalconyPhotos > 0) {

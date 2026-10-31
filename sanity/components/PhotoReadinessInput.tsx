@@ -11,6 +11,7 @@ type ReadinessResult = {
   hasCategory: boolean;
   hasSlug: boolean;
   hasSortOrder: boolean;
+  hasAltText: boolean;
   isHidden: boolean;
 };
 
@@ -40,6 +41,7 @@ const readinessQuery = `*[_id == $publishedId || _id == $draftId][0]{
   "hasCategory": defined(category._ref),
   "hasSlug": defined(slug.current),
   "hasSortOrder": defined(sortOrder),
+  "hasAltText": defined(altText),
   "isHidden": isHidden == true
 }`;
 
@@ -74,6 +76,7 @@ function buildReadiness(result: ReadinessResult) {
 
   const warnings = [
     !result.hasSortOrder ? "未设置排序" : undefined,
+    !result.hasAltText ? "未设置替代文本" : undefined,
     result.isHidden ? "已从网站隐藏" : undefined,
     result.homepageLayoutCount === 0 &&
     result.siteHeroCount === 0 &&

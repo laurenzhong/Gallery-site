@@ -1,6 +1,0 @@
----
-title: 森林
-date: 2026-03-26
-params:
-  theme: dark
----

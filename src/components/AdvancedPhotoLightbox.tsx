@@ -8,6 +8,7 @@ import {
   type PhotoStory,
 } from "../data/stories";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
+import { useSiteCopy } from "../lib/siteCopyContext";
 
 type AdvancedPhotoLightboxProps = {
   photos: Photo[];
@@ -39,11 +40,14 @@ export function AdvancedPhotoLightbox({
   photoStories = staticPhotoStories,
   shareUrl: shareUrlOverride,
 }: AdvancedPhotoLightboxProps) {
+  const copy = useSiteCopy();
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const photo = index >= 0 ? photos[index] : undefined;
   const meta = photo ? photoMeta[photo.filename] : undefined;
-  const story = photo ? photoStories[photo.filename]?.[0] : undefined;
+  const story = photo
+    ? (photoStories[photo.id] ?? photoStories[photo.filename] ?? staticPhotoStories[photo.filename])?.[0]
+    : undefined;
   const hasStory = Boolean(story);
   const canGoPrev = index > 0;
   const canGoNext = index < photos.length - 1;
@@ -104,7 +108,7 @@ export function AdvancedPhotoLightbox({
       className="advanced-lightbox"
       aria-modal="true"
       role="dialog"
-      aria-label={`${photo.title} details`}
+      aria-label={`${photo.title} ${copy.sections.photoDetails}`}
       onTouchStart={(event) => {
         if (event.touches.length === 1) {
           setTouchStart({ x: event.touches[0].clientX, y: event.touches[0].clientY });
@@ -114,7 +118,7 @@ export function AdvancedPhotoLightbox({
       onTouchEnd={handleTouchEnd}
     >
       <div className="advanced-lightbox-frame">
-        <button type="button" className="advanced-lightbox-close" onClick={onClose} aria-label="Close photo details">
+        <button type="button" className="advanced-lightbox-close" onClick={onClose} aria-label={copy.controls.closePhoto}>
           <X size={30} strokeWidth={1.8} />
         </button>
 
@@ -123,7 +127,7 @@ export function AdvancedPhotoLightbox({
               type="button"
               className="advanced-lightbox-nav advanced-lightbox-nav--prev"
               onClick={() => navigateByOffset(-1)}
-              aria-label="Previous photo"
+              aria-label={`${copy.controls.previous} ${copy.controls.openPhoto}`}
             >
               <ChevronLeft size={36} strokeWidth={1.7} />
             </button>
@@ -133,7 +137,7 @@ export function AdvancedPhotoLightbox({
               type="button"
               className="advanced-lightbox-nav advanced-lightbox-nav--next"
               onClick={() => navigateByOffset(1)}
-              aria-label="Next photo"
+              aria-label={`${copy.controls.next} ${copy.controls.openPhoto}`}
             >
               <ChevronRight size={36} strokeWidth={1.7} />
             </button>
@@ -146,7 +150,7 @@ export function AdvancedPhotoLightbox({
                 src={sizedImageUrl(photo.src, 2200, 90)}
                 srcSet={imageSrcSet(photo.src, [1400, 2200, 3000], 90)}
                 sizes="100vw"
-                alt={`${photo.category} ${photo.title}`}
+                alt={photo.altText ?? `${photo.category} ${photo.title}`}
                 width={photo.width}
                 height={photo.height}
                 decoding="async"
@@ -160,18 +164,18 @@ export function AdvancedPhotoLightbox({
                 <h2 id="advanced-lightbox-meta-title">{photo.title}</h2>
               </div>
               <dl className="advanced-lightbox-meta-list">
-                <MetaRow label="Date" value={meta?.date} />
-                <MetaRow label="Location" value={meta?.location} />
-                <MetaRow label="Camera" value={meta?.camera} />
-                <MetaRow label="Lens" value={meta?.lens} />
-                <MetaRow label="Aperture" value={meta?.aperture} />
-                <MetaRow label="Shutter" value={meta?.shutter} />
-                <MetaRow label="ISO" value={meta?.iso} />
-                <MetaRow label="Focal" value={meta?.focalLength} />
+                <MetaRow label={copy.metadata.date} value={meta?.date} />
+                <MetaRow label={copy.metadata.location} value={meta?.location} />
+                <MetaRow label={copy.metadata.camera} value={meta?.camera} />
+                <MetaRow label={copy.metadata.lens} value={meta?.lens} />
+                <MetaRow label={copy.metadata.aperture} value={meta?.aperture} />
+                <MetaRow label={copy.metadata.shutter} value={meta?.shutter} />
+                <MetaRow label={copy.metadata.iso} value={meta?.iso} />
+                <MetaRow label={copy.metadata.focalLength} value={meta?.focalLength} />
               </dl>
               <button type="button" className="advanced-lightbox-copy" onClick={copyLink}>
                 <Copy size={16} strokeWidth={1.8} />
-                <span>{copyState === "copied" ? "Copied" : "Copy link"}</span>
+                <span>{copyState === "copied" ? copy.controls.copied : copy.controls.copyLink}</span>
               </button>
             </section>
           </div>
@@ -179,7 +183,7 @@ export function AdvancedPhotoLightbox({
           {story ? (
             <article className="advanced-lightbox-story" aria-labelledby="advanced-lightbox-story-title">
               <div className="advanced-lightbox-section-head">
-                <p>Journal Note</p>
+                <p>{copy.sections.journalNote}</p>
                 <h2 id="advanced-lightbox-story-title">{story.title}</h2>
               </div>
 

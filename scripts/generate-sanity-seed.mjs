@@ -188,6 +188,274 @@ const siteSettingsDoc = {
   socialLinks: aboutData.contact,
 };
 
+const photoRef = (filename, key) => {
+  const photo = photoIdByFilename.get(filename);
+  return photo ? { _key: key, _type: "reference", _ref: photo } : undefined;
+};
+
+const photoRefs = (filenames, keyPrefix) =>
+  filenames.flatMap((filename, index) => {
+    const reference = photoRef(filename, `${keyPrefix}-${index}`);
+    return reference ? [reference] : [];
+  });
+
+const categoryRef = (title) => {
+  const id = categoryIdByTitle.get(title);
+  return id ? { _type: "reference", _ref: id } : undefined;
+};
+
+const categoryPhotos = (title, limit) => {
+  const category = categoryRef(title);
+  return category ? { category, limit } : {};
+};
+
+const squareFilenames = photos
+  .filter((photo) => {
+    const ratio = photo.width / photo.height;
+    return ratio >= 0.82 && ratio <= 1.2;
+  })
+  .slice(0, 8)
+  .map((photo) => photo.filename);
+const quietFilenames = squareFilenames.length ? squareFilenames : photos.slice(0, 8).map((photo) => photo.filename);
+
+const pageLayoutHome = {
+  _id: "pageLayout-home",
+  _type: "pageLayout",
+  pageKey: "home",
+  title: "Photography",
+  subtitle: "A quiet photography archive shaped by landscape, harbor light, and small travel fragments.",
+  heroPhoto: photoRef(photos.find((photo) => photo.isHero)?.filename ?? photos[0]?.filename, "home-hero"),
+  sections: [
+    {
+      _key: "home-featured",
+      _type: "pageSection",
+      title: "Featured photography groups",
+      style: "featureCards",
+      isVisible: true,
+      showTitle: false,
+      photos: photoRefs(["DSC_0243.JPG", "DSC_0257.JPG", "DSC_4840.JPG"], "featured"),
+    },
+    {
+      _key: "home-landscape",
+      _type: "pageSection",
+      title: "Landscape",
+      style: "landscapeCarousel",
+      isVisible: true,
+      showTitle: true,
+      ...categoryPhotos("山野", 24),
+    },
+    {
+      _key: "home-quiet",
+      _type: "pageSection",
+      title: "Quiet moments",
+      style: "grid",
+      isVisible: true,
+      showTitle: true,
+      columns: 4,
+      photos: photoRefs(quietFilenames, "quiet"),
+    },
+    {
+      _key: "home-city",
+      _type: "pageSection",
+      title: "City",
+      style: "landscapeCarousel",
+      isVisible: true,
+      showTitle: true,
+      ...categoryPhotos("石塘度假区", 22),
+    },
+    {
+      _key: "home-harbor-banner",
+      _type: "pageSection",
+      title: "Harbor",
+      style: "banner",
+      isVisible: true,
+      showTitle: true,
+      coverPhoto: photoRef("DSC_5026.JPG", "harbor-banner"),
+    },
+    {
+      _key: "home-harbor-carousel",
+      _type: "pageSection",
+      title: "Harbor",
+      style: "landscapeCarousel",
+      isVisible: true,
+      showTitle: false,
+      ...categoryPhotos("harbor", 18),
+    },
+    {
+      _key: "home-harbor-stack",
+      _type: "pageSection",
+      title: "Harbor details",
+      style: "stack",
+      isVisible: true,
+      showTitle: true,
+      ...categoryPhotos("森林", 5),
+    },
+  ],
+};
+
+const pageLayoutPhotobalcony = {
+  _id: "pageLayout-photobalcony",
+  _type: "pageLayout",
+  pageKey: "photobalcony",
+  title: "Balcony View",
+  subtitle: "A seasonal balcony of recent photographs.",
+  heroPhoto: photoRef("DSC_0243.JPG", "balcony-hero"),
+  sections: [
+    {
+      _key: "balcony-may",
+      _type: "pageSection",
+      title: "2026",
+      style: "carousel",
+      isVisible: true,
+      showTitle: true,
+      photos: photoRefs(["DSC_0257.JPG", "DSC_0518.JPG", "DSC_0521.JPG", "DSC_0522.JPG"], "may"),
+    },
+    {
+      _key: "balcony-march-portraits",
+      _type: "pageSection",
+      title: "Jul 2026",
+      style: "grid",
+      isVisible: true,
+      showTitle: true,
+      columns: 4,
+      photos: photoRefs(["DSC_0264.JPG", "DSC_0335.JPG", "DSC_0396.JPG", "DSC_0470.JPG"], "march-portrait"),
+    },
+    {
+      _key: "balcony-march-wide",
+      _type: "pageSection",
+      title: "Jul 2026 — wide",
+      style: "landscapeCarousel",
+      isVisible: true,
+      showTitle: false,
+      photos: photoRefs(["DSC_0534.JPG", "DSC_0555.JPG", "DSC_0566.JPG"], "march-wide"),
+    },
+    {
+      _key: "balcony-february",
+      _type: "pageSection",
+      title: "May - Jun 2026",
+      style: "carousel",
+      isVisible: true,
+      showTitle: true,
+      photos: photoRefs(["DSC_0580.JPG", "DSC_0613.JPG", "DSC_0626.JPG", "DSC_0632.JPG"], "february"),
+    },
+    {
+      _key: "balcony-january",
+      _type: "pageSection",
+      title: "Apr 2026",
+      style: "grid",
+      isVisible: true,
+      showTitle: true,
+      columns: 4,
+      photos: photoRefs(["DSC_0513.JPG", "DSC_0514.JPG", "DSC_0520.JPG", "DSC_0538.JPG"], "january"),
+    },
+    {
+      _key: "balcony-winter",
+      _type: "pageSection",
+      title: "Mar 2026",
+      style: "grid",
+      isVisible: true,
+      showTitle: true,
+      columns: 4,
+      photos: photoRefs(["DSC_0546.JPG", "DSC_0551.JPG", "DSC_0552.JPG", "DSC_0571.JPG"], "winter"),
+    },
+    {
+      _key: "balcony-summer",
+      _type: "pageSection",
+      title: "Jan - Feb 2026",
+      style: "stack",
+      isVisible: true,
+      showTitle: true,
+      photos: photoRefs(["DSC_0638.JPG", "DSC_0648.JPG", "DSC_0917.JPG", "DSC_2196.JPG"], "summer"),
+    },
+  ],
+};
+
+const siteCopyDoc = {
+  _id: "siteCopy-main",
+  _type: "siteCopy",
+  navigation: {
+    home: "Home",
+    photography: "Photography",
+    balcony: "Balcony View",
+    journal: "Journal",
+    about: "About",
+    photoNotes: "Photo Notes",
+  },
+  pages: {
+    photography: "Photography",
+    loading: "Loading this entry.",
+    notFound: "This entry is not available.",
+    backHome: "Back to Queenstown.top",
+    returnToArchive: "Return to the photography archive",
+    photoNotesKicker: "Photo Notes",
+    photoNotesTitle: "Field notes behind selected photographs.",
+    photostoryAboutTitle: "关于摄影师",
+    photostoryMetadataTitle: "照片参数",
+    photostoryMetadataDescription: "点击任意照片可以查看完整的 EXIF 信息——拍摄日期、地点、器材和参数。",
+    photostoryJournalTitle: "创作手记",
+    photostoryJournalDescription: "每张照片背后都有当时的场景、天气、心情。下面是几篇示例。",
+    previewBannerTag: "测试模块",
+    previewBannerText: "这是一个内容侧功能的预览版,用于评估效果。所有文字和参数都是基于现有照片的填充示例,可以稍后替换成真实内容或删除。访问 /photostory 查看。",
+    footerPreviewKicker: "Design study",
+    footerPreviewTitle: "Footer Background",
+  },
+  sections: {
+    featured: "Featured photography groups",
+    photographyArchive: "Photography archive",
+    categories: "Photo categories",
+    harbor: "Harbor",
+    about: "About",
+    explore: "Explore",
+    contact: "Contact",
+    follow: "Follow",
+    photoDetails: "Photo details",
+    stories: "Stories",
+    journalNote: "Journal Note",
+    aboutPhotographer: "关于摄影师",
+    gear: "器材",
+    contactDetails: "联系",
+    metadata: "Metadata",
+    relatedPhoto: "Related Photo",
+    landscape: "Landscape",
+    quiet: "Quiet moments",
+    city: "City",
+  },
+  controls: {
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    backToTop: "Back to top",
+    previous: "Previous",
+    next: "Next",
+    openPhoto: "Open photo",
+    closePhoto: "Close photo details",
+    selectPhoto: "Select photo",
+    copyLink: "Copy link",
+    copied: "Copied",
+    slideshow: "slideshow",
+    openStories: "Open photo notes and stories",
+    readFieldNotes: "Read locations, camera settings, and field notes behind selected photographs.",
+  },
+  metadata: {
+    date: "Date",
+    location: "Location",
+    camera: "Camera",
+    lens: "Lens",
+    aperture: "Aperture",
+    shutter: "Shutter",
+    iso: "ISO",
+    focalLength: "Focal",
+  },
+  footer: {
+    basedIn: "Based in Zhejiang",
+    builtWith: "Built with React + Vite",
+    tagline: "A quiet photography archive - landscape, harbor light, city edges, and small travel fragments.",
+    aboutText:
+      "Queenstown.top is a quiet photography archive shaped around landscape, harbor light, city edges, and small travel fragments. The site keeps images large, direct, and close to the rhythm of a visual notebook.",
+    top: "Top",
+    copyright: "All rights reserved",
+  },
+};
+
 const assetManifest = photoDocs.map((photo) => ({
   photoId: photo._id,
   filename: photo.sourceFilename,
@@ -197,13 +465,23 @@ const assetManifest = photoDocs.map((photo) => ({
   height: photo.dimensions.height,
 }));
 
-const allDocs = [...categoryDocs, ...photoDocs, ...storyDocs, siteSettingsDoc].filter(Boolean);
+const allDocs = [
+  ...categoryDocs,
+  ...photoDocs,
+  ...storyDocs,
+  siteSettingsDoc,
+  pageLayoutHome,
+  pageLayoutPhotobalcony,
+  siteCopyDoc,
+].filter(Boolean);
 
 await mkdir(outputDir, { recursive: true });
 await writeNdjson("categories.ndjson", categoryDocs);
 await writeNdjson("photos.ndjson", photoDocs);
 await writeNdjson("stories.ndjson", storyDocs);
 await writeNdjson("site-settings.ndjson", [siteSettingsDoc]);
+await writeNdjson("page-layouts.ndjson", [pageLayoutHome, pageLayoutPhotobalcony]);
+await writeNdjson("site-copy.ndjson", [siteCopyDoc]);
 await writeNdjson("all.ndjson", allDocs);
 await writeFile(path.join(outputDir, "assets-manifest.json"), `${JSON.stringify(assetManifest, null, 2)}\n`, "utf8");
 await writeFile(
@@ -215,6 +493,8 @@ await writeFile(
       photos: photoDocs.length,
       stories: storyDocs.length,
       siteSettings: 1,
+      pageLayouts: 2,
+      siteCopy: 1,
       outputDir: pathToFileURL(outputDir).href,
     },
     null,

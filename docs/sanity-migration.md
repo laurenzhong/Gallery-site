@@ -25,6 +25,8 @@ The generated folder is ignored by Git because it can be rebuilt from the curren
 | `photos.ndjson` | Photo documents with legacy image paths and metadata |
 | `stories.ndjson` | Journal/story documents |
 | `site-settings.ndjson` | Site settings document |
+| `page-layouts.ndjson` | Homepage and Photobalcony draggable section layouts |
+| `site-copy.ndjson` | Global navigation, labels, controls, metadata, and footer copy |
 | `assets-manifest.json` | Local image path manifest for the later upload step |
 | `summary.json` | Generation counts and timestamp |
 
@@ -49,6 +51,18 @@ npx sanity dataset import sanity/seed/generated/all.ndjson production --replace
 ```
 
 Use the dataset name from `SANITY_STUDIO_DATASET` if it is not `production`.
+
+For an existing dataset, create the new draggable page layouts and global copy
+without replacing the existing photo, story, or category documents:
+
+```bash
+npm run cms:page-content
+```
+
+The command is safe to rerun because it creates `pageLayout-home`,
+`pageLayout-photobalcony`, and `siteCopy-main` only when they do not already
+exist. Use `npm run cms:page-content -- --force` only when intentionally
+re-seeding those three documents from the current layout baseline.
 
 Check the remote document counts:
 
@@ -129,13 +143,17 @@ After import:
 npm run cms:dev
 ```
 
-Check that the Studio contains:
+Check that the Studio contains the expected content for the current dataset:
 
-- 8 categories
-- 73 photos
-- 3 stories
-- 1 site settings document
+- at least 1 category
+- at least 1 photo, with every public photo having an image asset
+- at least 1 story when journal content is enabled
+- exactly 1 site settings document
+- one `pageLayout` document for `home` and one for `photobalcony`
+- one `siteCopy` singleton document
 
-The exact counts are also available in `sanity/seed/generated/summary.json`.
+The remote counts are available from `npm run cms:status`; the generated seed
+counts are only the baseline migration snapshot and should not be treated as a
+live content limit.
 
-The Studio navigation pins `Site Settings` to a single document with `_id = siteSettings-main`, then groups Photos, Stories, and Categories into top-level sections.
+The Studio navigation pins `Site Settings` to a single document with `_id = siteSettings-main`, the global copy to `siteCopy-main`, and the two draggable page layouts to `pageLayout-home` and `pageLayout-photobalcony`.

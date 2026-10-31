@@ -44,7 +44,7 @@ npm run cms:dev
 
 | 想做什么 | 去哪做 | 要 push 吗 |
 |---|---|---|
-| 换首页大图 | Sanity Studio → Photos → 勾 Homepage Hero | 需要（预加载 URL 在代码里） |
+| 换首页大图 | Sanity Studio → Site Settings → 主视觉照片 | 不需要；发布后前台读取 Sanity 内容 |
 | 写新手记 | Sanity Studio → Stories → Create | 不需要 |
 | 改 About 页文字 | Sanity Studio → Site Settings | 不需要 |
 | 加新照片 | 把 JPG 放进 `gallery-site/分类名/` → `npm run build` | 需要 |
@@ -69,6 +69,6 @@ npm run cms:dev
 
 1. **Sanity 免费额度**：你现在是 30 天试用。到期后免费计划：每月 1 万 API 请求、100GB 带宽。你现在 73 张图用了 860MB 带宽，够用
 2. **图片压缩**：加了新图后别忘记跑 `npm run build`，Vercel 部署后用户看到的就是缩放版
-3. **预加载**：如果你换 hero（在 Studio 改了 Homepage Hero 标志），需要 push 代码（可以改个注释也行）触发 Vercel 重建，预加载才会更新。光在 Studio 改内容不够
+3. **预加载**：生产构建会尝试为当前主视觉生成预加载链接；Sanity 暂时不可用时会跳过预加载，但不会阻止构建。普通内容发布不需要 push。
 4. **备份**：Sanity 数据在他们云上，不会丢。代码在 GitHub 上，不会丢。唯一需要备份的是 `gallery-site/` 里的源照片文件夹
 5. **加新功能**：你有新想法随时告诉我，比如评论、搜索、照片下载、密码保护等

@@ -167,13 +167,13 @@ function activeHomepageModules(usage: UsageResult) {
 function activePhotobalconyModules(usage: UsageResult) {
   return [
     ["主视觉", usage.photobalconyHeroCount],
-    ["2025 年 5 月轮播", usage.photobalconyMayCount],
-    ["2025 年 3 月竖幅照片行", usage.photobalconyMarchPortraitCount],
-    ["2025 年 3 月轮播", usage.photobalconyMarchWideCount],
-    ["2025 年 2 月轮播", usage.photobalconyFebruaryCount],
-    ["2025 年 1 月网格", usage.photobalconyJanuaryCount],
-    ["2024 年 11–12 月网格", usage.photobalconyWinterCount],
-    ["2024 年 7–8 月堆叠", usage.photobalconySummerCount],
+    ["第一组轮播", usage.photobalconyMayCount],
+    ["第二组竖幅照片行", usage.photobalconyMarchPortraitCount],
+    ["第二组宽幅轮播", usage.photobalconyMarchWideCount],
+    ["第三组轮播", usage.photobalconyFebruaryCount],
+    ["第四组网格", usage.photobalconyJanuaryCount],
+    ["第五组网格", usage.photobalconyWinterCount],
+    ["第六组堆叠", usage.photobalconySummerCount],
   ].filter(([, count]) => Number(count) > 0);
 }
 

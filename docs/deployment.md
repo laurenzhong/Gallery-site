@@ -70,8 +70,9 @@ The repo ignores:
 - `dist-studio/`
 - `public/photos/`
 - `sanity/seed/generated/`
+- the source photo category folders and `public/hero/`
 
-This keeps local tokens, generated builds, synced public photos, and migration output out of Git. The source photo category folders live inside this project and should be committed when deploying only `gallery-site`.
+This keeps local tokens, generated builds, source photos, synced public photos, and migration output out of Git. Upload source photos to Sanity, then deploy the public code repository with `VITE_SANITY_PROJECT_ID` and `VITE_SANITY_DATASET` configured. Production reads the published Sanity image assets.
 
 ## Production Verification
 
@@ -86,8 +87,10 @@ npm run cms:status
 Expected CMS status:
 
 ```text
-photos: 73
-photosWithImages: 73
+photos: current Sanity dataset count
+photosWithImages: same as photos
+pageLayouts: 2
+siteCopy: 1
 Status: ready
 ```
 

@@ -45,31 +45,26 @@ The 113 KB gzipped JS is the main cost. Sources:
 
 ## Issues Found
 
-### 1. Google Fonts sometimes fail to load (proxy / network)
-When the user's proxy 127.0.0.1:7890 is slow, the woff2 files at `fonts.gstatic.com` time out with `ERR_TIMED_OUT` or `ERR_CONNECTION_CLOSED`. The site falls back to system fonts (Helvetica/Arial/Georgia), which causes a re-paint and hurts the LCP.
+### 1. Font loading (historical finding)
+The original test observed external Google Fonts failures. The current implementation imports Poppins and Playfair Display from `@fontsource`, so this finding no longer applies to the current build. Keep the bundled font imports and re-run the performance test after future typography changes.
 
 `index.html:19-22` loads three families × multiple weights = up to 19 woff2 files.
 
-**Fix options:**
-- **Self-host the fonts** (one-time `npm run build` step, fastest result, keeps design)
-- **System font stack only** (no network, but lose the design intent)
-- **Drop the heaviest family** (Cormorant Garamond is a backup for Playfair Display — could be removed)
+**Current status:** Fonts are self-hosted in the production bundle.
 
-### 2. Eager-loaded hero image is 15 MB
-The hero image `DSC_0257.JPG` is 6,048 × 4,032 pixels and weighs ~15 MB. Modern browsers do not downscale this before download, so the LCP image transfer alone is 15 MB. This is the largest contributor to LCP time on a real connection.
+### 2. Hero image delivery
+The current frontend applies Sanity CDN transforms to the hero (`w=1400/2000/2400`, `auto=format`, and quality settings) and uses `srcset`. The old local JPG measurement is retained as historical context only; production should be checked against the published Sanity asset URL.
 
 **Fix:**
-- Generate a hero variant at ~1,920 px wide and < 500 KB, store in `/public/hero/`
-- Use the `<picture>` element with `srcset` to serve a smaller version by default
-- Sanity has built-in image transforms: append `?w=1920&auto=format` to the URL
+- Keep the hero in Sanity and verify the CDN response size after changing it.
+- Keep the existing `srcset` widths and avoid reintroducing raw source photos into the public build.
 
 ### 3. JS bundle is 113 KB gzipped
 This is acceptable for a feature-rich portfolio (Sanity client, lightbox, masonry). Splitting the lightbox into a lazy chunk would only save ~20–30 KB because it's only needed when the user opens an image. Probably not worth the complexity right now.
 
 ## Recommendations (priority order)
 
-1. **Compress the hero image** (one-time) — biggest LCP win
-2. **Self-host the Google Fonts** (or drop Cormorant) — eliminates the most common failure mode
-3. (Optional) **Code-split the lightbox** — only relevant if you keep adding features
+1. **Verify the transformed hero response** on the production domain after each hero change.
+2. (Optional) **Code-split the lightbox** — only relevant if the archive grows substantially
 
-No code changes required for items 1 and 2; they are content/decisions.
+The current code path already applies the required transform and responsive delivery.

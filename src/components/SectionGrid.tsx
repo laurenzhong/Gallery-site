@@ -1,4 +1,5 @@
 import type { Photo } from "../data/photos";
+import { useSiteCopy } from "../lib/siteCopyContext";
 
 type SectionGridProps = {
   photos: Photo[];
@@ -7,13 +8,14 @@ type SectionGridProps = {
 };
 
 export function SectionGrid({ photos, columns = 4, onOpen }: SectionGridProps) {
+  const copy = useSiteCopy();
   if (photos.length === 0) return null;
 
   return (
     <div
       className="section-grid"
       style={{ "--section-grid-columns": columns } as React.CSSProperties}
-      aria-label="Photo grid"
+      aria-label={copy.sections.photographyArchive}
     >
       {photos.map((photo) => (
         <button
@@ -21,11 +23,11 @@ export function SectionGrid({ photos, columns = 4, onOpen }: SectionGridProps) {
           className="section-grid-photo"
           key={photo.id}
           onClick={() => onOpen(photo)}
-          aria-label={`Open ${photo.title}`}
+          aria-label={`${copy.controls.openPhoto} ${photo.title}`}
         >
           <img
             src={photo.src}
-            alt={`${photo.category} ${photo.title}`}
+            alt={photo.altText ?? `${photo.category} ${photo.title}`}
             width={photo.width}
             height={photo.height}
             loading="lazy"

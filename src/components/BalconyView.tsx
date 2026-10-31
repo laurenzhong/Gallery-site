@@ -6,6 +6,7 @@ import type { PhotoMeta, PhotoStory } from "../data/stories";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import type { PhotobalconyLayout } from "../lib/photobalconyLayout";
 import { photoPath } from "../lib/routes";
+import { useSiteCopy } from "../lib/siteCopyContext";
 import { AdvancedPhotoLightbox } from "./AdvancedPhotoLightbox";
 
 type BalconyViewProps = {
@@ -69,13 +70,14 @@ function PhotoButton({
   loading = "lazy",
   onOpen,
 }: PhotoButtonProps) {
+  const copy = useSiteCopy();
   return (
-    <button type="button" className={className} onClick={() => onOpen(photo)} aria-label={`Open ${photo.title}`}>
+    <button type="button" className={className} onClick={() => onOpen(photo)} aria-label={`${copy.controls.openPhoto} ${photo.title}`}>
       <img
         src={src}
         srcSet={srcSet}
         sizes={sizes}
-        alt={`${photo.category} ${photo.title}`}
+          alt={photo.altText ?? `${photo.category} ${photo.title}`}
         width={photo.width}
         height={photo.height}
         loading={loading}
@@ -94,6 +96,7 @@ function MonthTitle({ title }: { title: string }) {
 }
 
 function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
+  const copy = useSiteCopy();
   const [activeIndex, setActiveIndex] = useState(0);
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
   const [transitionDirection, setTransitionDirection] = useState<"next" | "prev">("next");
@@ -154,11 +157,11 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
   if (photos.length === 0) return null;
 
   return (
-    <section className="balcony-carousel" aria-label={`${title} slideshow`}>
+    <section className="balcony-carousel" aria-label={`${title} ${copy.controls.slideshow}`}>
       <button
         type="button"
         className="balcony-carousel-arrow balcony-carousel-arrow--prev"
-        aria-label={`Previous ${title} photo`}
+        aria-label={`${copy.controls.previous} ${title}`}
         onClick={goPrev}
       >
         <ChevronLeft size={42} strokeWidth={1.3} aria-hidden="true" />
@@ -173,7 +176,7 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
         onPointerCancel={() => {
           touchStartRef.current = null;
         }}
-        aria-label={`Open ${active.title}`}
+        aria-label={`${copy.controls.openPhoto} ${active.title}`}
       >
         {previous ? (
           <img
@@ -192,7 +195,7 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
           src={sizedImageUrl(active.src, 1500, 86)}
           srcSet={`${sizedImageUrl(active.src, 1100)} 1100w, ${sizedImageUrl(active.src, 1700, 86)} 1700w`}
           sizes="(max-width: 900px) 92vw, 76vw"
-          alt={`${active.category} ${active.title}`}
+                alt={active.altText ?? `${active.category} ${active.title}`}
           width={active.width}
           height={active.height}
           loading="eager"
@@ -203,7 +206,7 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
       <button
         type="button"
         className="balcony-carousel-arrow balcony-carousel-arrow--next"
-        aria-label={`Next ${title} photo`}
+        aria-label={`${copy.controls.next} ${title}`}
         onClick={goNext}
       >
         <ChevronRight size={42} strokeWidth={1.3} aria-hidden="true" />
@@ -213,6 +216,7 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
 }
 
 export function BalconyView({ photos, layout, photoMeta, photoStories }: BalconyViewProps) {
+  const copy = useSiteCopy();
   const [lightboxState, setLightboxState] = useState<{ photos: Photo[]; index: number } | null>(null);
 
   const content = useMemo(() => {
@@ -270,15 +274,15 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
   return (
     <article className="balcony-page" aria-labelledby="balcony-title">
       <h1 id="balcony-title" className="sr-only">
-        Balcony View
+        {copy.navigation.balcony}
       </h1>
 
-      <section className="balcony-hero" aria-label="Balcony View hero">
+      <section className="balcony-hero" aria-label={`${copy.navigation.balcony} hero`}>
         <img
           src={sizedImageUrl(content.hero.src, 1800, 88)}
           srcSet={`${sizedImageUrl(content.hero.src, 1200)} 1200w, ${sizedImageUrl(content.hero.src, 2200, 88)} 2200w`}
           sizes="100vw"
-          alt={`${content.hero.category} ${content.hero.title}`}
+          alt={content.hero.altText ?? `${content.hero.category} ${content.hero.title}`}
           width={content.hero.width}
           height={content.hero.height}
           loading="eager"

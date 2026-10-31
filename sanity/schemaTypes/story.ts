@@ -88,8 +88,9 @@ export const storyType = defineType({
       to: [{ type: "photo" }],
       fieldset: "cover",
       description:
-        "在 /journal 中作为主图以及手记页的头图。尚未设置封面的手记会单独列在「Journal → 缺少封面」中。",
+        "在 /journal 中作为主图以及手记页的头图。公开手记必须设置封面照片。",
       options: { disableNew: true },
+      validation: (Rule) => Rule.required().error("公开手记必须设置封面照片。"),
     }),
     defineField({
       name: "relatedPhotos",

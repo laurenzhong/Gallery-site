@@ -51,6 +51,14 @@ Check whether the configured Sanity dataset has the expected imported content:
 npm run cms:status
 ```
 
+If an older dataset has a hero flag but no `Site Settings → 首页主视觉照片`,
+repair the singleton reference with a dry run first, then apply it:
+
+```bash
+npm run cms:backfill-hero
+node scripts/backfill-site-settings-hero.mjs --apply
+```
+
 Run the full content sync after `.env.local` is configured:
 
 ```bash
@@ -58,6 +66,7 @@ npm run cms:sync -- --limit 2
 ```
 
 See `docs/sanity-migration.md` for the import workflow.
+See `docs/sanity-content-control-plan.md` for the homepage and Photobalcony content model. After the first migration, edit `页面内容控制` in Studio; adding or reordering a section does not require a code change or GitHub push.
 See `docs/deployment.md` for the GitHub + Vercel deployment workflow.
 See `docs/auto-deploy.md` for wiring Sanity to Vercel auto-rebuilds on CMS changes.
 
@@ -73,7 +82,7 @@ The build script syncs photos, runs TypeScript, and creates the production outpu
 
 ## Photo Sync
 
-Source photos live inside this app in category folders such as:
+Source photos may live locally in category folders such as:
 
 - `山野`
 - `建筑`
@@ -91,6 +100,8 @@ npm run sync:photos
 ```
 
 The sync script copies image files from the project-level category folders into `public/photos/` and regenerates `src/data/photos.ts` with dimensions, filenames, categories, and public URLs.
+
+The category folders are private migration inputs and are ignored by Git. Upload their images to Sanity with the documented `npm run cms:sync` workflow before deploying a public code repository. Production builds read the published Sanity image assets; local development can still use the private folders as a fallback.
 
 ## Photo Notes
 
@@ -116,6 +127,24 @@ Before handing off changes:
 ```bash
 npm run build
 ```
+
+For a local, network-independent content check, run:
+
+```bash
+npm run verify
+```
+
+The sitemap generator falls back to the local static content when Sanity is
+temporarily unavailable. Set `SANITY_BUILD_STRICT=1` in CI only when a build
+must fail instead of using that fallback.
+
+Sanity Studio includes a `网站预览` Presentation tool. Set
+`SANITY_STUDIO_PREVIEW_URL` to the public or local frontend URL before running
+the Studio build. The preview opens the same `?preview=1` visual review mode.
+
+Photos now support alt text, captions, and credit fields. Public stories must
+have a cover photo, and Portable Text body images, links, and basic marks are
+rendered by the frontend.
 
 Then spot-check:
 

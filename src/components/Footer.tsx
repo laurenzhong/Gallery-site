@@ -1,14 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AboutData } from "../data/stories";
-
-const baseNavLinks = [
-  { label: "Photography", href: "/#photography" },
-  { label: "Balcony View", href: "/photobalcony" },
-  { label: "Journal", href: "/journal" },
-  { label: "About", href: "/about" },
-];
-
-const previewNavLink = { label: "Photo Notes", href: "/photostory" };
+import { useSiteCopy } from "../lib/siteCopyContext";
 
 const socials = [
   {
@@ -63,6 +55,7 @@ type FooterProps = {
 
 export function Footer({ aboutData, showPreview = false, variant = "default" }: FooterProps) {
   const [showTop, setShowTop] = useState(false);
+  const copy = useSiteCopy();
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 400);
@@ -74,9 +67,24 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
   const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   const year = new Date().getFullYear();
   const lastUpdate = formatLastUpdate(__LAST_UPDATE__);
-  const navLinks = import.meta.env.DEV || showPreview ? [...baseNavLinks, previewNavLink] : baseNavLinks;
+  const baseNavLinks = [
+    { label: copy.navigation.photography, href: "/#photography" },
+    { label: copy.navigation.balcony, href: "/photobalcony" },
+    { label: copy.navigation.journal, href: "/journal" },
+    { label: copy.navigation.about, href: "/about" },
+  ];
+  const navLinks = import.meta.env.DEV || showPreview
+    ? [...baseNavLinks, { label: copy.navigation.photoNotes, href: "/photostory" }]
+    : baseNavLinks;
   const emailContact = aboutData?.contact.find((item) => item.label.toLowerCase() === "email");
   const emailHref = emailContact ? normalizeHref(emailContact.label, emailContact.value, emailContact.href) : undefined;
+  const socialItems = (aboutData?.contact ?? []).filter((item) => item.label.toLowerCase() !== "email");
+  const followItems = socialItems.length
+    ? socialItems.map((item) => ({
+        ...item,
+        path: socials.find((social) => social.label.toLowerCase() === item.label.toLowerCase())?.path,
+      }))
+    : socials.map((item) => ({ label: item.label, value: item.label, href: item.href, path: item.path }));
 
   return (
     <footer className={`site-footer ${variant === "photo" ? "site-footer--photo" : ""}`}>
@@ -87,7 +95,7 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
             type="button"
             className={`footer-top-btn ${showTop ? "is-visible" : ""}`}
             onClick={scrollTop}
-            aria-label="Back to top"
+            aria-label={copy.controls.backToTop}
           >
             <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
               <path
@@ -95,25 +103,22 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
                 fill="currentColor"
               />
             </svg>
-            <span>Top</span>
+            <span>{copy.footer.top}</span>
           </button>
         </div>
 
         <p className="footer-tagline">
-          A quiet photography archive - landscape, harbor light, city edges, and small travel fragments.
+          {copy.footer.tagline}
         </p>
 
         <div className="footer-grid">
           <div className="footer-about">
-            <h2 className="footer-label">About</h2>
-            <p>
-              Queenstown.top is a quiet photography archive shaped around landscape, harbor light, city edges, and small
-              travel fragments. The site keeps images large, direct, and close to the rhythm of a visual notebook.
-            </p>
+            <h2 className="footer-label">{copy.sections.about}</h2>
+            <p>{copy.footer.aboutText}</p>
           </div>
 
-          <nav className="footer-column" aria-label="Site navigation">
-            <h2 className="footer-label">Explore</h2>
+          <nav className="footer-column" aria-label={copy.sections.explore}>
+            <h2 className="footer-label">{copy.sections.explore}</h2>
             {navLinks.map((link) => (
               <a key={link.label} href={link.href}>
                 {link.label}
@@ -122,24 +127,26 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
           </nav>
 
           <div className="footer-column">
-            <h2 className="footer-label">Contact</h2>
+            <h2 className="footer-label">{copy.sections.contact}</h2>
             {emailContact && emailHref ? (
               <a href={emailHref}>{emailContact.value}</a>
             ) : (
               <a href="mailto:3552219514@qq.com">3552219514@qq.com</a>
             )}
-            <p className="footer-sub">Based in Zhejiang</p>
+            <p className="footer-sub">{copy.footer.basedIn}</p>
           </div>
 
           <div className="footer-column">
-            <h2 className="footer-label">Follow</h2>
+            <h2 className="footer-label">{copy.sections.follow}</h2>
             <ul className="footer-socials">
-              {socials.map((s) => (
+              {followItems.map((s) => (
                 <li key={s.label}>
                   <a href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label}>
-                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                      <path d={s.path} fill="currentColor" />
-                    </svg>
+                    {s.path ? (
+                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <path d={s.path} fill="currentColor" />
+                      </svg>
+                    ) : null}
                     <span>{s.label}</span>
                     <svg
                       className="footer-socials__arrow"
@@ -165,12 +172,12 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
         </div>
 
         <div className="footer-bottom">
-          <p className="footer-copy">© {year} Queenstown.top · All rights reserved</p>
+          <p className="footer-copy">© {year} Queenstown.top · {copy.footer.copyright}</p>
 
           <div className="footer-colophon">
 
             <div className="footer-colophon__meta">
-              <span>Built with React + Vite</span>
+              <span>{copy.footer.builtWith}</span>
               <span>Last update · {lastUpdate}</span>
             </div>
           </div>

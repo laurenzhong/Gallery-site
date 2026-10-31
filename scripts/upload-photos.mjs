@@ -196,7 +196,7 @@ function formatSize(bytes) {
 
 function cleanExifString(value) {
   if (typeof value !== "string") return undefined;
-  const cleaned = value.replace(/\0/g, "").trim();
+  const cleaned = value.split(String.fromCharCode(0)).join("").trim();
   return cleaned || undefined;
 }
 
@@ -345,6 +345,7 @@ async function uploadOne(category, categoryId, sourceDirAbs, localPath, filename
           _id: docId,
           _type: "photo",
           title: base,
+          altText: `${category} ${base}`,
           slug: { _type: "slug", current: slug },
           category: { _type: "reference", _ref: categoryId },
           sortOrder: opts.sortOrder,

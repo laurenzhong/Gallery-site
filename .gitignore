@@ -33,3 +33,16 @@ dist-ssr
 .vercel
 
 .env*
+
+# Private photo sources. Production reads image assets from Sanity instead.
+/山野/
+/建筑/
+/日出日落/
+/森林/
+/河流/
+/海洋/
+/石塘度假区/
+/花朵/
+/harbor/
+/public/hero/
+/public/archive-image.avif

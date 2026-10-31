@@ -9,6 +9,7 @@ type ChecklistKey =
   | "hiddenStories"
   | "photosMissingImage"
   | "photosMissingCategory"
+  | "photosMissingAltText"
   | "multipleHeroFlags"
   | "emptyHomepageModules"
   | "emptyPhotobalconyModules";
@@ -66,6 +67,12 @@ const checklistItems: ChecklistItem[] = [
     listTitle: "未设置分类的照片",
   },
   {
+    key: "photosMissingAltText",
+    title: "缺少替代文本的照片",
+    severity: "warning",
+    listTitle: "缺少替代文本的照片",
+  },
+  {
     key: "multipleHeroFlags",
     title: "设置了多个首页主视觉标记的照片",
     severity: "blocking",
@@ -115,6 +122,7 @@ const checklistQuery = `{
   "hiddenStories": count(*[_type == "story" && isHidden == true]),
   "photosMissingImage": count(*[_type == "photo" && !defined(image.asset._ref)]),
   "photosMissingCategory": count(*[_type == "photo" && !defined(category._ref)]),
+  "photosMissingAltText": count(*[_type == "photo" && isHidden != true && !defined(altText)]),
   "multipleHeroFlags": select(
     count(*[_type == "photo" && isHero == true]) > 1 => count(*[_type == "photo" && isHero == true]),
     0
@@ -156,6 +164,7 @@ const emptyCounts: ChecklistCounts = {
   hiddenStories: 0,
   photosMissingImage: 0,
   photosMissingCategory: 0,
+  photosMissingAltText: 0,
   multipleHeroFlags: 0,
   emptyHomepageModules: 0,
   emptyPhotobalconyModules: 0,
