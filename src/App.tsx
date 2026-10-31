@@ -3,6 +3,7 @@ import { About } from "./components/About";
 import { AdvancedPhotoLightbox } from "./components/AdvancedPhotoLightbox";
 import { BalconyView } from "./components/BalconyView";
 import { CmsPageSections } from "./components/CmsPageSections";
+import { CmsBalconyView } from "./components/CmsBalconyView";
 import { CmsSourceBadge } from "./components/CmsSourceBadge";
 import { Footer } from "./components/Footer";
 import { GallerySections } from "./components/GallerySections";
@@ -255,13 +256,7 @@ function App() {
         </section>
         ) : isBalconyPage ? (
           cmsBalconyLayout ? (
-            <>
-              <section className="page-title-band" id="top" aria-labelledby="page-title">
-                <h1 id="page-title">{cmsBalconyLayout.title ?? copy.navigation.balcony}</h1>
-                {cmsBalconyLayout.subtitle ? <p className="page-subtitle">{cmsBalconyLayout.subtitle}</p> : null}
-              </section>
-              <CmsPageSections layout={cmsBalconyLayout} onOpen={openPhotoItem} />
-            </>
+            <CmsBalconyView layout={cmsBalconyLayout} photoMeta={photoMeta} photoStories={photoStories} />
           ) : (
             <BalconyView
               photos={photos}

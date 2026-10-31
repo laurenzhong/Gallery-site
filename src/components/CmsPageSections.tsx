@@ -136,16 +136,15 @@ function RenderSection({ section, onOpen }: { section: PageSection; onOpen: CmsP
 
   return (
     <section className={className}>
-      <SectionHeading section={section} />
       {section.style === "landscapeCarousel" ? (
         <LandscapeSection
           id={section.id}
           title={section.title ?? ""}
           photos={section.photos}
-          showTitle={false}
+          showTitle={section.showTitle}
           onOpen={onOpen}
         />
-      ) : null}
+      ) : <SectionHeading section={section} />}
       {section.style === "carousel" ? <SectionCarousel photos={section.photos} onOpen={(photo) => onOpen(photo, section.photos)} /> : null}
       {section.style === "grid" ? <SectionGrid photos={section.photos} columns={section.columns} onOpen={(photo) => onOpen(photo, section.photos)} /> : null}
       {section.style === "stack" ? <SectionStack photos={section.photos} onOpen={(photo) => onOpen(photo, section.photos)} /> : null}

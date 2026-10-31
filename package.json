@@ -19,6 +19,7 @@
     "cms:backfill-dimensions": "node scripts/backfill-photo-dimensions.mjs",
     "cms:photobalcony-layout": "node scripts/create-photobalcony-layout.mjs",
     "cms:page-content": "node scripts/migrate-page-content.mjs",
+    "cms:sync-local": "node scripts/sync-local-gallery-to-sanity.mjs",
     "sync:photos": "node scripts/sync-photos.mjs",
     "deploy:trigger": "node scripts/trigger-vercel-deploy.mjs",
     "deploy:webhook": "node scripts/create-sanity-webhook.mjs",

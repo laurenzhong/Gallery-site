@@ -780,15 +780,12 @@ main {
 
 /* Sanity-driven page sections */
 .cms-page-sections {
-  display: grid;
-  gap: clamp(3rem, 8vw, 8rem);
+  display: block;
 }
 
 .cms-section {
   position: relative;
-  display: grid;
-  gap: 1.5rem;
-  padding-inline: clamp(1rem, 4vw, 4rem);
+  display: block;
 }
 
 .cms-section--dark {
@@ -889,6 +886,22 @@ main {
 .cms-section--feature-cards {
   max-width: 100rem;
   margin-inline: auto;
+}
+
+.cms-section--feature-cards {
+  max-width: none;
+}
+
+.cms-section--feature-cards .feature-grid {
+  width: 100%;
+}
+
+.cms-section--landscapeCarousel {
+  padding: 0;
+}
+
+.cms-section--landscapeCarousel > .landscape-section {
+  width: 100%;
 }
 
 .cms-section--split {
@@ -1250,6 +1263,17 @@ main {
   object-fit: cover;
   object-position: center;
   filter: brightness(0.74) saturate(1.04);
+}
+
+.balcony-hero-button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: zoom-in;
 }
 
 .balcony-month-title {

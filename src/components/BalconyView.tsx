@@ -61,7 +61,7 @@ function uniquePhotos(...groups: Photo[][]) {
   });
 }
 
-function PhotoButton({
+export function BalconyPhotoButton({
   photo,
   className,
   sizes = "(max-width: 700px) 92vw, 32vw",
@@ -87,7 +87,7 @@ function PhotoButton({
   );
 }
 
-function MonthTitle({ title }: { title: string }) {
+export function BalconyMonthTitle({ title }: { title: string }) {
   return (
     <header className="balcony-month-title">
       <h2>{title}</h2>
@@ -95,7 +95,7 @@ function MonthTitle({ title }: { title: string }) {
   );
 }
 
-function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
+export function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
   const copy = useSiteCopy();
   const [activeIndex, setActiveIndex] = useState(0);
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
@@ -291,31 +291,31 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
         />
       </section>
 
-      <MonthTitle title={content.titles.may} />
+      <BalconyMonthTitle title={content.titles.may} />
       <BalconyCarousel title={content.titles.may} photos={content.may} onOpen={(photo) => openPhoto(photo, content.may)} />
 
-      <MonthTitle title={content.titles.march} />
+      <BalconyMonthTitle title={content.titles.march} />
       <section className="balcony-portrait-row" aria-label={`${content.titles.march} portrait photos`}>
         {content.marchPortraits.map((photo) => (
-          <PhotoButton key={photo.id} photo={photo} className="balcony-portrait-photo" onOpen={(item) => openPhoto(item, content.marchPortraits)} />
+          <BalconyPhotoButton key={photo.id} photo={photo} className="balcony-portrait-photo" onOpen={(item) => openPhoto(item, content.marchPortraits)} />
         ))}
       </section>
       <BalconyCarousel title={content.titles.march} photos={content.marchWide} onOpen={(photo) => openPhoto(photo, content.marchWide)} />
 
-      <MonthTitle title={content.titles.february} />
+      <BalconyMonthTitle title={content.titles.february} />
       <BalconyCarousel title={content.titles.february} photos={content.february} onOpen={(photo) => openPhoto(photo, content.february)} />
 
-      <MonthTitle title={content.titles.january} />
+      <BalconyMonthTitle title={content.titles.january} />
       <section className="balcony-grid" aria-label={`${content.titles.january} photo grid`}>
         {content.january.map((photo) => (
-          <PhotoButton key={photo.id} photo={photo} className="balcony-grid-photo" onOpen={(item) => openPhoto(item, content.january)} />
+          <BalconyPhotoButton key={photo.id} photo={photo} className="balcony-grid-photo" onOpen={(item) => openPhoto(item, content.january)} />
         ))}
       </section>
 
-      <MonthTitle title={content.titles.winter} />
+      <BalconyMonthTitle title={content.titles.winter} />
       <section className="balcony-grid balcony-grid--wide" aria-label={`${content.titles.winter} photo grid`}>
         {content.winter.map((photo, index) => (
-          <PhotoButton
+          <BalconyPhotoButton
             key={photo.id}
             photo={photo}
             className="balcony-grid-photo"
@@ -327,10 +327,10 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
         ))}
       </section>
 
-      <MonthTitle title={content.titles.summer} />
+      <BalconyMonthTitle title={content.titles.summer} />
       <section className="balcony-final-stack" aria-label={`${content.titles.summer} photo stack`}>
         {content.summer.map((photo, index) => (
-          <PhotoButton
+          <BalconyPhotoButton
             key={photo.id}
             photo={photo}
             className={index === 0 ? "balcony-final-photo balcony-final-photo--large" : "balcony-final-photo"}
