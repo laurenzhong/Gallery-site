@@ -10,7 +10,6 @@ export type PhotoMeta = {
 };
 
 export type PhotoStory = {
-  id?: string;
   title: string;
   slug?: string;
   publishedAt?: string;
@@ -19,7 +18,6 @@ export type PhotoStory = {
   pinOrder?: number;
   excerpt: string;
   body: string[];
-  bodyBlocks?: import("../lib/cmsQueries").PortableTextBlock[];
 };
 
 export type AboutData = {
@@ -124,19 +122,6 @@ export const photoStories: Record<string, PhotoStory[]> = {
         "毕棚沟的森林比我想象中密。光透过树冠是一块一块漏下来的,落到苔藓上才看得清,其他地方都是暗的。",
         "ISO 拉到 800 才勉强拿到 1/60s 的快门,光圈已经开到 f/4 不能再大了。再慢手会抖,光斑的边缘也会因为长曝光糊掉。",
         "站在原地等了十几分钟,等一束光正好落在苔藓上才按下快门。这种光出现一次大概持续 5 秒,然后云过去就没了。",
-      ],
-    },
-  ],
-  "DSC_5026.JPG": [
-    {
-      title: "清明·归港",
-      slug: "qingming-returning-harbor",
-      publishedAt: "2026-04-05T15:30:00.000Z",
-      excerpt: "清明那天下午到港口,船进港时天色灰蓝,灯塔还没亮。",
-      body: [
-        "清明那天下午到港口,海面是一层均匀的灰蓝。节假日的码头反而比平时安静,大多数船已经回港避风,只剩几艘在航道里慢慢靠岸,马达声隔很远也能听见。",
-        "一艘浙字的渔船从外海回港,船头还挂着没卸完的绳网,甲板上零星几个工人在收缆。我站在堤坝上等它和远处的灯塔进同一个画面,等了大概十分钟才等到这一帧——船尾刚好压住灯塔基座,一只海鸥从画面上方掠过,把空旷的天补上一点动静。",
-        "清明前后风从海上来,空气里有一层薄薄的水汽,远景虚掉一截,正好把船和灯塔压成一组剪影。港口的气氛本身就够,不需要太多后期。",
       ],
     },
   ],

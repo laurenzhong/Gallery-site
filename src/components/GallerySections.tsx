@@ -1,14 +1,11 @@
 import type { Photo } from "../data/photos";
 import type { HomepageLayout } from "../lib/homepageLayout";
-import type { CmsCategory } from "../lib/cmsQueries";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
-import { useSiteCopy } from "../lib/siteCopyContext";
 import { LandscapeSection } from "./LandscapeSection";
 
 type GallerySectionsProps = {
   photos: Photo[];
   homepageLayout?: HomepageLayout;
-  categories?: CmsCategory[];
   onOpen: (index: number, lightboxPhotos?: Photo[]) => void;
 };
 
@@ -89,7 +86,7 @@ function GalleryRail({
               src={sizedImageUrl(photo.src, group.variant === "square" ? 720 : 980)}
               srcSet={imageSrcSet(photo.src, group.variant === "square" ? [420, 720, 960] : [640, 980, 1320])}
               sizes={group.variant === "square" ? "(max-width: 640px) 48vw, 25vw" : "(max-width: 640px) 82vw, 34vw"}
-              alt={photo.altText ?? `${photo.category} ${photo.title}`}
+              alt={`${photo.category} ${photo.title}`}
               loading="lazy"
               decoding="async"
             />
@@ -117,7 +114,7 @@ function BannerImage({
         src={sizedImageUrl(photo.src, 1800, 84)}
         srcSet={imageSrcSet(photo.src, [900, 1400, 2000], 84)}
         sizes="100vw"
-        alt={photo.altText ?? `${photo.category} ${photo.title}`}
+        alt={`${photo.category} ${photo.title}`}
         loading="lazy"
         decoding="async"
       />
@@ -157,7 +154,7 @@ function ReferencePhoto({
         src={sizedImageUrl(photo.src, imageWidth)}
         srcSet={imageSrcSet(photo.src, [Math.round(imageWidth * 0.55), imageWidth, Math.round(imageWidth * 1.3)])}
         sizes={className.includes("banner") || className.includes("full") ? "100vw" : "(max-width: 640px) 100vw, 50vw"}
-        alt={photo.altText ?? `${photo.category} ${photo.title}`}
+        alt={`${photo.category} ${photo.title}`}
         width={photo.width}
         height={photo.height}
         loading={loading}
@@ -256,8 +253,7 @@ function PlantsReferenceLayout({
   );
 }
 
-export function GallerySections({ photos, homepageLayout, categories, onOpen }: GallerySectionsProps) {
-  const copy = useSiteCopy();
+export function GallerySections({ photos, homepageLayout, onOpen }: GallerySectionsProps) {
   const landscapeCandidates = uniquePhotos(
     byCategory(photos, "山野", 9),
     byCategory(photos, "日出日落", 8),
@@ -304,25 +300,25 @@ export function GallerySections({ photos, homepageLayout, categories, onOpen }: 
   const groups: PhotoGroup[] = [
     {
       id: "landscape",
-      title: copy.sections.landscape,
+      title: "Landscape",
       photos: configuredPhotos(homepageLayout, homepageLayout?.landscapePhotos, landscape.slice(0, 24)),
       variant: "cinema",
     },
     {
       id: "quiet",
-      title: copy.sections.quiet,
+      title: "Quiet moments",
       photos: configuredPhotos(homepageLayout, homepageLayout?.quietPhotos, squareSet.length ? squareSet : plants.slice(0, 8)),
       variant: "square",
     },
     {
       id: "city",
-      title: copy.sections.city,
+      title: "City",
       photos: configuredPhotos(homepageLayout, homepageLayout?.cityPhotos, city.slice(0, 22)),
       variant: "cinema",
     },
     {
       id: "plants",
-      title: copy.sections.harbor,
+      title: "Harbor",
       photos: configuredPhotos(homepageLayout, homepageLayout?.plantsCarouselPhotos, plants.slice(0, 18)),
       variant: "cinema",
     },
@@ -353,27 +349,16 @@ export function GallerySections({ photos, homepageLayout, categories, onOpen }: 
   );
 
   return (
-    <section className="reference-content" id="photography" aria-label={copy.sections.photographyArchive}>
-      {categories?.length ? (
-        <nav className="category-index" aria-label={copy.sections.categories}>
-          {categories.map((category) => (
-            <a href="#photography" key={category.id} title={category.description || category.title}>
-              {category.title}
-            </a>
-          ))}
-        </nav>
-      ) : null}
-      <div className="feature-grid" aria-label={copy.sections.featured}>
+    <section className="reference-content" id="photography" aria-label="Photography archive">
+      <div className="feature-grid" aria-label="Featured photography groups">
         {featureCards.map(({ id, title, photo, href }) => {
-          if (!photo) return null;
-
           const cardContent = (
             <>
               <img
                 src={sizedImageUrl(photo.src, 900, 82)}
                 srcSet={imageSrcSet(photo.src, [520, 820, 1100], 82)}
                 sizes="(max-width: 640px) 100vw, 33vw"
-                alt={photo.altText ?? `${title} ${photo.title}`}
+                alt={`${title} ${photo.title}`}
                 loading="eager"
                 fetchPriority="low"
                 decoding="async"
@@ -410,7 +395,7 @@ export function GallerySections({ photos, homepageLayout, categories, onOpen }: 
         onOpen={(photo, carouselPhotos) => onOpen(photoIndex(photos, photo), carouselPhotos)}
       />
       <div className="section-title-row section-title-row--compact">
-        <h2>{copy.sections.harbor}</h2>
+        <h2>Harbor</h2>
       </div>
       {bannerTwo ? (
         <PlantsReferenceLayout

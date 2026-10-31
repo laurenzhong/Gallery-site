@@ -17,9 +17,7 @@ export function getSanityClient(): SanityClient | null {
     projectId,
     dataset,
     apiVersion,
-    // Public content is published-only and can safely use Sanity's CDN cache.
-    // Studio/migration scripts use their own non-CDN clients when fresh reads are required.
-    useCdn: true,
+    useCdn: false,
   });
 }
 

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Photo } from "../data/photos";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
-import { useSiteCopy } from "../lib/siteCopyContext";
 
 const ARROW_PATH_NEXT = "m9 18 6-6-6-6";
 const ARROW_PATH_PREV = "m15 18-6-6 6-6";
@@ -30,7 +29,6 @@ export function LandscapeSection({
   showTitle = true,
   filterLandscape = true,
 }: LandscapeSectionProps) {
-  const copy = useSiteCopy();
   const [activeIndex, setActiveIndex] = useState(0);
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
   const [transitionDirection, setTransitionDirection] = useState<"next" | "prev">("next");
@@ -179,7 +177,7 @@ export function LandscapeSection({
           <button
             type="button"
             className="landscape-arrow landscape-arrow--prev"
-            aria-label={`${copy.controls.previous} ${title} photo`}
+            aria-label={`Previous ${title} photo`}
             onClick={goPrev}
           >
             <svg
@@ -216,7 +214,7 @@ export function LandscapeSection({
           onPointerCancel={() => {
             touchStartRef.current = null;
           }}
-          aria-label={`${copy.controls.openPhoto} ${caption}`}
+          aria-label={`Open ${caption}`}
         >
           {previous ? (
             <img
@@ -246,7 +244,7 @@ export function LandscapeSection({
           <button
             type="button"
             className="landscape-arrow landscape-arrow--next"
-            aria-label={`${copy.controls.next} ${title} photo`}
+            aria-label={`Next ${title} photo`}
             onClick={goNext}
           >
             <svg
@@ -267,7 +265,7 @@ export function LandscapeSection({
         )}
       </div>
 
-      <div className="landscape-thumbs" role="tablist" aria-label={`${copy.controls.selectPhoto}: ${title}`}>
+      <div className="landscape-thumbs" role="tablist" aria-label={`${title} thumbnails`}>
         <div ref={trackRef} className="landscape-thumbs-track">
           {landscapePhotos.map((photo, index) => (
             <button
@@ -276,7 +274,7 @@ export function LandscapeSection({
               role="tab"
               className={`landscape-thumb ${index === activeIndex ? "is-active" : ""}`}
               aria-selected={index === activeIndex}
-              aria-label={`${copy.controls.selectPhoto} ${photo.title}`}
+              aria-label={`Select ${photo.title}`}
               onClick={() => changeActiveIndex(() => index)}
             >
               <img

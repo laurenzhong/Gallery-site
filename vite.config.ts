@@ -4,11 +4,11 @@ import { createClient } from '@sanity/client'
 
 const IMAGE_CDN_SUFFIX = '?w=2560&q=90&auto=format&fit=max'
 
-async function fetchHeroUrlFromSanity(projectId: string, dataset: string): Promise<string | null> {
+async function fetchHeroUrlFromSanity(): Promise<string | null> {
   try {
     const client = createClient({
-      projectId,
-      dataset,
+      projectId: 'zj2ik922',
+      dataset: 'production',
       apiVersion: '2025-02-19',
       useCdn: true,
     })
@@ -112,7 +112,7 @@ function fontPreloadPlugin(): Plugin {
  * the next build automatically picks up the new URL. No manual edit
  * needed.
  */
-function heroPreloadPlugin(projectId: string, dataset: string): Plugin {
+function heroPreloadPlugin(): Plugin {
   return {
     name: 'hero-preload',
     apply: 'build',
@@ -121,7 +121,7 @@ function heroPreloadPlugin(projectId: string, dataset: string): Plugin {
       const preconnect = '  <link rel="preconnect" href="https://cdn.sanity.io">\n'
       let preload = ''
 
-      const src = await fetchHeroUrlFromSanity(projectId, dataset)
+      const src = await fetchHeroUrlFromSanity()
       if (src) {
         preload = `  <link rel="preload" as="image" href="${src}${IMAGE_CDN_SUFFIX}" fetchpriority="high">\n`
       }
@@ -139,13 +139,12 @@ function heroPreloadPlugin(projectId: string, dataset: string): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const sanityProjectId = env.VITE_SANITY_PROJECT_ID || 'zj2ik922'
-  const sanityDataset = env.VITE_SANITY_DATASET || 'production'
 
   return {
     define: {
       __LAST_UPDATE__: JSON.stringify(new Date().toISOString()),
     },
-    plugins: [react(), dropWoffFallback(), fontPreloadPlugin(), heroPreloadPlugin(sanityProjectId, sanityDataset)],
+    plugins: [react(), dropWoffFallback(), fontPreloadPlugin(), heroPreloadPlugin()],
     server: {
       proxy: {
         "/sanity": {

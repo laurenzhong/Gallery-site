@@ -6,7 +6,6 @@ import type { PhotoMeta, PhotoStory } from "../data/stories";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import type { PhotobalconyLayout } from "../lib/photobalconyLayout";
 import { photoPath } from "../lib/routes";
-import { useSiteCopy } from "../lib/siteCopyContext";
 import { AdvancedPhotoLightbox } from "./AdvancedPhotoLightbox";
 
 type BalconyViewProps = {
@@ -61,7 +60,7 @@ function uniquePhotos(...groups: Photo[][]) {
   });
 }
 
-export function BalconyPhotoButton({
+function PhotoButton({
   photo,
   className,
   sizes = "(max-width: 700px) 92vw, 32vw",
@@ -70,14 +69,13 @@ export function BalconyPhotoButton({
   loading = "lazy",
   onOpen,
 }: PhotoButtonProps) {
-  const copy = useSiteCopy();
   return (
-    <button type="button" className={className} onClick={() => onOpen(photo)} aria-label={`${copy.controls.openPhoto} ${photo.title}`}>
+    <button type="button" className={className} onClick={() => onOpen(photo)} aria-label={`Open ${photo.title}`}>
       <img
         src={src}
         srcSet={srcSet}
         sizes={sizes}
-          alt={photo.altText ?? `${photo.category} ${photo.title}`}
+        alt={`${photo.category} ${photo.title}`}
         width={photo.width}
         height={photo.height}
         loading={loading}
@@ -87,7 +85,7 @@ export function BalconyPhotoButton({
   );
 }
 
-export function BalconyMonthTitle({ title }: { title: string }) {
+function MonthTitle({ title }: { title: string }) {
   return (
     <header className="balcony-month-title">
       <h2>{title}</h2>
@@ -95,8 +93,7 @@ export function BalconyMonthTitle({ title }: { title: string }) {
   );
 }
 
-export function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
-  const copy = useSiteCopy();
+function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
   const [transitionDirection, setTransitionDirection] = useState<"next" | "prev">("next");
@@ -157,11 +154,11 @@ export function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps)
   if (photos.length === 0) return null;
 
   return (
-    <section className="balcony-carousel" aria-label={`${title} ${copy.controls.slideshow}`}>
+    <section className="balcony-carousel" aria-label={`${title} slideshow`}>
       <button
         type="button"
         className="balcony-carousel-arrow balcony-carousel-arrow--prev"
-        aria-label={`${copy.controls.previous} ${title}`}
+        aria-label={`Previous ${title} photo`}
         onClick={goPrev}
       >
         <ChevronLeft size={42} strokeWidth={1.3} aria-hidden="true" />
@@ -176,7 +173,7 @@ export function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps)
         onPointerCancel={() => {
           touchStartRef.current = null;
         }}
-        aria-label={`${copy.controls.openPhoto} ${active.title}`}
+        aria-label={`Open ${active.title}`}
       >
         {previous ? (
           <img
@@ -195,7 +192,7 @@ export function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps)
           src={sizedImageUrl(active.src, 1500, 86)}
           srcSet={`${sizedImageUrl(active.src, 1100)} 1100w, ${sizedImageUrl(active.src, 1700, 86)} 1700w`}
           sizes="(max-width: 900px) 92vw, 76vw"
-                alt={active.altText ?? `${active.category} ${active.title}`}
+          alt={`${active.category} ${active.title}`}
           width={active.width}
           height={active.height}
           loading="eager"
@@ -206,7 +203,7 @@ export function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps)
       <button
         type="button"
         className="balcony-carousel-arrow balcony-carousel-arrow--next"
-        aria-label={`${copy.controls.next} ${title}`}
+        aria-label={`Next ${title} photo`}
         onClick={goNext}
       >
         <ChevronRight size={42} strokeWidth={1.3} aria-hidden="true" />
@@ -216,7 +213,6 @@ export function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps)
 }
 
 export function BalconyView({ photos, layout, photoMeta, photoStories }: BalconyViewProps) {
-  const copy = useSiteCopy();
   const [lightboxState, setLightboxState] = useState<{ photos: Photo[]; index: number } | null>(null);
 
   const content = useMemo(() => {
@@ -274,15 +270,15 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
   return (
     <article className="balcony-page" aria-labelledby="balcony-title">
       <h1 id="balcony-title" className="sr-only">
-        {copy.navigation.balcony}
+        Balcony View
       </h1>
 
-      <section className="balcony-hero" aria-label={`${copy.navigation.balcony} hero`}>
+      <section className="balcony-hero" aria-label="Balcony View hero">
         <img
           src={sizedImageUrl(content.hero.src, 1800, 88)}
           srcSet={`${sizedImageUrl(content.hero.src, 1200)} 1200w, ${sizedImageUrl(content.hero.src, 2200, 88)} 2200w`}
           sizes="100vw"
-          alt={content.hero.altText ?? `${content.hero.category} ${content.hero.title}`}
+          alt={`${content.hero.category} ${content.hero.title}`}
           width={content.hero.width}
           height={content.hero.height}
           loading="eager"
@@ -291,31 +287,31 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
         />
       </section>
 
-      <BalconyMonthTitle title={content.titles.may} />
+      <MonthTitle title={content.titles.may} />
       <BalconyCarousel title={content.titles.may} photos={content.may} onOpen={(photo) => openPhoto(photo, content.may)} />
 
-      <BalconyMonthTitle title={content.titles.march} />
+      <MonthTitle title={content.titles.march} />
       <section className="balcony-portrait-row" aria-label={`${content.titles.march} portrait photos`}>
         {content.marchPortraits.map((photo) => (
-          <BalconyPhotoButton key={photo.id} photo={photo} className="balcony-portrait-photo" onOpen={(item) => openPhoto(item, content.marchPortraits)} />
+          <PhotoButton key={photo.id} photo={photo} className="balcony-portrait-photo" onOpen={(item) => openPhoto(item, content.marchPortraits)} />
         ))}
       </section>
       <BalconyCarousel title={content.titles.march} photos={content.marchWide} onOpen={(photo) => openPhoto(photo, content.marchWide)} />
 
-      <BalconyMonthTitle title={content.titles.february} />
+      <MonthTitle title={content.titles.february} />
       <BalconyCarousel title={content.titles.february} photos={content.february} onOpen={(photo) => openPhoto(photo, content.february)} />
 
-      <BalconyMonthTitle title={content.titles.january} />
+      <MonthTitle title={content.titles.january} />
       <section className="balcony-grid" aria-label={`${content.titles.january} photo grid`}>
         {content.january.map((photo) => (
-          <BalconyPhotoButton key={photo.id} photo={photo} className="balcony-grid-photo" onOpen={(item) => openPhoto(item, content.january)} />
+          <PhotoButton key={photo.id} photo={photo} className="balcony-grid-photo" onOpen={(item) => openPhoto(item, content.january)} />
         ))}
       </section>
 
-      <BalconyMonthTitle title={content.titles.winter} />
+      <MonthTitle title={content.titles.winter} />
       <section className="balcony-grid balcony-grid--wide" aria-label={`${content.titles.winter} photo grid`}>
         {content.winter.map((photo, index) => (
-          <BalconyPhotoButton
+          <PhotoButton
             key={photo.id}
             photo={photo}
             className="balcony-grid-photo"
@@ -327,10 +323,10 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
         ))}
       </section>
 
-      <BalconyMonthTitle title={content.titles.summer} />
+      <MonthTitle title={content.titles.summer} />
       <section className="balcony-final-stack" aria-label={`${content.titles.summer} photo stack`}>
         {content.summer.map((photo, index) => (
-          <BalconyPhotoButton
+          <PhotoButton
             key={photo.id}
             photo={photo}
             className={index === 0 ? "balcony-final-photo balcony-final-photo--large" : "balcony-final-photo"}

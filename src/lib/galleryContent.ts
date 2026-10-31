@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  categories as staticCategoryTitles,
-  initialHeroPhoto as staticHeroPhoto,
-  photos as staticPhotos,
-  type Photo,
-} from "../data/photos";
+import { initialHeroPhoto as staticHeroPhoto, photos as staticPhotos, type Photo } from "../data/photos";
 import {
   aboutData as staticAboutData,
   photoMeta as staticPhotoMeta,
@@ -16,16 +11,10 @@ import {
 import {
   cmsHomepageLayoutQuery,
   cmsPhotobalconyLayoutQuery,
-  cmsCategoriesQuery,
-  cmsPageLayoutsQuery,
   cmsPhotosQuery,
-  cmsSiteCopyQuery,
   cmsSiteSettingsQuery,
   cmsStoriesQuery,
   type CmsHomepageLayout,
-  type CmsCategory,
-  type CmsPageLayout,
-  type CmsSiteCopy,
   type CmsPhotobalconyLayout,
   type CmsPhoto,
   type CmsSiteSettings,
@@ -33,22 +22,15 @@ import {
   type PortableTextBlock,
 } from "./cmsQueries";
 import type { HomepageLayout } from "./homepageLayout";
-import type { PageLayout, PageSection, PageSectionStyle } from "./pageLayout";
 import type { PhotobalconyLayout } from "./photobalconyLayout";
-import { mergeSiteCopy, type SiteCopy } from "./siteCopy";
 import { fetchCms, isSanityConfigured } from "./sanity";
 
 export type GalleryContent = {
   photos: Photo[];
-  categories: CmsCategory[];
-  pageLayouts: Record<string, PageLayout>;
-  copy: SiteCopy;
   photoMeta: Record<string, PhotoMeta>;
   photoStories: Record<string, PhotoStory[]>;
   aboutData: AboutData;
   heroPhoto?: Photo;
-  siteTitle?: string;
-  heroSubtitle?: string;
   homepageLayout?: HomepageLayout;
   photobalconyLayout?: PhotobalconyLayout;
   source: "static" | "cms";
@@ -58,32 +40,15 @@ export type GalleryContent = {
 
 const staticContent: GalleryContent = {
   photos: staticPhotos,
-  categories: staticCategoryTitles.map((title, index) => ({ id: `static-category-${index}`, title, slug: title })),
-  pageLayouts: {},
-  copy: mergeSiteCopy(),
   photoMeta: staticPhotoMeta,
   photoStories: staticPhotoStories,
   aboutData: staticAboutData,
   heroPhoto: staticHeroPhoto,
-  siteTitle: "Queenstown.top | Photography",
   source: "static",
   isLoading: false,
 };
 
-// Production builds use Sanity-hosted assets. Keeping local paths out of the
-// production fallback prevents a public build from referring to untracked
-// source photos before the CMS request completes.
-const productionFallbackContent: GalleryContent = {
-  ...staticContent,
-  photos: [],
-  heroPhoto: undefined,
-};
-
-const remoteOnly = import.meta.env.PROD || import.meta.env.VITE_SANITY_REMOTE_ONLY === "true";
-const fallbackContent = remoteOnly ? productionFallbackContent : staticContent;
-
-const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v7";
-const LEGACY_CMS_CONTENT_CACHE_KEYS = ["queenstown.cmsContent.v6"];
+const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v4";
 
 function blockToText(block: PortableTextBlock) {
   return block.children?.map((child) => child.text ?? "").join("") ?? "";
@@ -122,22 +87,19 @@ function toPhoto(photo: CmsPhoto): Photo | null {
     width: photo.width || 1,
     height: photo.height || 1,
     isHero: photo.isHero,
-    altText: photo.altText,
-    caption: photo.caption,
-    credit: photo.credit,
   };
 }
 
 const IMAGE_CDN_PARAMS = "?w=2560&q=90&auto=format&fit=max";
 
 function resolvePhotoSrc(sanityUrl: string | undefined, legacyPublicPath: string | undefined): string | undefined {
-  if (!remoteOnly && import.meta.env.DEV && legacyPublicPath) {
+  if (import.meta.env.DEV && legacyPublicPath) {
     return legacyPublicPath;
   }
   if (sanityUrl) {
     return `${sanityUrl}${IMAGE_CDN_PARAMS}`;
   }
-  return undefined;
+  return legacyPublicPath;
 }
 
 function toPhotoMeta(photos: CmsPhoto[]) {
@@ -174,9 +136,6 @@ function toReferencedPhoto(photo: CmsSiteSettings["heroPhoto"], options: { allow
     filename: photo.filename,
     width: photo.width || 1,
     height: photo.height || 1,
-    altText: photo.altText,
-    caption: photo.caption,
-    credit: photo.credit,
   };
 }
 
@@ -209,7 +168,7 @@ function collectHomepageReferencedPhotos(layout: CmsHomepageLayout | null | unde
   ];
 
   return referenced.flatMap((photo) => {
-    const resolved = toReferencedPhoto(photo);
+    const resolved = toReferencedPhoto(photo, { allowHidden: true });
     return resolved ? [resolved] : [];
   });
 }
@@ -231,23 +190,17 @@ function collectPhotobalconyReferencedPhotos(layout: CmsPhotobalconyLayout | nul
   ];
 
   return referenced.flatMap((photo) => {
-    const resolved = toReferencedPhoto(photo);
+    const resolved = toReferencedPhoto(photo, { allowHidden: true });
     return resolved ? [resolved] : [];
   });
 }
 
 function toPhotoStories(stories: CmsStory[]) {
   return stories.reduce<Record<string, PhotoStory[]>>((storiesByFilename, story) => {
-    const keys = [
-      story.coverPhoto?.id,
-      story.coverPhoto?.filename,
-      ...(story.relatedPhotos?.flatMap((photo) => [photo?.id, photo?.filename]) ?? []),
-    ].filter((key): key is string => Boolean(key));
-
-    if (!keys.length || !story.title) return storiesByFilename;
+    const filename = story.coverPhoto?.filename ?? story.relatedPhotos?.find((photo) => photo?.filename)?.filename;
+    if (!filename || !story.title) return storiesByFilename;
 
     const entry: PhotoStory = {
-      id: story.id,
       title: story.title,
       slug: story.slug,
       publishedAt: story.publishedAt,
@@ -256,21 +209,12 @@ function toPhotoStories(stories: CmsStory[]) {
       pinOrder: story.pinOrder,
       excerpt: story.excerpt ?? "",
       body: blocksToLines(story.body),
-      bodyBlocks: story.body,
     };
 
-    for (const key of new Set(keys)) {
-      if (!storiesByFilename[key]) {
-        storiesByFilename[key] = [];
-      }
-
-      const alreadyAdded = storiesByFilename[key].some(
-        (item) => (entry.id && item.id === entry.id) || (item.slug && item.slug === entry.slug) || item.title === entry.title,
-      );
-      if (!alreadyAdded) {
-        storiesByFilename[key].push(entry);
-      }
+    if (!storiesByFilename[filename]) {
+      storiesByFilename[filename] = [];
     }
+    storiesByFilename[filename].push(entry);
 
     return storiesByFilename;
   }, {});
@@ -322,7 +266,7 @@ function resolveLayoutPhotos(
   for (let index = 0; index < maxLength; index += 1) {
     const photo =
       resolvePhotoId(photoMap, ids?.[index]) ??
-      toReferencedPhoto(referencedPhotos?.[index]);
+      toReferencedPhoto(referencedPhotos?.[index], { allowHidden: true });
 
     if (!photo || seen.has(photo.id)) {
       continue;
@@ -381,7 +325,7 @@ function toPhotobalconyLayout(
   const photoMap = photosById(photos);
 
   return {
-    heroPhoto: resolvePhotoId(photoMap, layout.heroPhotoId) ?? toReferencedPhoto(layout.heroPhoto),
+    heroPhoto: resolvePhotoId(photoMap, layout.heroPhotoId) ?? toReferencedPhoto(layout.heroPhoto, { allowHidden: true }),
     mayTitle: layout.mayTitle,
     marchTitle: layout.marchTitle,
     februaryTitle: layout.februaryTitle,
@@ -398,95 +342,17 @@ function toPhotobalconyLayout(
   };
 }
 
-function toPageLayouts(layouts: CmsPageLayout[], photos: Photo[]) {
-  const photoMap = photosById(photos);
-  const result: Record<string, PageLayout> = {};
-
-  for (const layout of layouts) {
-    const sections: PageSection[] = (layout.sections ?? []).flatMap((section, index) => {
-      const referencedPhotos = (section.photos ?? []).flatMap((photo) => {
-        const resolved = photo.id ? photoMap.get(photo.id) : toReferencedPhoto(photo);
-        return resolved ? [resolved] : [];
-      });
-      const categoryPhotos = section.category?.title
-        ? photos
-            .filter((photo) => photo.category === section.category?.title)
-            .slice(0, section.limit || 12)
-        : [];
-      const sectionPhotos = referencedPhotos.length ? referencedPhotos : categoryPhotos;
-      const coverPhoto = section.coverPhoto?.id
-        ? photoMap.get(section.coverPhoto.id) ?? toReferencedPhoto(section.coverPhoto)
-        : toReferencedPhoto(section.coverPhoto) ?? sectionPhotos[0];
-      const style = (section.style || "grid") as PageSectionStyle;
-      const isVisible = section.isVisible ?? true;
-
-      if (!isVisible || (!sectionPhotos.length && !coverPhoto)) {
-        return [];
-      }
-
-      return [
-        {
-          id: section.id || `${layout.pageKey}-section-${index + 1}`,
-          title: section.title,
-          eyebrow: section.eyebrow,
-          description: section.description,
-          isVisible,
-          style,
-          photos: sectionPhotos,
-          coverPhoto,
-          linkLabel: section.linkLabel,
-          linkTarget: section.linkTarget,
-          theme: section.theme,
-          showTitle: section.showTitle !== false,
-          columns: section.columns,
-        },
-      ];
-    });
-
-    result[layout.pageKey] = {
-      id: layout.id,
-      pageKey: layout.pageKey,
-      title: layout.title,
-      subtitle: layout.subtitle,
-      seoTitle: layout.seoTitle,
-      seoDescription: layout.seoDescription,
-      heroPhoto: toReferencedPhoto(layout.heroPhoto),
-      sections,
-    };
-  }
-
-  return result;
-}
-
-function toSiteCopy(copy: CmsSiteCopy | null | undefined) {
-  return mergeSiteCopy(copy as Partial<SiteCopy> | undefined);
-}
-
 async function loadCmsContent(): Promise<GalleryContent> {
-  const [
-    cmsPhotos,
-    cmsCategories,
-    cmsStories,
-    cmsSiteSettings,
-    cmsHomepageLayout,
-    cmsPhotobalconyLayout,
-    cmsPageLayouts,
-    cmsSiteCopy,
-  ] = await Promise.all([
+  const [cmsPhotos, cmsStories, cmsSiteSettings, cmsHomepageLayout, cmsPhotobalconyLayout] = await Promise.all([
     fetchCms<CmsPhoto[]>(cmsPhotosQuery),
-    fetchCms<CmsCategory[]>(cmsCategoriesQuery),
     fetchCms<CmsStory[]>(cmsStoriesQuery),
     fetchCms<CmsSiteSettings | null>(cmsSiteSettingsQuery),
     fetchCms<CmsHomepageLayout | null>(cmsHomepageLayoutQuery),
     fetchCms<CmsPhotobalconyLayout | null>(cmsPhotobalconyLayoutQuery),
-    fetchCms<CmsPageLayout[]>(cmsPageLayoutsQuery),
-    fetchCms<CmsSiteCopy | null>(cmsSiteCopyQuery),
   ]);
 
   const cmsPhotoEntries = cmsPhotos.map(toPhoto).filter((photo): photo is Photo => photo !== null);
-  const harborFallbackPhoto = !remoteOnly
-    ? staticPhotos.find((photo) => photo.filename === "DSC_5026.JPG")
-    : undefined;
+  const harborFallbackPhoto = staticPhotos.find((photo) => photo.filename === "DSC_5026.JPG");
   const needsHarborFallback =
     harborFallbackPhoto && !cmsPhotoEntries.some((photo) => photo.filename === harborFallbackPhoto.filename);
   const photos = uniquePhotosById(
@@ -495,11 +361,9 @@ async function loadCmsContent(): Promise<GalleryContent> {
     collectPhotobalconyReferencedPhotos(cmsPhotobalconyLayout),
     needsHarborFallback ? [harborFallbackPhoto] : [],
   );
-  const pageLayouts = toPageLayouts(cmsPageLayouts, photos);
   const heroPhoto =
     photos.find((photo) => photo.id === cmsSiteSettings?.heroPhoto?.id) ??
     toReferencedPhoto(cmsSiteSettings?.heroPhoto) ??
-    pageLayouts.home?.heroPhoto ??
     photos.find((photo) => photo.isHero);
 
   if (photos.length === 0) {
@@ -508,14 +372,9 @@ async function loadCmsContent(): Promise<GalleryContent> {
 
   return {
     photos,
-    categories: cmsCategories,
-    pageLayouts,
-    copy: toSiteCopy(cmsSiteCopy),
     photoMeta: toPhotoMeta(cmsPhotos),
     photoStories: toPhotoStories(cmsStories),
     aboutData: toAboutData(cmsSiteSettings),
-    siteTitle: cmsSiteSettings?.siteTitle || staticContent.siteTitle,
-    heroSubtitle: cmsSiteSettings?.heroSubtitle,
     heroPhoto,
     homepageLayout: toHomepageLayout(cmsHomepageLayout, photos),
     photobalconyLayout: toPhotobalconyLayout(cmsPhotobalconyLayout, photos),
@@ -530,31 +389,18 @@ function readCachedCmsContent(): GalleryContent | undefined {
   }
 
   try {
-    for (const key of LEGACY_CMS_CONTENT_CACHE_KEYS) {
-      window.localStorage.removeItem(key);
-    }
     const cached = window.localStorage.getItem(CMS_CONTENT_CACHE_KEY);
     if (!cached) {
       return undefined;
     }
 
-    const payload = JSON.parse(cached) as (GalleryContent & { cachedAt?: number }) | { content?: GalleryContent; cachedAt?: number };
-    const content = "content" in payload && payload.content ? payload.content : (payload as GalleryContent);
-    const cachedAt = "cachedAt" in payload ? payload.cachedAt : undefined;
-    if (cachedAt && Date.now() - cachedAt > 7 * 24 * 60 * 60 * 1000) {
-      window.localStorage.removeItem(CMS_CONTENT_CACHE_KEY);
-      return undefined;
-    }
+    const content = JSON.parse(cached) as GalleryContent;
     if (content.source !== "cms" || content.photos.length === 0) {
       return undefined;
     }
 
     return {
       ...content,
-      categories: content.categories ?? staticContent.categories,
-      pageLayouts: content.pageLayouts ?? staticContent.pageLayouts,
-      copy: mergeSiteCopy(content.copy),
-      siteTitle: content.siteTitle ?? staticContent.siteTitle,
       isLoading: true,
       error: undefined,
     };
@@ -572,7 +418,11 @@ function writeCachedCmsContent(content: GalleryContent) {
   try {
     window.localStorage.setItem(
       CMS_CONTENT_CACHE_KEY,
-      JSON.stringify({ content: { ...content, isLoading: false, error: undefined }, cachedAt: Date.now() }),
+      JSON.stringify({
+        ...content,
+        isLoading: false,
+        error: undefined,
+      }),
     );
   } catch {
     window.localStorage.removeItem(CMS_CONTENT_CACHE_KEY);
@@ -581,7 +431,7 @@ function writeCachedCmsContent(content: GalleryContent) {
 
 export function useGalleryContent() {
   const [content, setContent] = useState<GalleryContent>(() => ({
-    ...(isSanityConfigured() ? (readCachedCmsContent() ?? fallbackContent) : fallbackContent),
+    ...(isSanityConfigured() ? (readCachedCmsContent() ?? staticContent) : staticContent),
     isLoading: isSanityConfigured(),
   }));
 
@@ -603,7 +453,7 @@ export function useGalleryContent() {
         if (isMounted) {
           const message = error instanceof Error ? error.message : "Failed to load Sanity content";
           setContent((currentContent) => ({
-            ...(currentContent.source === "cms" ? currentContent : fallbackContent),
+            ...(currentContent.source === "cms" ? currentContent : staticContent),
             isLoading: false,
             error: message,
           }));

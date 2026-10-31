@@ -17,55 +17,6 @@ export type CmsPhoto = {
   shutter?: string;
   iso?: number;
   focalLength?: string;
-  altText?: string;
-  caption?: string;
-  credit?: string;
-};
-
-export type CmsCategory = {
-  id: string;
-  title: string;
-  slug?: string;
-  description?: string;
-  coverPhotoId?: string;
-};
-
-export type CmsPageSection = {
-  id?: string;
-  title?: string;
-  eyebrow?: string;
-  description?: string;
-  isVisible?: boolean;
-  style?: string;
-  photos?: CmsStoryPhoto[];
-  coverPhoto?: CmsStoryPhoto;
-  category?: { id?: string; title?: string; slug?: string };
-  limit?: number;
-  showTitle?: boolean;
-  columns?: number;
-  theme?: "light" | "dark" | "paper";
-  linkLabel?: string;
-  linkTarget?: string;
-};
-
-export type CmsPageLayout = {
-  id: string;
-  pageKey: string;
-  title?: string;
-  subtitle?: string;
-  seoTitle?: string;
-  seoDescription?: string;
-  heroPhoto?: CmsStoryPhoto;
-  sections?: CmsPageSection[];
-};
-
-export type CmsSiteCopy = {
-  navigation?: Record<string, string>;
-  pages?: Record<string, string>;
-  sections?: Record<string, string>;
-  controls?: Record<string, string>;
-  metadata?: Record<string, string>;
-  footer?: Record<string, string>;
 };
 
 export type CmsStory = {
@@ -142,11 +93,7 @@ export type CmsPhotobalconyLayout = {
 
 export type PortableTextBlock = {
   _type?: string;
-  _key?: string;
-  assetUrl?: string;
-  alt?: string;
-  markDefs?: { _key?: string; _type?: string; href?: string }[];
-  children?: { _key?: string; text?: string; marks?: string[] }[];
+  children?: { text?: string }[];
 };
 
 type CmsStoryPhoto = {
@@ -160,9 +107,6 @@ type CmsStoryPhoto = {
   category?: string;
   width?: number;
   height?: number;
-  altText?: string;
-  caption?: string;
-  credit?: string;
 };
 
 const cmsReferencedPhotoFields = `
@@ -175,13 +119,10 @@ const cmsReferencedPhotoFields = `
     "category": category->title,
     "filename": sourceFilename,
     "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
-    "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height),
-    altText,
-    caption,
-    credit
+    "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
 `;
 
-export const cmsPhotosQuery = `*[_type == "photo" && isHidden != true && category->isVisible != false] | order(sortOrder asc, date desc) {
+export const cmsPhotosQuery = `*[_type == "photo" && isHidden != true] | order(sortOrder asc, date desc) {
   "id": _id,
   "src": image.asset->url,
   "legacyPublicPath": legacyPublicPath,
@@ -199,10 +140,7 @@ export const cmsPhotosQuery = `*[_type == "photo" && isHidden != true && categor
   aperture,
   shutter,
   iso,
-  focalLength,
-  altText,
-  caption,
-  credit
+  focalLength
 }`;
 
 export const cmsCategoriesQuery = `*[_type == "category" && isVisible != false] | order(sortOrder asc, title asc) {
@@ -211,42 +149,6 @@ export const cmsCategoriesQuery = `*[_type == "category" && isVisible != false] 
   "slug": slug.current,
   description,
   "coverPhotoId": coverPhoto->_id
-}`;
-
-export const cmsPageLayoutsQuery = `*[_type == "pageLayout"] | order(pageKey asc) {
-  "id": _id,
-  pageKey,
-  title,
-  subtitle,
-  seoTitle,
-  seoDescription,
-  "heroPhoto": heroPhoto->{${cmsReferencedPhotoFields}},
-  "sections": sections[] {
-    "id": _key,
-    title,
-    eyebrow,
-    description,
-    isVisible,
-    style,
-    limit,
-    showTitle,
-    columns,
-    theme,
-    linkLabel,
-    linkTarget,
-    "photos": photos[]->{${cmsReferencedPhotoFields}},
-    "coverPhoto": coverPhoto->{${cmsReferencedPhotoFields}},
-    "category": category->{"id": _id, title, "slug": slug.current}
-  }
-}`;
-
-export const cmsSiteCopyQuery = `*[_type == "siteCopy"][0] {
-  navigation,
-  pages,
-  sections,
-  controls,
-  metadata,
-  footer
 }`;
 
 export const cmsStoriesQuery = `*[
@@ -262,7 +164,7 @@ export const cmsStoriesQuery = `*[
   orderRank,
   isPinned,
   pinOrder,
-  "body": body[]{..., "assetUrl": asset->url},
+  body,
   "coverPhoto": coverPhoto->{
     "id": _id,
     title,

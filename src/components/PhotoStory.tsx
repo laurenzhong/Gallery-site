@@ -8,8 +8,6 @@ import {
   type PhotoStory as PhotoStoryData,
 } from "../data/stories";
 import { photoPath, storyPath } from "../lib/routes";
-import { useSiteCopy } from "../lib/siteCopyContext";
-import { PortableTextContent } from "./PortableTextContent";
 
 type PhotoStoryProps = {
   photos: Photo[];
@@ -36,23 +34,22 @@ function MetaRow({ label, value }: { label: string; value?: string | number }) {
 }
 
 function MetaCard({ photo, meta }: { photo: Photo; meta: PhotoMeta }) {
-  const copy = useSiteCopy();
   return (
     <article className="story-meta-card">
       <div className="story-meta-photo">
-        <img src={photo.src} alt={photo.altText ?? `${photo.category} ${photo.title}`} loading="lazy" decoding="async" />
+        <img src={photo.src} alt={`${photo.category} ${photo.title}`} loading="lazy" decoding="async" />
       </div>
       <div className="story-meta-body">
         <h3 className="story-meta-title">{photo.title}</h3>
         <p className="story-meta-subtitle">{meta.location ?? photo.category}</p>
         <dl className="story-meta-list">
-          <MetaRow label={copy.metadata.date} value={meta.date} />
-          <MetaRow label={copy.metadata.camera} value={meta.camera} />
-          <MetaRow label={copy.metadata.lens} value={meta.lens} />
-          <MetaRow label={copy.metadata.aperture} value={meta.aperture} />
-          <MetaRow label={copy.metadata.shutter} value={meta.shutter} />
-          <MetaRow label={copy.metadata.iso} value={meta.iso} />
-          <MetaRow label={copy.metadata.focalLength} value={meta.focalLength} />
+          <MetaRow label="日期" value={meta.date} />
+          <MetaRow label="相机" value={meta.camera} />
+          <MetaRow label="镜头" value={meta.lens} />
+          <MetaRow label="光圈" value={meta.aperture} />
+          <MetaRow label="快门" value={meta.shutter} />
+          <MetaRow label="ISO" value={meta.iso} />
+          <MetaRow label="焦距" value={meta.focalLength} />
         </dl>
       </div>
     </article>
@@ -71,7 +68,7 @@ function StoryEntry({
   return (
     <article className={`story-entry story-entry--${align}`}>
       <div className="story-entry-photo">
-        <img src={photo.src} alt={photo.altText ?? `${photo.category} ${photo.title}`} loading="lazy" decoding="async" />
+        <img src={photo.src} alt={`${photo.category} ${photo.title}`} loading="lazy" decoding="async" />
       </div>
       <div className="story-entry-body">
         <p className="story-entry-kicker">{photo.category} · {photo.filename}</p>
@@ -79,9 +76,9 @@ function StoryEntry({
           <a href={storyPath(story, photo.slug)}>{story.title}</a>
         </h2>
         <p className="story-entry-excerpt">{story.excerpt}</p>
-        <div className="story-entry-rich-body">
-          <PortableTextContent blocks={story.bodyBlocks} fallback={story.body} />
-        </div>
+        {story.body.map((paragraph, index) => (
+          <p key={index} className="story-entry-paragraph">{paragraph}</p>
+        ))}
       </div>
     </article>
   );
@@ -113,12 +110,11 @@ function compareStories(a: PhotoStoryData, b: PhotoStoryData) {
 }
 
 export function AboutSection({ aboutData = staticAboutData }: { aboutData?: AboutData }) {
-  const copy = useSiteCopy();
   return (
     <section className="story-section story-about" aria-labelledby="story-about-title">
       <div className="story-section-head">
-        <span className="story-section-kicker">{copy.sections.about}</span>
-        <h1 id="story-about-title">{copy.pages.photostoryAboutTitle}</h1>
+        <span className="story-section-kicker">About</span>
+        <h1 id="story-about-title">关于摄影师</h1>
       </div>
 
       <div className="story-about-grid">
@@ -132,7 +128,7 @@ export function AboutSection({ aboutData = staticAboutData }: { aboutData?: Abou
 
         <aside className="story-about-side">
           <div className="story-about-block">
-            <h2 className="story-about-block-title">{copy.sections.gear}</h2>
+            <h2 className="story-about-block-title">器材</h2>
             <dl className="story-about-list">
               {aboutData.gear.map((item) => (
                 <div key={item.name} className="story-about-list-row">
@@ -144,7 +140,7 @@ export function AboutSection({ aboutData = staticAboutData }: { aboutData?: Abou
           </div>
 
           <div className="story-about-block">
-            <h2 className="story-about-block-title">{copy.sections.contactDetails}</h2>
+            <h2 className="story-about-block-title">联系</h2>
             <dl className="story-about-list">
               {aboutData.contact.map((item) => (
                 <div key={item.label} className="story-about-list-row">
@@ -163,7 +159,6 @@ export function AboutSection({ aboutData = staticAboutData }: { aboutData?: Abou
 }
 
 export function MetadataSection({ photos, photoMeta = staticPhotoMeta }: PhotoStoryProps) {
-  const copy = useSiteCopy();
   const metaEntries = Object.entries(photoMeta)
     .map(([filename, meta]) => {
       const photo = findPhoto(photos, filename);
@@ -174,9 +169,11 @@ export function MetadataSection({ photos, photoMeta = staticPhotoMeta }: PhotoSt
   return (
     <section className="story-section story-meta-section" aria-labelledby="story-meta-title">
       <div className="story-section-head">
-          <span className="story-section-kicker">{copy.sections.metadata}</span>
-        <h1 id="story-meta-title">{copy.pages.photostoryMetadataTitle}</h1>
-        <p className="story-section-sub">{copy.pages.photostoryMetadataDescription}</p>
+        <span className="story-section-kicker">Metadata</span>
+        <h1 id="story-meta-title">照片参数</h1>
+        <p className="story-section-sub">
+          点击任意照片可以查看完整的 EXIF 信息——拍摄日期、地点、器材和参数。
+        </p>
       </div>
 
       <div className="story-meta-grid">
@@ -191,7 +188,6 @@ export function MetadataSection({ photos, photoMeta = staticPhotoMeta }: PhotoSt
 }
 
 export function JournalSection({ photos, photoStories = staticPhotoStories }: PhotoStoryProps) {
-  const copy = useSiteCopy();
   const storyEntries = Object.entries(photoStories)
     .flatMap(([filename, storyList]) => {
       const photo = findPhoto(photos, filename);
@@ -204,9 +200,11 @@ export function JournalSection({ photos, photoStories = staticPhotoStories }: Ph
   return (
     <section className="story-section story-entries-section" aria-labelledby="story-entries-title">
       <div className="story-section-head">
-        <span className="story-section-kicker">{copy.sections.stories}</span>
-        <h1 id="story-entries-title">{copy.pages.photostoryJournalTitle}</h1>
-        <p className="story-section-sub">{copy.pages.photostoryJournalDescription}</p>
+        <span className="story-section-kicker">Stories</span>
+        <h1 id="story-entries-title">创作手记</h1>
+        <p className="story-section-sub">
+          每张照片背后都有当时的场景、天气、心情。下面是几篇示例。
+        </p>
       </div>
 
       <div className="story-entries">
@@ -230,14 +228,16 @@ export function PhotoStory({
   aboutData = staticAboutData,
 }: PhotoStoryProps) {
   const showPreview = new URLSearchParams(window.location.search).has("preview");
-  const copy = useSiteCopy();
 
   return (
     <article className="story-page">
       {showPreview && (
         <div className="story-banner" role="note">
-          <span className="story-banner-tag">{copy.pages.previewBannerTag}</span>
-          <p>{copy.pages.previewBannerText}</p>
+          <span className="story-banner-tag">测试模块</span>
+          <p>
+            这是一个内容侧功能的预览版,用于评估效果。所有文字和参数都是基于现有照片的填充示例,
+            可以稍后替换成真实内容或删除。访问 <code>/photostory</code> 查看。
+          </p>
         </div>
       )}
 

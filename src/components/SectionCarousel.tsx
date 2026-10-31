@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Photo } from "../data/photos";
-import { useSiteCopy } from "../lib/siteCopyContext";
 
 type SectionCarouselProps = {
   photos: Photo[];
@@ -9,7 +8,6 @@ type SectionCarouselProps = {
 };
 
 export function SectionCarousel({ photos, onOpen }: SectionCarouselProps) {
-  const copy = useSiteCopy();
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (photos.length === 0) return null;
@@ -23,7 +21,7 @@ export function SectionCarousel({ photos, onOpen }: SectionCarouselProps) {
       <button
         type="button"
         className="featured-arrow featured-arrow--prev"
-        aria-label={`${copy.controls.previous} ${copy.controls.openPhoto}`}
+        aria-label="Previous photo"
         onClick={goPrev}
       >
         <ChevronLeft size={36} strokeWidth={1.5} aria-hidden="true" />
@@ -33,11 +31,11 @@ export function SectionCarousel({ photos, onOpen }: SectionCarouselProps) {
         type="button"
         className="section-carousel-main"
         onClick={() => onOpen(active)}
-        aria-label={`${copy.controls.openPhoto} ${active.title}`}
+        aria-label={`Open ${active.title}`}
       >
         <img
           src={active.src}
-          alt={active.altText ?? `${active.category} ${active.title}`}
+          alt={`${active.category} ${active.title}`}
           width={active.width}
           height={active.height}
           decoding="async"
@@ -47,7 +45,7 @@ export function SectionCarousel({ photos, onOpen }: SectionCarouselProps) {
       <button
         type="button"
         className="featured-arrow featured-arrow--next"
-        aria-label={`${copy.controls.next} ${copy.controls.openPhoto}`}
+        aria-label="Next photo"
         onClick={goNext}
       >
         <ChevronRight size={36} strokeWidth={1.5} aria-hidden="true" />

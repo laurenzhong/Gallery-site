@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
-import { useSiteCopy } from "../lib/siteCopyContext";
+
+const menuItems = [
+  { label: "Home", href: "/#top" },
+  { label: "Photography", href: "/#photography" },
+  { label: "Balcony View", href: "/photobalcony" },
+  { label: "Journal", href: "/journal" },
+  { label: "About", href: "/about" },
+];
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const copy = useSiteCopy();
-  const menuItems = [
-    { label: copy.navigation.home, href: "/#top" },
-    { label: copy.navigation.photography, href: "/#photography" },
-    { label: copy.navigation.balcony, href: "/photobalcony" },
-    { label: copy.navigation.journal, href: "/journal" },
-    { label: copy.navigation.about, href: "/about" },
-  ];
 
   useEffect(() => {
     document.body.classList.toggle("menu-is-open", menuOpen);
@@ -33,8 +32,8 @@ export function Header() {
 
   return (
     <>
-      <header className="site-header" aria-label={copy.navigation.home}>
-        <a className="brand-lockup" href="/" aria-label={`${copy.navigation.home} Queenstown`}>
+      <header className="site-header" aria-label="Site header">
+        <a className="brand-lockup" href="/" aria-label="Queenstown home">
           <span className="brand-mark" aria-hidden="true">
             <svg className="brand-mark-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
               <path
@@ -66,7 +65,7 @@ export function Header() {
         <button
           type="button"
           className="menu-toggle"
-          aria-label={menuOpen ? copy.controls.closeMenu : copy.controls.openMenu}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
           aria-controls="site-menu"
           onClick={() => setMenuOpen((open) => !open)}
@@ -84,7 +83,7 @@ export function Header() {
         aria-hidden={!menuOpen}
         onClick={() => setMenuOpen(false)}
       >
-        <nav className="menu-panel" aria-label={copy.navigation.home} onClick={(event) => event.stopPropagation()}>
+        <nav className="menu-panel" aria-label="Menu navigation" onClick={(event) => event.stopPropagation()}>
           {menuItems.map((item) => (
             <a key={item.label} href={item.href} onClick={() => setMenuOpen(false)}>
               {item.label}

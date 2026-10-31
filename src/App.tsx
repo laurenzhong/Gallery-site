@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { About } from "./components/About";
 import { AdvancedPhotoLightbox } from "./components/AdvancedPhotoLightbox";
 import { BalconyView } from "./components/BalconyView";
-import { CmsPageSections } from "./components/CmsPageSections";
-import { CmsBalconyView } from "./components/CmsBalconyView";
 import { CmsSourceBadge } from "./components/CmsSourceBadge";
 import { Footer } from "./components/Footer";
 import { GallerySections } from "./components/GallerySections";
@@ -15,7 +13,6 @@ import type { Photo } from "./data/photos";
 import { useGalleryContent } from "./lib/galleryContent";
 import { imageSrcSet, sizedImageUrl } from "./lib/imageUrl";
 import { matchesPhotoSlug, matchesStorySlug, photoPath } from "./lib/routes";
-import { SiteCopyProvider } from "./components/SiteCopyProvider";
 
 const SITE_TITLE = "Queenstown.top | Photography";
 const DEFAULT_DESCRIPTION =
@@ -31,33 +28,11 @@ function setMeta(name: string, content: string, attribute: "name" | "property" =
   tag.content = content;
 }
 
-function setLink(rel: string, href: string) {
-  let tag = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
-  if (!tag) {
-    tag = document.createElement("link");
-    tag.rel = rel;
-    document.head.append(tag);
-  }
-  tag.href = href;
-}
-
 function App() {
   const [lightboxState, setLightboxState] = useState<{ photos: Photo[]; index: number } | null>(null);
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/$/, "") || "/");
   const content = useGalleryContent();
-  const {
-    photos,
-    categories,
-    pageLayouts,
-    copy,
-    photoMeta,
-    photoStories,
-    aboutData,
-    homepageLayout,
-    photobalconyLayout,
-    siteTitle,
-    heroSubtitle,
-  } = content;
+  const { photos, photoMeta, photoStories, aboutData, homepageLayout, photobalconyLayout } = content;
   const pathname = currentPath;
   const isBalconyPage = pathname === "/photobalcony";
   const isStoryPage = pathname === "/photostory";
@@ -67,8 +42,6 @@ function App() {
   const photoRouteSlug = pathname.startsWith("/photos/") ? decodeURIComponent(pathname.slice("/photos/".length)) : "";
   const storyRouteSlug = pathname.startsWith("/stories/") ? decodeURIComponent(pathname.slice("/stories/".length)) : "";
   const showPreview = new URLSearchParams(window.location.search).has("preview");
-  const cmsHomeLayout = pageLayouts.home;
-  const cmsBalconyLayout = pageLayouts.photobalcony;
 
   const heroPhoto = useMemo(() => {
     if (content.isLoading && content.source === "static") {
@@ -145,12 +118,6 @@ function App() {
     setLightboxPath(photoPath(photo), "push");
   };
 
-  const openPhotoItem = (photo: Photo, lightboxPhotos = photos) => {
-    const index = photos.findIndex((item) => item.id === photo.id);
-    if (index < 0) return;
-    openPhoto(index, lightboxPhotos);
-  };
-
   const navigatePhoto = (index: number) => {
     if (!activeLightbox) return;
     const photo = activeLightbox.photos[index];
@@ -196,18 +163,15 @@ function App() {
       (activePhoto ? `${activePhoto.category} / ${activePhoto.filename}` : DEFAULT_DESCRIPTION);
     const image = activePhoto?.src ?? activeStory?.photo.src ?? heroPhoto?.src;
 
-    document.title = title ? `${title} | Queenstown.top` : siteTitle || SITE_TITLE;
+    document.title = title ? `${title} | Queenstown.top` : SITE_TITLE;
     setMeta("description", description);
     setMeta("og:title", title ? `${title} | Queenstown.top` : SITE_TITLE, "property");
     setMeta("og:description", description, "property");
-    setMeta("og:image", image || "/brand-mark.svg", "property");
-    setMeta("twitter:image", image || "/brand-mark.svg");
-    setLink("canonical", `${window.location.origin}${window.location.pathname}`);
-  }, [activePhoto, activeStory, heroPhoto, siteTitle]);
+    if (image) setMeta("og:image", image, "property");
+  }, [activePhoto, activeStory, heroPhoto]);
 
   return (
-    <SiteCopyProvider copy={copy}>
-      <>
+    <>
       <Header />
 
       <CmsSourceBadge content={content} />
@@ -218,7 +182,7 @@ function App() {
         ) : photoRouteSlug && activePhoto ? (
           <>
             <section className="page-title-band" id="top" aria-labelledby="page-title">
-              <h1 id="page-title">{copy.pages.photography}</h1>
+              <h1 id="page-title">Photography</h1>
             </section>
 
             <section className="hero" aria-label="Featured photograph">
@@ -235,36 +199,31 @@ function App() {
                   decoding="async"
                 />
               ) : null}
-              {heroSubtitle ? <p className="hero-subtitle">{heroSubtitle}</p> : null}
             </section>
 
-            <GallerySections photos={photos} categories={categories} homepageLayout={homepageLayout} onOpen={openPhoto} />
+            <GallerySections photos={photos} homepageLayout={homepageLayout} onOpen={openPhoto} />
           </>
         ) : (photoRouteSlug || storyRouteSlug) && content.isLoading ? (
           <section className="detail-page detail-empty" aria-labelledby="detail-loading-title">
-            <p className="detail-kicker">{copy.pages.loading}</p>
-            <h1 id="detail-loading-title">{copy.pages.loading}</h1>
+            <p className="detail-kicker">Loading</p>
+            <h1 id="detail-loading-title">Loading this entry.</h1>
           </section>
         ) : photoRouteSlug || storyRouteSlug ? (
           <section className="detail-page detail-empty" aria-labelledby="detail-empty-title">
-            <p className="detail-kicker">{copy.pages.notFound}</p>
-            <h1 id="detail-empty-title">{copy.pages.notFound}</h1>
+            <p className="detail-kicker">Not Found</p>
+            <h1 id="detail-empty-title">This entry is not available.</h1>
             <a className="detail-related-link" href="/">
-              <span>{copy.pages.backHome}</span>
-              <small>{copy.pages.returnToArchive}</small>
+              <span>Back to Queenstown.top</span>
+              <small>Return to the photography archive</small>
             </a>
-        </section>
+          </section>
         ) : isBalconyPage ? (
-          cmsBalconyLayout ? (
-            <CmsBalconyView layout={cmsBalconyLayout} photoMeta={photoMeta} photoStories={photoStories} />
-          ) : (
-            <BalconyView
-              photos={photos}
-              layout={photobalconyLayout}
-              photoMeta={photoMeta}
-              photoStories={photoStories}
-            />
-          )
+          <BalconyView
+            photos={photos}
+            layout={photobalconyLayout}
+            photoMeta={photoMeta}
+            photoStories={photoStories}
+          />
         ) : isStoryPage ? (
           <PhotoStory photos={photos} photoMeta={photoMeta} photoStories={photoStories} aboutData={aboutData} />
         ) : isAboutPage ? (
@@ -273,35 +232,13 @@ function App() {
           <Journal photos={photos} photoStories={photoStories} />
         ) : isFooterPreviewPage ? (
           <section className="footer-preview-stage" aria-labelledby="footer-preview-title">
-            <p className="footer-preview-kicker">{copy.pages.footerPreviewKicker}</p>
-            <h1 id="footer-preview-title">{copy.pages.footerPreviewTitle}</h1>
+            <p className="footer-preview-kicker">Design study</p>
+            <h1 id="footer-preview-title">Footer Background</h1>
           </section>
-        ) : cmsHomeLayout ? (
-          <>
-            <section className="page-title-band" id="top" aria-labelledby="page-title">
-              <h1 id="page-title">{cmsHomeLayout.title ?? copy.pages.photography}</h1>
-              {cmsHomeLayout.subtitle ? <p className="page-subtitle">{cmsHomeLayout.subtitle}</p> : null}
-            </section>
-            {cmsHomeLayout.heroPhoto ? (
-              <section className="hero" aria-label={cmsHomeLayout.title ?? copy.pages.photography}>
-                <img
-                  className="hero-image"
-                  src={sizedImageUrl(cmsHomeLayout.heroPhoto.src, 2400, 88)}
-                  srcSet={imageSrcSet(cmsHomeLayout.heroPhoto.src, [1400, 2000, 2800], 88)}
-                  sizes="100vw"
-                  alt={cmsHomeLayout.heroPhoto.altText ?? cmsHomeLayout.heroPhoto.title}
-                  loading="eager"
-                  fetchPriority="high"
-                  decoding="async"
-                />
-              </section>
-            ) : null}
-            <CmsPageSections layout={cmsHomeLayout} categories={categories} onOpen={openPhotoItem} />
-          </>
         ) : (
           <>
             <section className="page-title-band" id="top" aria-labelledby="page-title">
-              <h1 id="page-title">{copy.pages.photography}</h1>
+              <h1 id="page-title">Photography</h1>
             </section>
 
             <section className="hero" aria-label="Featured photograph">
@@ -318,20 +255,19 @@ function App() {
                   decoding="async"
                 />
               ) : null}
-              {heroSubtitle ? <p className="hero-subtitle">{heroSubtitle}</p> : null}
             </section>
 
             {showPreview && (
-              <a className="story-test-cta" href="/photostory" aria-label={copy.controls.openStories}>
-                <span className="story-test-cta-tag">{copy.pages.photoNotesKicker}</span>
+              <a className="story-test-cta" href="/photostory" aria-label="Open photo notes and stories">
+                <span className="story-test-cta-tag">Photo Notes</span>
                 <span className="story-test-cta-text">
-                  {copy.controls.readFieldNotes}
+                  Read locations, camera settings, and field notes behind selected photographs.
                 </span>
                 <span className="story-test-cta-arrow" aria-hidden="true">-&gt;</span>
               </a>
             )}
 
-            <GallerySections photos={photos} categories={categories} homepageLayout={homepageLayout} onOpen={openPhoto} />
+            <GallerySections photos={photos} homepageLayout={homepageLayout} onOpen={openPhoto} />
           </>
         )}
       </main>
@@ -348,8 +284,7 @@ function App() {
           photoStories={photoStories}
         />
       )}
-      </>
-    </SiteCopyProvider>
+    </>
   );
 }
 
