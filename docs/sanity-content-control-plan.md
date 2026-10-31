@@ -227,7 +227,7 @@ npm run verify:page-content-contract -- --require
 - 本文档已改为受控组件编排方案。
 - 本地 Studio 已加入受控 `pageContent` schema 和导航；`pageContent-home`、`pageContent-photobalcony` 已安全写入 production。
 - 基线迁移脚本以当前 `homepageLayout`、`photobalconyLayout` 和 `siteSettings` 为来源，不再使用旧 `pageLayout` 生成页面内容。
-- 已加入 `pageContent` 查询、adapter、契约检查和 Preview-only 读取路径；默认生产路径仍使用稳定渲染器。
+- 已加入 `pageContent` 查询、adapter、契约检查和 feature flag 读取路径；删除 Production flag 后即可回到稳定渲染器。
 - 已配置 `VITE_PAGE_CONTENT_MODE=preview` 到 Vercel Preview 和 Production 环境；Production 灰度 deployment 已为 `Ready` 并绑定正式域名。
 - `SANITY_WRITE_TOKEN` 已轮换，旧 token 已撤销；本地契约验证、构建、桌面/移动视觉回归和灯箱/轮播交互均已通过。
 - Vercel Preview 部署 `gallery-site-riycwqis3-zjk159357s-projects.vercel.app` 已为 `Ready`，但该部署受 Vercel 登录保护，当前会话无法直接进行无认证浏览器验收；不能把 HTTP 200 登录页当作页面验收证据。
