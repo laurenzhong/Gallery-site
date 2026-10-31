@@ -189,7 +189,7 @@ const query = `{
   "categories": *[_type == "category"]{_id}
 }`;
 
-const url = new URL(`https://${projectId}.api.sanity.io/v2025-02-19/data/query/${dataset}`);
+const url = new URL(`https://${projectId}.apicdn.sanity.io/v2025-02-19/data/query/${dataset}`);
 url.searchParams.set("query", query);
 const payload = await fetchPayload(url);
 const result = payload.result ?? {};

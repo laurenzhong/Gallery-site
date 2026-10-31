@@ -138,7 +138,7 @@ async function checkSanity() {
     dataset,
     apiVersion: "2025-02-19",
     token,
-    useCdn: false,
+    useCdn: true,
   });
 
   let counts;
