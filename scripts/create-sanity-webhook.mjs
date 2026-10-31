@@ -141,7 +141,7 @@ const body = {
   url: deployHookUrl,
   rule: {
     on: ["create", "update", "delete"],
-    filter: '_type in ["photo", "story", "siteSettings", "category", "homepageLayout", "photobalconyLayout", "pageLayout", "siteCopy"]',
+    filter: '_type in ["photo", "story", "siteSettings", "category", "homepageLayout", "photobalconyLayout", "pageLayout", "pageContent", "siteCopy"]',
   },
   httpMethod: "POST",
   apiVersion: "v2025-02-19",

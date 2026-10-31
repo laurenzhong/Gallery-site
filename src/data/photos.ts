@@ -8,6 +8,9 @@ export type Photo = {
   width: number;
   height: number;
   isHero?: boolean;
+  altText?: string;
+  caption?: string;
+  credit?: string;
 };
 
 export const categories = [
@@ -355,17 +358,6 @@ export const photos: Photo[] = [
   },
   {
     "id": "photo-031",
-    "src": "/photos/海洋/DSC_2100.JPG",
-    "title": "DSC_2100",
-    "slug": "dsc-2100",
-    "category": "海洋",
-    "filename": "DSC_2100.JPG",
-    "width": 4032,
-    "height": 6048,
-    "isHero": false
-  },
-  {
-    "id": "photo-032",
     "src": "/photos/海洋/DSC_5552.JPG",
     "title": "DSC_5552",
     "slug": "dsc-5552",
@@ -376,7 +368,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-033",
+    "id": "photo-032",
     "src": "/photos/石塘度假区/DSC_0243.JPG",
     "title": "DSC_0243",
     "slug": "dsc-0243",
@@ -387,7 +379,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-034",
+    "id": "photo-033",
     "src": "/photos/石塘度假区/DSC_0257.JPG",
     "title": "DSC_0257",
     "slug": "dsc-0257",
@@ -398,7 +390,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-035",
+    "id": "photo-034",
     "src": "/photos/石塘度假区/DSC_0264.JPG",
     "title": "DSC_0264",
     "slug": "dsc-0264",
@@ -409,7 +401,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-036",
+    "id": "photo-035",
     "src": "/photos/石塘度假区/DSC_0335.JPG",
     "title": "DSC_0335",
     "slug": "dsc-0335",
@@ -420,7 +412,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-037",
+    "id": "photo-036",
     "src": "/photos/石塘度假区/DSC_0396.JPG",
     "title": "DSC_0396",
     "slug": "dsc-0396",
@@ -431,7 +423,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-038",
+    "id": "photo-037",
     "src": "/photos/石塘度假区/DSC_0470.JPG",
     "title": "DSC_0470",
     "slug": "dsc-0470",
@@ -442,7 +434,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-039",
+    "id": "photo-038",
     "src": "/photos/石塘度假区/DSC_0513.JPG",
     "title": "DSC_0513",
     "slug": "dsc-0513",
@@ -453,7 +445,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-040",
+    "id": "photo-039",
     "src": "/photos/石塘度假区/DSC_0514.JPG",
     "title": "DSC_0514",
     "slug": "dsc-0514",
@@ -464,7 +456,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-041",
+    "id": "photo-040",
     "src": "/photos/石塘度假区/DSC_0518.JPG",
     "title": "DSC_0518",
     "slug": "dsc-0518",
@@ -475,7 +467,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-042",
+    "id": "photo-041",
     "src": "/photos/石塘度假区/DSC_0520.JPG",
     "title": "DSC_0520",
     "slug": "dsc-0520",
@@ -486,7 +478,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-043",
+    "id": "photo-042",
     "src": "/photos/石塘度假区/DSC_0521.JPG",
     "title": "DSC_0521",
     "slug": "dsc-0521",
@@ -497,7 +489,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-044",
+    "id": "photo-043",
     "src": "/photos/石塘度假区/DSC_0522.JPG",
     "title": "DSC_0522",
     "slug": "dsc-0522",
@@ -508,7 +500,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-045",
+    "id": "photo-044",
     "src": "/photos/石塘度假区/DSC_0534.JPG",
     "title": "DSC_0534",
     "slug": "dsc-0534",
@@ -519,7 +511,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-046",
+    "id": "photo-045",
     "src": "/photos/石塘度假区/DSC_0538.JPG",
     "title": "DSC_0538",
     "slug": "dsc-0538",
@@ -530,7 +522,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-047",
+    "id": "photo-046",
     "src": "/photos/石塘度假区/DSC_0546.JPG",
     "title": "DSC_0546",
     "slug": "dsc-0546",
@@ -541,7 +533,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-048",
+    "id": "photo-047",
     "src": "/photos/石塘度假区/DSC_0551.JPG",
     "title": "DSC_0551",
     "slug": "dsc-0551",
@@ -552,7 +544,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-049",
+    "id": "photo-048",
     "src": "/photos/石塘度假区/DSC_0552.JPG",
     "title": "DSC_0552",
     "slug": "dsc-0552",
@@ -563,7 +555,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-050",
+    "id": "photo-049",
     "src": "/photos/石塘度假区/DSC_0555.JPG",
     "title": "DSC_0555",
     "slug": "dsc-0555",
@@ -574,7 +566,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-051",
+    "id": "photo-050",
     "src": "/photos/石塘度假区/DSC_0566.JPG",
     "title": "DSC_0566",
     "slug": "dsc-0566",
@@ -585,7 +577,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-052",
+    "id": "photo-051",
     "src": "/photos/石塘度假区/DSC_0568.JPG",
     "title": "DSC_0568",
     "slug": "dsc-0568",
@@ -596,7 +588,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-053",
+    "id": "photo-052",
     "src": "/photos/石塘度假区/DSC_0571.JPG",
     "title": "DSC_0571",
     "slug": "dsc-0571",
@@ -607,7 +599,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-054",
+    "id": "photo-053",
     "src": "/photos/石塘度假区/DSC_0580.JPG",
     "title": "DSC_0580",
     "slug": "dsc-0580",
@@ -618,7 +610,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-055",
+    "id": "photo-054",
     "src": "/photos/石塘度假区/DSC_0613.JPG",
     "title": "DSC_0613",
     "slug": "dsc-0613",
@@ -629,7 +621,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-056",
+    "id": "photo-055",
     "src": "/photos/石塘度假区/DSC_0614.JPG",
     "title": "DSC_0614",
     "slug": "dsc-0614",
@@ -640,7 +632,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-057",
+    "id": "photo-056",
     "src": "/photos/石塘度假区/DSC_0625.JPG",
     "title": "DSC_0625",
     "slug": "dsc-0625",
@@ -651,7 +643,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-058",
+    "id": "photo-057",
     "src": "/photos/石塘度假区/DSC_0626.JPG",
     "title": "DSC_0626",
     "slug": "dsc-0626",
@@ -662,7 +654,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-059",
+    "id": "photo-058",
     "src": "/photos/石塘度假区/DSC_0632.JPG",
     "title": "DSC_0632",
     "slug": "dsc-0632",
@@ -673,7 +665,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-060",
+    "id": "photo-059",
     "src": "/photos/石塘度假区/DSC_0636.JPG",
     "title": "DSC_0636",
     "slug": "dsc-0636",
@@ -684,7 +676,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-061",
+    "id": "photo-060",
     "src": "/photos/石塘度假区/DSC_0638.JPG",
     "title": "DSC_0638",
     "slug": "dsc-0638",
@@ -695,7 +687,7 @@ export const photos: Photo[] = [
     "isHero": true
   },
   {
-    "id": "photo-062",
+    "id": "photo-061",
     "src": "/photos/石塘度假区/DSC_0648.JPG",
     "title": "DSC_0648",
     "slug": "dsc-0648",
@@ -706,7 +698,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-063",
+    "id": "photo-062",
     "src": "/photos/石塘度假区/DSC_0917.JPG",
     "title": "DSC_0917",
     "slug": "dsc-0917",
@@ -717,7 +709,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-064",
+    "id": "photo-063",
     "src": "/photos/石塘度假区/DSC_2196.JPG",
     "title": "DSC_2196",
     "slug": "dsc-2196",
@@ -728,7 +720,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-065",
+    "id": "photo-064",
     "src": "/photos/花朵/DSC_5267.JPG",
     "title": "DSC_5267",
     "slug": "dsc-5267",
@@ -739,7 +731,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-066",
+    "id": "photo-065",
     "src": "/photos/花朵/DSC_5282.JPG",
     "title": "DSC_5282",
     "slug": "dsc-5282",
@@ -750,7 +742,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-067",
+    "id": "photo-066",
     "src": "/photos/花朵/DSC_5287.JPG",
     "title": "DSC_5287",
     "slug": "dsc-5287",
@@ -761,7 +753,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-068",
+    "id": "photo-067",
     "src": "/photos/花朵/DSC_5311.JPG",
     "title": "DSC_5311",
     "slug": "dsc-5311",
@@ -772,7 +764,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-069",
+    "id": "photo-068",
     "src": "/photos/花朵/DSC_5336.JPG",
     "title": "DSC_5336",
     "slug": "dsc-5336",
@@ -783,7 +775,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-070",
+    "id": "photo-069",
     "src": "/photos/花朵/DSC_5340.JPG",
     "title": "DSC_5340",
     "slug": "dsc-5340",
@@ -794,7 +786,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-071",
+    "id": "photo-070",
     "src": "/photos/花朵/DSC_5345.JPG",
     "title": "DSC_5345",
     "slug": "dsc-5345",
@@ -805,7 +797,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-072",
+    "id": "photo-071",
     "src": "/photos/花朵/DSC_5347.JPG",
     "title": "DSC_5347",
     "slug": "dsc-5347",
@@ -816,7 +808,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-073",
+    "id": "photo-072",
     "src": "/photos/花朵/DSC_5445.JPG",
     "title": "DSC_5445",
     "slug": "dsc-5445",
@@ -827,7 +819,7 @@ export const photos: Photo[] = [
     "isHero": false
   },
   {
-    "id": "photo-074",
+    "id": "photo-073",
     "src": "/photos/harbor/DSC_5026.JPG",
     "title": "DSC_5026",
     "slug": "dsc-5026",

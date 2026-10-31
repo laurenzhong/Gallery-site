@@ -265,6 +265,25 @@ export const structure: StructureResolver = (S, context) =>
                     .documentId("pageLayout-photobalcony")
                     .title("影像阳台通用布局"),
                 ),
+              S.divider(),
+              li(S, "content-control.page-content-home")
+                .title("首页受控内容（新模型）")
+                .schemaType("pageContent")
+                .child(
+                  S.document()
+                    .schemaType("pageContent")
+                    .documentId("pageContent-home")
+                    .title("首页受控内容"),
+                ),
+              li(S, "content-control.page-content-photobalcony")
+                .title("影像阳台受控内容（新模型）")
+                .schemaType("pageContent")
+                .child(
+                  S.document()
+                    .schemaType("pageContent")
+                    .documentId("pageContent-photobalcony")
+                    .title("影像阳台受控内容"),
+                ),
             ]),
         ),
       li(S, "photos-inbox")

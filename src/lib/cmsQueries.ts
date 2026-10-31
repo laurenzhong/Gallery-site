@@ -91,12 +91,68 @@ export type CmsPhotobalconyLayout = {
   summerPhotos?: CmsStoryPhoto[];
 };
 
+export type CmsPageContent = {
+  id: string;
+  pageKey: "home" | "photobalcony";
+  title: string;
+  subtitle?: string;
+  heroPhoto?: CmsStoryPhoto;
+  sections?: CmsPageSection[];
+};
+
+type CmsPageSectionBase = {
+  id?: string;
+  title?: string;
+  description?: string;
+  isVisible?: boolean;
+};
+
+export type CmsPageSection =
+  | (CmsPageSectionBase & {
+      type: "heroSlot";
+      photo?: CmsStoryPhoto;
+      linkLabel?: string;
+      linkTarget?: string;
+    })
+  | (CmsPageSectionBase & {
+      type: "featureCardsSlot";
+      cards?: { title?: string; photo?: CmsStoryPhoto; linkLabel?: string; linkTarget?: string }[];
+    })
+  | (CmsPageSectionBase & {
+      type: "gallerySlot";
+      slotKey?: "landscape" | "quiet" | "city" | "harborCarousel";
+      presentation?: "landscapeCarousel" | "squareRail";
+      sourceMode?: "manual" | "category";
+      photos?: CmsStoryPhoto[];
+      category?: { id?: string; title?: string };
+      limit?: number;
+    })
+  | (CmsPageSectionBase & {
+      type: "bannerSlot";
+      photo?: CmsStoryPhoto;
+      linkLabel?: string;
+      linkTarget?: string;
+    })
+  | (CmsPageSectionBase & {
+      type: "harborSlot";
+      heroPhoto?: CmsStoryPhoto;
+      carouselPhotos?: CmsStoryPhoto[];
+      featurePhoto?: CmsStoryPhoto;
+      stackPhotos?: CmsStoryPhoto[];
+      squarePhotos?: CmsStoryPhoto[];
+    })
+  | (CmsPageSectionBase & {
+      type: "balconyPeriodSlot";
+      periodKey?: "may" | "marchPortraits" | "marchWide" | "february" | "january" | "winter" | "summer";
+      photos?: CmsStoryPhoto[];
+    });
+
 export type PortableTextBlock = {
   _type?: string;
   children?: { text?: string }[];
 };
 
-type CmsStoryPhoto = {
+export type CmsStoryPhoto = {
   id?: string;
   title?: string;
   slug?: string;
@@ -259,4 +315,40 @@ export const cmsPhotobalconyLayoutQuery = `*[_type == "photobalconyLayout"][0] {
   "winterPhotos": winterPhotos[]->{${cmsReferencedPhotoFields}},
   "summerPhotoIds": summerPhotos[]->_id,
   "summerPhotos": summerPhotos[]->{${cmsReferencedPhotoFields}}
+}`;
+
+export const cmsPageContentQuery = `*[_type == "pageContent" && pageKey in ["home", "photobalcony"]] | order(pageKey asc) {
+  "id": _id,
+  pageKey,
+  title,
+  subtitle,
+  "heroPhoto": heroPhoto->{${cmsReferencedPhotoFields}},
+  "sections": sections[] {
+    "id": _key,
+    "type": _type,
+    title,
+    description,
+    isVisible,
+    slotKey,
+    presentation,
+    sourceMode,
+    limit,
+    linkLabel,
+    linkTarget,
+    periodKey,
+    "photo": photo->{${cmsReferencedPhotoFields}},
+    "photos": photos[]->{${cmsReferencedPhotoFields}},
+    "category": category->{"id": _id, title},
+    "heroPhoto": heroPhoto->{${cmsReferencedPhotoFields}},
+    "carouselPhotos": carouselPhotos[]->{${cmsReferencedPhotoFields}},
+    "featurePhoto": featurePhoto->{${cmsReferencedPhotoFields}},
+    "stackPhotos": stackPhotos[]->{${cmsReferencedPhotoFields}},
+    "squarePhotos": squarePhotos[]->{${cmsReferencedPhotoFields}},
+    cards[] {
+      title,
+      linkLabel,
+      linkTarget,
+      "photo": photo->{${cmsReferencedPhotoFields}}
+    }
+  }
 }`;

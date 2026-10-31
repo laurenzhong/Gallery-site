@@ -1,188 +1,237 @@
-# Sanity 内容控制改造任务文档
+# Sanity 内容控制方案（受控组件编排版）
 
 更新时间：2026-10-31
 
 ## 目标
 
-把首页和 `/photobalcony` 改造成由 Sanity 驱动的内容页面。发布者可以在 Sanity 中修改文字、图片、模块显示状态、模块顺序和显示样式，不需要修改 React 代码，也不需要因为新增一个标题或图片组而推送 GitHub。
+让日常内容维护尽可能不需要修改 React 代码，同时保证网站的视觉、交互、响应式和性能由代码稳定控制。
 
-网站继续使用当前的中英文混合内容，不在本阶段加入多语言系统。
+内容编辑者可以在 Sanity 中完成以下工作：
 
-## 当前问题
+- 修改页面标题、副标题、说明和按钮文字
+- 更换主视觉、卡片和画廊照片
+- 隐藏、显示和重新排序页面模块
+- 调整模块使用的照片、分类来源和数量
+- 编辑导航、页脚、照片信息和 Stories
+- 在已有模块类型允许的范围内组合页面
 
-- 首页的 `Landscape`、`City`、`Harbor` 等模块结构写在 React 组件中。
-- `Harbor` 标题和部分图片位置是固定字段，不能在 Sanity 中创建任意新的内容模块。
-- 很多页面标题、按钮文字、导航和辅助文字写在 JSX 中。
-- 本地分类文件夹会生成 `src/data/photos.ts` 和 `public/photos/`，构成静态回退内容。
-- 分类目录中的 `index.md` 没有被当前 React/Vite 应用读取，不作为新的内容模型延续。
+新增一种视觉模块、改变设计系统或改变交互行为仍然需要代码变更。完成一次组件开发后，该组件可以长期由 Sanity 编辑和复用。
 
-## 本阶段范围
+## 核心原则
 
-### 包含
+Sanity 是内容源和页面编排工具，React 是受控的页面渲染器。
 
-- 首页 `/`
-- 影像阳台 `/photobalcony`
-- 首页和影像阳台的模块内容、模块排序和模块样式
-- 页面标题、副标题、模块标题、说明文字、按钮文字、导航、页脚和照片元数据标签
-- 现有照片、分类、Stories、Site Settings 与新布局模型的衔接
-- Harbor 等现有固定模块迁移为通用模块
-- 不依赖本地相册文件夹的生产构建
+React 负责：
 
-### 不包含
+- 页面结构和路由
+- 受控的组件类型和组件变体
+- CSS、字体、颜色、间距和响应式断点
+- 图片加载、灯箱、无障碍和交互行为
+- 数据异常时的静态回退和错误状态
 
-- 本阶段不重做网站视觉设计
-- 本阶段不新增中英文切换
-- 本阶段不把 Journal 和 About 改成完整的可拖拽页面编辑器；它们继续使用现有 CMS 内容模型，后续可接入同一套文案模型
-- 本阶段不允许 CMS 任意写 HTML、CSS 或脚本
+Sanity 负责：
 
-## 内容模型
+- 文案、图片、分类、Stories 和元数据
+- 页面模块的顺序和显示状态
+- 模块引用哪些照片或分类
+- 受控字段中的链接、数量和标题
 
-### Site Settings
+Sanity 不允许直接写 HTML、CSS、脚本、任意 className 或任意样式值。
 
-继续作为全站单例，补充或整理以下内容：
+## 旧方案的处理
 
-- 网站名称和默认描述
-- 品牌文字
-- 主导航项：文字、目标路径、是否显示、排序
-- 页脚栏目标题和链接
-- 联系信息、社交链接
-- 全站默认的按钮和辅助文字
+上一版方案把 `sections[]`、`style`、`theme`、`columns` 等页面表现字段直接交给 Sanity，并让前端根据这些字段选择渲染器。这样会让 CMS 文档成为页面渲染 API，内容数据一旦变化就可能改变整页的视觉结构。
 
-### Page Layout
+上一版 `pageLayout` 模型作为过渡数据保留，但不作为当前生产前端的数据源。现有的 `pageLayout-home` 和 `pageLayout-photobalcony` 不删除，也不使用 `--replace` 重新覆盖。待新模型和适配层完成后，再决定迁移或废弃这些文档。
 
-创建每个页面一个布局文档：
+当前线上版本保持稳定的旧版页面渲染器。本文档描述的是下一阶段的实现目标，不代表功能已经在生产启用。
 
-- `pageKey: home`
-- `pageKey: photobalcony`
+## 内容控制边界
 
-每个页面包含可拖拽排序的 `sections[]`。每个 section 具有以下通用字段：
+| 内容 | Sanity 可编辑 | 代码控制 |
+| --- | --- | --- |
+| 页面标题、副标题、说明 | 是 | 默认回退值 |
+| 主视觉和照片 | 是 | 图片比例和加载策略 |
+| 模块顺序和显示状态 | 是 | 可用模块类型 |
+| 卡片、画廊和 Stories 内容 | 是 | 组件结构和交互 |
+| 分类来源和显示数量 | 是 | 最大数量和查询规则 |
+| 导航、页脚和操作文字 | 是 | 路由和安全链接规则 |
+| 模块的视觉变体 | 只能选择固定枚举 | 变体实现和设计令牌 |
+| CSS、字体、间距、断点 | 否 | 是 |
+| 任意 HTML、脚本和 className | 否 | 是 |
+| 新页面类型或新交互 | 否 | 是 |
 
-- `title`
-- `eyebrow`
-- `description`
-- `isVisible`
-- `style`
-- `photos[]`
-- `coverPhoto`
-- `sourceMode`: 手动选择或按分类读取
-- `category`
-- `limit`
-- `linkLabel`
-- `linkTarget`
-- `theme`
-- `showTitle`
+## 受控页面模型
 
-数组顺序就是页面显示顺序。模块隐藏时保留配置，不删除内容。
+新模型暂定使用 `pageContent` 文档。它描述页面内容，不描述 CSS。
 
-### Site Copy
+```text
+pageContent
+├── pageKey: home | photobalcony
+├── title
+├── subtitle
+├── hero
+└── sections[]
+    ├── heroSection
+    ├── featureCardsSection
+    ├── gallerySection
+    ├── bannerSection
+    ├── splitSection
+    └── storyTeaserSection
+```
 
-创建一个全站文案单例，管理不属于具体模块的固定文字：
+每一种 section 都是一个有明确字段的 Sanity object，而不是一个包含大量可选字段的通用 object。
 
-- Loading、Not Found、Back、Close、Previous、Next
-- 图片详情和照片元数据标签
-- Journal、Stories、About、Contact、Explore、Top 等固定标题
-- 图片画廊和轮播的无障碍标签
-- 空状态和错误提示
+### 允许的 section 类型
 
-代码保留最低限度的默认回退值，正常生产环境优先使用 Sanity 文案。
+- `heroSection`：主视觉图片、标题、说明和安全链接
+- `featureCardsSection`：两到三张卡片，每张卡片包含图片、标题、说明和站内链接
+- `gallerySection`：手动照片或分类来源、数量、标题和固定的 `carousel`、`grid` 或 `stack` 变体
+- `bannerSection`：标题、说明和一张横幅图片
+- `splitSection`：固定的图文并排结构
+- `storyTeaserSection`：从已发布 Stories 中选择或按规则读取
 
-### Photo、Category、Story
+变体是受控枚举，只能选择代码已经实现的值。例如 `gallerySection.presentation` 可以是 `carousel`、`grid` 或 `stack`，但不能填写任意 CSS 值。
 
-继续使用现有文档类型，并确保以下字段可由 Sanity 管理：
+## 适配层
 
-- 照片标题、替代文字、说明、署名和拍摄元数据
-- 照片的分类、显示状态和排序值
-- 分类标题、简介、封面、显示状态和排序
-- Story 标题、摘要、正文、封面和关联照片
+前端不直接把 Sanity 响应传给组件，而是经过以下链路：
 
-## 第一版显示样式
+```text
+Sanity query
+  -> schema/query validation
+  -> CMS adapter
+  -> normalized PageModel
+  -> existing React components
+```
 
-每个样式对应一个受控的 React 渲染器。CMS 选择样式，不能直接写页面代码。
+适配层负责：
 
-- `hero`：一张全宽主视觉
-- `featureCards`：两到三张特色卡片，可带链接
-- `landscapeCarousel`：上方轮播、下方图片列表或缩略图
-- `banner`：标题、说明和一张横幅图片
-- `grid`：方格或响应式图片组
-- `stack`：多张全宽纵向图片
-- `split`：图片与文字并排
+- 将照片引用转换为现有 `Photo` 类型
+- 将分类来源转换为受控的照片列表
+- 丢弃缺少必要图片或引用失效的模块
+- 校验模块类型、变体、数量和链接
+- 为缺失字段补充安全默认值
+- 在数据不完整时保留稳定的静态模块回退
 
-现有 Harbor 视觉会拆成一个或多个普通 section，例如 `banner`、`landscapeCarousel`、`grid` 和 `stack`，不再保留 Harbor 专用硬编码分支。
+组件只接收经过校验的 `PageModel`，不读取 Sanity 原始字段，也不根据未知字段动态改变页面结构。
 
-## 前端改造要求
+## 编辑和发布流程
 
-1. 新增通用页面布局查询和类型定义。
-2. 新增 section 解析器，根据 `style` 选择对应渲染器。
-3. 所有渲染器只接收 section 数据，不依赖固定文件名来决定内容。
-4. 移除首页和 Photobalcony 中依赖固定文件名、固定分类的内容回退逻辑；迁移期间可以保留回退，但 CMS 数据完整后应关闭。
-5. 将 JSX 中的可见固定文字替换为 `Site Copy` 或页面/section 字段。
-6. 保持照片链接、灯箱、Stories、EXIF 信息和响应式布局正常工作。
-7. CMS 请求失败时显示可理解的状态，不因缺少本地图片文件而构建失败。
+1. 编辑者在 Studio 修改草稿内容。
+2. Studio 的校验提示缺图、缺标题、无效引用和不允许的链接。
+3. Presentation Preview 在预览环境显示草稿结果。
+4. 发布前运行内容契约检查和页面视觉检查。
+5. 发布 Sanity 文档。
+6. 浏览器读取已发布内容；需要更新 sitemap 或静态回退时，再由 webhook 触发 Vercel 构建。
 
-## 内容工作流
+普通内容修改不需要 GitHub push。新组件、新视觉变体和新路由仍然需要代码发布。
 
-1. 在 Sanity 中上传或创建 Photo，并补全图片资源和元数据。
-2. 创建或编辑 Category、Story 和 Site Settings。
-3. 在 Page Layout 中新增 section，填写文字，选择样式和图片，拖动排序。
-4. Publish 后，网站通过已存在的 Sanity 客户端读取最新内容；不需要修改代码或推送 GitHub。
-5. 如需让 sitemap 等构建产物同步更新，再触发 Vercel 重建；页面内容本身不依赖 GitHub 推送。
+## 安全回退和缓存
 
-## 迁移步骤
+- 当前稳定页面继续作为 fallback。
+- Sanity 请求失败时不得把页面变成空白，也不得切换到未知布局。
+- CMS 缓存必须包含 schema 版本和最大有效时间。
+- 页面模型发生不兼容变化时必须自动丢弃旧缓存。
+- 结构性变更首次上线时，优先禁用本地布局缓存，确认稳定后再启用短期缓存。
+- 每次发布都可以通过 feature flag 回到稳定渲染器。
 
-### 阶段 1：模型和 Studio
+## 实施阶段
 
-- 增加 `pageLayout` 和 `siteCopy` schema。
-- 增加 Sanity Studio 的布局编辑入口、排序和内容校验。
-- 增加缺图、缺标题、缺图片资源和空模块检查。
+### 阶段 0：稳定当前生产
 
-### 阶段 2：查询和前端渲染
+- 保持当前线上旧版渲染器。
+- 不让现有 `pageLayout` 文档影响生产页面。
+- 标记旧文档为过渡数据，不执行生产数据替换。
 
-- 增加页面布局和全站文案查询。
-- 实现通用 section 类型和渲染器。
-- 接入首页和 Photobalcony。
-- 把当前首页与 Harbor 内容迁移为 Sanity sections。
+### 阶段 1：建立模型和适配层
 
-### 阶段 3：文案迁移
+- 新增受控 section schema。
+- 新增 `pageContent` 查询和 adapter。
+- 增加内容契约检查。
+- 只读取并生成对比结果，不改变当前页面渲染。
 
-- 迁移页面标题、模块标题、导航、页脚和操作文字。
-- 逐项删除组件中的硬编码可见文字。
-- 保留必要的技术默认值，避免 CMS 暂时不可用时页面崩溃。
+### 阶段 2：首页 Preview 灰度
 
-### 阶段 4：照片资产切换
+- 已从当前正在使用的 `homepageLayout` 和 `siteSettings.heroPhoto` 生成 `pageContent-home`，没有从旧的通用 `pageLayout` 复制内容。
+- 已在带有 `?page-content-preview=1` 的 Preview 路径接入 adapter；默认生产路径仍不读取新模型。
+- 已完成首页桌面端、移动端、灯箱、链接、首屏图片和 Sanity CDN 图片加载对比。
+- 稳定版和受控版的模块结构、照片数量、页面高度和交互检查通过；等待正式 Preview 部署复核。
 
-- 确认 Sanity 中所有照片都有 `image.asset`。
-- 用无本地相册文件夹的副本执行生产构建和运行测试。
-- 确认首页和 Photobalcony 不再依赖 `/photos/` 本地路径。
-- 将本地相册文件夹保留在私有备份中，不再提交公开 Git 仓库。
+### 阶段 3：Photobalcony Preview 灰度
+
+- 已从当前正在使用的 `photobalconyLayout` 迁移到受控 section，保留主视觉、标题、轮播、网格和堆叠照片。
+- 已完成桌面端、移动端、轮播切换、灯箱和 Sanity CDN 图片加载检查。
+- 仍需在正式 Vercel Preview 部署中复核；生产读取尚未启用。
+
+### 阶段 4：清理过渡模型
+
+- 在生产灰度完成前，继续保留并读取旧 `homepageLayout` 和 `photobalconyLayout` 作为稳定回退源。
+- 生产稳定运行后，才停止读取旧 `pageLayout`、`homepageLayout` 和 `photobalconyLayout`。
+- 保留一次可恢复的 Sanity 数据快照。
+- 更新 Studio 导航、文档和发布检查。
+- 在确认新模型稳定后再归档旧文档。
+
+## 发布门禁
+
+当前稳定版本发布前必须通过：
+
+```bash
+npm run lint
+npm run build
+npm run cms:status
+npm run verify:production
+```
+
+阶段 1 完成后新增受控页面契约检查；在该检查实现前，不把旧的
+`verify-page-content.mjs` 当作新模型的验证依据。
+
+阶段 1 的本地验证命令为：
+
+```bash
+npm run verify:page-content-adapter
+npm run verify:page-content-contract
+```
+
+开始迁移 `pageContent` 文档后，发布门禁改用：
+
+```bash
+npm run verify:page-content-contract -- --require
+```
+
+此外必须在 Preview 中检查：
+
+- 首页和 Photobalcony 的桌面端与移动端视觉
+- 首屏主视觉和图片加载
+- 模块顺序、显示状态和链接
+- 灯箱、照片详情、Stories、导航和页脚
+- Sanity 请求失败时的静态回退
+
+只通过 HTTP 状态检查不能作为页面发布依据。
 
 ## 验收标准
 
-- 在 Sanity 中新增一个标题和图片组，可以选择现有样式并拖到任意位置，发布后网站显示，无需改代码。
-- 在 Sanity 中隐藏一个 section，网站不显示它，但配置仍保留。
-- 修改 `Landscape`、`Harbor` 或新建其他标题时，不需要修改 React 文件。
-- 首页和 Photobalcony 的页面标题、模块标题、副标题、按钮、导航和主要辅助文字可以从 Sanity 修改。
-- 同一张照片可以被多个 section 复用。
-- 不存在本地相册文件夹时，生产构建通过，首页和 Photobalcony 仍能从 Sanity 显示图片。
-- 图片灯箱、照片详情、Stories、轮播和移动端布局继续正常工作。
-- Sanity 内容发布后，刷新页面即可看到更新；不需要 GitHub push。
-- TypeScript、lint、生产构建和无本地照片构建检查通过。
+- 修改现有标题、图片、文案、顺序和显示状态不需要改代码。
+- 新增一个已有 section 类型的内容模块不需要改代码。
+- CMS 数据不会改变 CSS、字体、断点或组件结构。
+- 缺图、无效引用和网络失败不会导致空白页面。
+- 首页和 Photobalcony 在 Preview 中与当前稳定版本保持一致。
+- 新增一种视觉模块时，代码发布后即可在 Sanity 中长期复用。
+- 发布可回退，且不会依赖客户端旧缓存。
 
-## 当前决策
+## 当前状态（2026-11-01）
 
-- 第一阶段页面：首页 + Photobalcony。
-- 文案语言：保持当前中英文混合。
-- 内容源：Sanity 为生产主源，本地静态数据只作为迁移或开发回退。
-- 模块系统：有限的受控样式集合，不开放任意 HTML/CSS。
-- Harbor：迁移为通用 section，不保留特殊模块身份。
-
-## 执行状态（2026-10-31）
-
-- 已完成 `pageLayout`、`siteCopy` schema、Studio 编辑入口和通用 section 渲染器。
-- 已将首页与 Photobalcony 的基线内容写入当前 Sanity production dataset：
-  `pageLayout-home`、`pageLayout-photobalcony`、`siteCopy-main`。
-- 当前远端检查结果：178 张照片全部有 Sanity image asset，2 个页面布局和 1 个全站文案单例均可读取。
-- 已加入 `npm run cms:page-content`（安全创建）和 `npm run verify:page-content`（发布前检查）。
-- 已通过 TypeScript、lint、Vite production build；在本地相册目录和 `public/photos` 暂时不存在时，仍可完成无本地照片生产构建。
-- 本地相册目录仍作为私有备份保留；代码中的 Git 删除和忽略变更需要在最终 Git 提交后才会从远程仓库的新版本移除。
-- `SANITY_WRITE_TOKEN` 只保留内容写入权限；webhook 配置脚本现在会自动回退到已登录的 Sanity CLI 管理凭证。当前 Vercel webhook 已更新，过滤器包含 `pageLayout` 和 `siteCopy`。
-
+- 线上稳定版本为回退后的旧版页面渲染器。
+- Sanity 照片、分类、Stories、Site Settings 和图片资源保持可用。
+- 旧 `pageLayout` 文档仍存在，但当前前端不读取它们。
+- 本文档已改为受控组件编排方案。
+- 本地 Studio 已加入受控 `pageContent` schema 和导航；`pageContent-home`、`pageContent-photobalcony` 已安全写入 production。
+- 基线迁移脚本以当前 `homepageLayout`、`photobalconyLayout` 和 `siteSettings` 为来源，不再使用旧 `pageLayout` 生成页面内容。
+- 已加入 `pageContent` 查询、adapter、契约检查和 Preview-only 读取路径；默认生产路径仍使用稳定渲染器。
+- 已配置 `VITE_PAGE_CONTENT_MODE=preview` 到 Vercel Preview 环境；Production 没有设置该变量。
+- `SANITY_WRITE_TOKEN` 已轮换，旧 token 已撤销；本地契约验证、构建、桌面/移动视觉回归和灯箱/轮播交互均已通过。
+- Vercel Preview 部署 `gallery-site-riycwqis3-zjk159357s-projects.vercel.app` 已为 `Ready`，但该部署受 Vercel 登录保护，当前会话无法直接进行无认证浏览器验收；不能把 HTTP 200 登录页当作页面验收证据。
+- 公开生产域名当前仍运行 `origin/master` 的稳定旧提交；它的 `?page-content-preview=1` 参数会被旧代码忽略，因此这次检查只能证明现有稳定页面，不作为受控 adapter 的验收证据。
+- 本地新提交已通过桌面端、移动端、Sanity CDN 图片、模块结构、灯箱、首页 Harbor 轮播和浏览器错误检查；正式构建发布后必须在包含该提交的 deployment 中重做同样检查。
+- Sanity webhook 已包含 `pageContent`；临时更新 `pageContent-home` 后实际触发了新的 Vercel Production deployment，并在恢复字段后再次部署成功。测试字段已恢复为空。
+- Production 仍保持 stable，旧布局数据暂不归档。下一步是取得 Preview 的有效认证会话并完成 Preview 环境变量验收，然后再决定是否进行生产 feature flag 灰度。

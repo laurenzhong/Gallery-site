@@ -12,6 +12,7 @@ import { StoryDetail } from "./components/StoryDetail";
 import type { Photo } from "./data/photos";
 import { useGalleryContent } from "./lib/galleryContent";
 import { imageSrcSet, sizedImageUrl } from "./lib/imageUrl";
+import { usePageContentPreview } from "./lib/pageContentPreview";
 import { matchesPhotoSlug, matchesStorySlug, photoPath } from "./lib/routes";
 
 const SITE_TITLE = "Queenstown.top | Photography";
@@ -42,18 +43,29 @@ function App() {
   const photoRouteSlug = pathname.startsWith("/photos/") ? decodeURIComponent(pathname.slice("/photos/".length)) : "";
   const storyRouteSlug = pathname.startsWith("/stories/") ? decodeURIComponent(pathname.slice("/stories/".length)) : "";
   const showPreview = new URLSearchParams(window.location.search).has("preview");
+  const pageContentMode = import.meta.env.VITE_PAGE_CONTENT_MODE ?? "stable";
+  const pageContentQuery = new URLSearchParams(window.location.search).get("page-content-preview");
+  const showPageContentPreview =
+    pageContentMode === "preview" ||
+    pageContentMode === "production" ||
+    pageContentQuery === "1" ||
+    pageContentQuery === "true";
+  const pageContentPreview = usePageContentPreview(showPageContentPreview, photos);
+  const previewHome = pageContentPreview.pages.home;
+  const previewBalcony = pageContentPreview.pages.photobalcony;
 
   const heroPhoto = useMemo(() => {
     if (content.isLoading && content.source === "static") {
       return content.heroPhoto;
     }
 
-    return content.heroPhoto
+    return previewHome?.heroPhoto
+      ?? content.heroPhoto
       ?? photos.find((photo) => photo.filename === "DSC_0638.JPG")
       ?? photos.find((photo) => photo.isHero)
       ?? photos.find((photo) => photo.filename === "DSC_0257.JPG")
       ?? photos[0];
-  }, [content.heroPhoto, content.isLoading, content.source, photos]);
+  }, [content.heroPhoto, content.isLoading, content.source, photos, previewHome?.heroPhoto]);
 
   const activePhoto = useMemo(() => {
     if (!photoRouteSlug) return undefined;
@@ -202,7 +214,11 @@ function App() {
               ) : null}
             </section>
 
-            <GallerySections photos={photos} homepageLayout={homepageLayout} onOpen={openPhoto} />
+            <GallerySections
+              photos={photos}
+              homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
+              onOpen={openPhoto}
+            />
           </>
         ) : (photoRouteSlug || storyRouteSlug) && content.isLoading ? (
           <section className="detail-page detail-empty" aria-labelledby="detail-loading-title">
@@ -221,7 +237,7 @@ function App() {
         ) : isBalconyPage ? (
           <BalconyView
             photos={photos}
-            layout={photobalconyLayout}
+            layout={previewBalcony?.photobalconyLayout ?? photobalconyLayout}
             photoMeta={photoMeta}
             photoStories={photoStories}
           />
@@ -268,7 +284,11 @@ function App() {
               </a>
             )}
 
-            <GallerySections photos={photos} homepageLayout={homepageLayout} onOpen={openPhoto} />
+            <GallerySections
+              photos={photos}
+              homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
+              onOpen={openPhoto}
+            />
           </>
         )}
       </main>

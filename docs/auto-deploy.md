@@ -58,7 +58,7 @@ npm run deploy:webhook
 It creates or updates a Sanity webhook with this filter:
 
 ```groq
-_type in ["photo", "story", "siteSettings", "category", "homepageLayout", "photobalconyLayout", "pageLayout", "siteCopy"]
+_type in ["photo", "story", "siteSettings", "category", "homepageLayout", "photobalconyLayout", "pageLayout", "pageContent", "siteCopy"]
 ```
 
 The webhook posts to `VERCEL_DEPLOY_HOOK_URL` whenever one of those documents is

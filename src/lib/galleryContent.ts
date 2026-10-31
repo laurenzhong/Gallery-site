@@ -60,6 +60,19 @@ const LEGACY_CMS_CONTENT_CACHE_KEYS = [
   "queenstown.cmsContent.v4",
 ];
 
+function shouldUseRemoteImages() {
+  return (
+    import.meta.env.PROD ||
+    import.meta.env.VITE_SANITY_REMOTE_ONLY === "true" ||
+    (typeof window !== "undefined" && (() => {
+      const params = new URLSearchParams(window.location.search);
+      const mode = import.meta.env.VITE_PAGE_CONTENT_MODE ?? "stable";
+      const query = params.get("page-content-preview");
+      return mode === "preview" || mode === "production" || query === "1" || query === "true";
+    })())
+  );
+}
+
 function blockToText(block: PortableTextBlock) {
   return block.children?.map((child) => child.text ?? "").join("") ?? "";
 }
@@ -103,7 +116,7 @@ function toPhoto(photo: CmsPhoto): Photo | null {
 const IMAGE_CDN_PARAMS = "?w=2560&q=90&auto=format&fit=max";
 
 function resolvePhotoSrc(sanityUrl: string | undefined, legacyPublicPath: string | undefined): string | undefined {
-  if (import.meta.env.DEV && legacyPublicPath) {
+  if (!shouldUseRemoteImages() && import.meta.env.DEV && legacyPublicPath) {
     return legacyPublicPath;
   }
   if (sanityUrl) {
