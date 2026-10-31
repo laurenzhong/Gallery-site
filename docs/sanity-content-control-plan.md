@@ -228,10 +228,9 @@ npm run verify:page-content-contract -- --require
 - 本地 Studio 已加入受控 `pageContent` schema 和导航；`pageContent-home`、`pageContent-photobalcony` 已安全写入 production。
 - 基线迁移脚本以当前 `homepageLayout`、`photobalconyLayout` 和 `siteSettings` 为来源，不再使用旧 `pageLayout` 生成页面内容。
 - 已加入 `pageContent` 查询、adapter、契约检查和 Preview-only 读取路径；默认生产路径仍使用稳定渲染器。
-- 已配置 `VITE_PAGE_CONTENT_MODE=preview` 到 Vercel Preview 环境；Production 没有设置该变量。
+- 已配置 `VITE_PAGE_CONTENT_MODE=preview` 到 Vercel Preview 和 Production 环境；Production 灰度 deployment `gallery-site-3oxffb0kv-zjk159357s-projects.vercel.app` 已为 `Ready`。
 - `SANITY_WRITE_TOKEN` 已轮换，旧 token 已撤销；本地契约验证、构建、桌面/移动视觉回归和灯箱/轮播交互均已通过。
 - Vercel Preview 部署 `gallery-site-riycwqis3-zjk159357s-projects.vercel.app` 已为 `Ready`，但该部署受 Vercel 登录保护，当前会话无法直接进行无认证浏览器验收；不能把 HTTP 200 登录页当作页面验收证据。
-- 公开生产域名当前仍运行 `origin/master` 的稳定旧提交；它的 `?page-content-preview=1` 参数会被旧代码忽略，因此这次检查只能证明现有稳定页面，不作为受控 adapter 的验收证据。
-- 本地新提交已通过桌面端、移动端、Sanity CDN 图片、模块结构、灯箱、首页 Harbor 轮播和浏览器错误检查；正式构建发布后必须在包含该提交的 deployment 中重做同样检查。
+- 生产灰度前的稳定 deployment 已保留；灰度 deployment 无查询参数时已确认实际请求 `pageContent`，并通过首页与 Photobalcony 的桌面端、移动端、Sanity CDN 图片、模块结构、灯箱、首页 Harbor 轮播和浏览器错误检查。
 - Sanity webhook 已包含 `pageContent`；临时更新 `pageContent-home` 后实际触发了新的 Vercel Production deployment，并在恢复字段后再次部署成功。测试字段已恢复为空。
-- Production 仍保持 stable，旧布局数据暂不归档。下一步是取得 Preview 的有效认证会话并完成 Preview 环境变量验收，然后再决定是否进行生产 feature flag 灰度。
+- Production 已进入受控 `pageContent` 灰度；Sanity 请求失败时仍回退到稳定数据。若观察期出现异常，删除 Production 的 `VITE_PAGE_CONTENT_MODE` 并重新部署即可回到 stable。旧布局数据暂不归档，待观察期结束后再处理。
