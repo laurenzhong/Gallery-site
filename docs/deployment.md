@@ -46,6 +46,13 @@ After Vercel creates a production URL, add it to Sanity CORS:
 npx sanity cors add https://your-vercel-domain.vercel.app --no-credentials
 ```
 
+For Vercel Preview deployments, allow the project-specific deployment host
+pattern so each new Preview URL can read published content:
+
+```bash
+npx sanity cors add "https://gallery-site-*.zjk159357s-projects.vercel.app" --no-credentials
+```
+
 If a custom domain is added later, add that too:
 
 ```bash
