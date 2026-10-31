@@ -1,4 +1,5 @@
 import type { Photo } from "../data/photos";
+import type { CmsCategory } from "../lib/cmsQueries";
 import type { PageLayout, PageSection } from "../lib/pageLayout";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { LandscapeSection } from "./LandscapeSection";
@@ -8,6 +9,7 @@ import { SectionStack } from "./SectionStack";
 
 type CmsPageSectionsProps = {
   layout: PageLayout;
+  categories?: CmsCategory[];
   onOpen: (photo: Photo, collection?: Photo[]) => void;
 };
 
@@ -65,7 +67,7 @@ function BannerSection({ section, onOpen }: { section: PageSection; onOpen: CmsP
   return (
     <section className="cms-section cms-section--banner">
       <SectionHeading section={section} />
-      <button type="button" className="cms-banner-photo" onClick={() => onOpen(photo, section.photos)} aria-label={`${section.title ?? "Open"} ${photo.title}`}>
+      <button type="button" className="cms-banner-photo wide-banner" onClick={() => onOpen(photo, section.photos)} aria-label={`${section.title ?? "Open"} ${photo.title}`}>
         <img
           src={sizedImageUrl(photo.src, 2000, 86)}
           srcSet={imageSrcSet(photo.src, [900, 1400, 2200], 86)}
@@ -153,9 +155,18 @@ function RenderSection({ section, onOpen }: { section: PageSection; onOpen: CmsP
   );
 }
 
-export function CmsPageSections({ layout, onOpen }: CmsPageSectionsProps) {
+export function CmsPageSections({ layout, categories, onOpen }: CmsPageSectionsProps) {
   return (
     <div className="cms-page-sections">
+      {layout.pageKey === "home" && categories?.length ? (
+        <nav className="category-index" aria-label="Photography categories">
+          {categories.map((category) => (
+            <a href="#photography" key={category.id} title={category.description || category.title}>
+              {category.title}
+            </a>
+          ))}
+        </nav>
+      ) : null}
       {layout.sections.map((section) => (
         <RenderSection key={section.id} section={section} onOpen={onOpen} />
       ))}

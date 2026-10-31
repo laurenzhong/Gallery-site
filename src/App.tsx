@@ -296,7 +296,7 @@ function App() {
                 />
               </section>
             ) : null}
-            <CmsPageSections layout={cmsHomeLayout} onOpen={openPhotoItem} />
+            <CmsPageSections layout={cmsHomeLayout} categories={categories} onOpen={openPhotoItem} />
           </>
         ) : (
           <>
