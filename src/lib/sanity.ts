@@ -17,7 +17,9 @@ export function getSanityClient(): SanityClient | null {
     projectId,
     dataset,
     apiVersion,
-    useCdn: false,
+    // Public browser reads use Sanity's read CDN. It is resilient to transient
+    // project API outages while still serving published documents and assets.
+    useCdn: import.meta.env.PROD,
   });
 }
 
