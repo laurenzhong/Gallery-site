@@ -13,7 +13,7 @@ async function fetchHeroUrlFromSanity(): Promise<string | null> {
       useCdn: true,
     })
     const result = await client.fetch<{ s?: string }>(
-      `*[_type=="photo"&&isHero==true][0]{"s":image.asset->url}`
+      `coalesce(*[_type=="siteSettings"][0].heroPhoto->{"s":image.asset->url}, *[_type=="photo"&&isHero==true][0]{"s":image.asset->url})`
     )
     return result?.s ?? null
   } catch {

@@ -112,7 +112,7 @@ async function fetchCmsHeroPhoto() {
 
   const query = `{
     "hero": coalesce(
-      *[_type == "photo" && isHidden != true && category->isVisible != false && isHero == true][0]{
+      *[_type == "siteSettings"][0].heroPhoto->{
         "id": _id,
         "src": image.asset->url,
         title,
@@ -122,7 +122,7 @@ async function fetchCmsHeroPhoto() {
         "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
         "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
       },
-      *[_type == "siteSettings"][0].heroPhoto->{
+      *[_type == "photo" && isHidden != true && category->isVisible != false && isHero == true][0]{
         "id": _id,
         "src": image.asset->url,
         title,
