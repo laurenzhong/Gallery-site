@@ -292,7 +292,7 @@ export const initialHeroPhoto: Photo | undefined = ${JSON.stringify(initialHeroP
 }
 
 const cmsHero = await fetchCmsHeroPhoto();
-const heroFilename = cmsHero.photo?.filename ?? (cmsHero.configured ? undefined : "DSC_0257.JPG");
+const heroFilename = cmsHero.photo?.filename ?? (cmsHero.configured ? undefined : "DSC_0638.JPG");
 const photos = await collectPhotos(heroFilename);
 const initialHeroPhoto = toInitialHeroPhoto(cmsHero.photo, photos);
 

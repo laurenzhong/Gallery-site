@@ -263,7 +263,7 @@ export const photos: Photo[] = [
     "filename": "DSC_5499.JPG",
     "width": 5924,
     "height": 3950,
-    "isHero": true
+    "isHero": false
   },
   {
     "id": "photo-023",
@@ -692,7 +692,7 @@ export const photos: Photo[] = [
     "filename": "DSC_0638.JPG",
     "width": 6048,
     "height": 4032,
-    "isHero": false
+    "isHero": true
   },
   {
     "id": "photo-062",
@@ -840,12 +840,12 @@ export const photos: Photo[] = [
 ];
 
 export const initialHeroPhoto: Photo | undefined = {
-  "id": "photo-dsc_5499-b50343c4",
+  "id": "photo-dsc_0638-d6849a94",
   "src": "https://cdn.sanity.io/images/zj2ik922/production/31895c640a744fffaf18d9628d324ee2245ae5da-6048x4032.jpg?w=2560&q=90&auto=format&fit=max",
-  "title": "DSC_5499",
-  "slug": "dsc_5499-b50343",
-  "category": "日出日落",
-  "filename": "DSC_5499.JPG",
+  "title": "DSC_0638",
+  "slug": "dsc-0638",
+  "category": "石塘度假区",
+  "filename": "DSC_0638.JPG",
   "width": 6048,
   "height": 4032,
   "isHero": true

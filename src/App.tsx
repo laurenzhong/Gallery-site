@@ -49,7 +49,7 @@ function App() {
     }
 
     return content.heroPhoto
-      ?? photos.find((photo) => photo.filename === "DSC_5499.JPG")
+      ?? photos.find((photo) => photo.filename === "DSC_0638.JPG")
       ?? photos.find((photo) => photo.isHero)
       ?? photos.find((photo) => photo.filename === "DSC_0257.JPG")
       ?? photos[0];

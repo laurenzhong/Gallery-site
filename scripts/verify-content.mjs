@@ -20,7 +20,7 @@ const [{ photos, initialHeroPhoto }, { photoStories }] = await Promise.all([
 ]);
 
 if (!Array.isArray(photos) || photos.length === 0) fail("no static photos found");
-if (!initialHeroPhoto?.src && !photos.some((photo) => photo.isHero || photo.filename === "DSC_0257.JPG")) {
+if (!initialHeroPhoto?.src && !photos.some((photo) => photo.isHero || photo.filename === "DSC_0638.JPG")) {
   fail("no static hero fallback found");
 }
 
