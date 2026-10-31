@@ -48,7 +48,15 @@ const staticContent: GalleryContent = {
   isLoading: false,
 };
 
-const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v4";
+// The previous page-layout rollout stored a different content shape under v4.
+// Never reuse those entries after restoring the native gallery renderer.
+const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v8";
+const LEGACY_CMS_CONTENT_CACHE_KEYS = [
+  "queenstown.cmsContent.v7",
+  "queenstown.cmsContent.v6",
+  "queenstown.cmsContent.v5",
+  "queenstown.cmsContent.v4",
+];
 
 function blockToText(block: PortableTextBlock) {
   return block.children?.map((child) => child.text ?? "").join("") ?? "";
@@ -389,6 +397,10 @@ function readCachedCmsContent(): GalleryContent | undefined {
   }
 
   try {
+    for (const key of LEGACY_CMS_CONTENT_CACHE_KEYS) {
+      window.localStorage.removeItem(key);
+    }
+
     const cached = window.localStorage.getItem(CMS_CONTENT_CACHE_KEY);
     if (!cached) {
       return undefined;
