@@ -50,8 +50,9 @@ const staticContent: GalleryContent = {
 
 // The previous page-layout rollout stored a different content shape under v4.
 // Never reuse those entries after restoring the native gallery renderer.
-const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v8";
+const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v9";
 const LEGACY_CMS_CONTENT_CACHE_KEYS = [
+  "queenstown.cmsContent.v8",
   "queenstown.cmsContent.v7",
   "queenstown.cmsContent.v6",
   "queenstown.cmsContent.v5",
