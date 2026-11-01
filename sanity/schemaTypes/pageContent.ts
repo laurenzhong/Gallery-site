@@ -59,6 +59,12 @@ const heroSection = defineArrayMember({
       validation: linkValidation,
     }),
   ],
+  preview: {
+    select: { title: "title", media: "photo.image", visible: "isVisible" },
+    prepare({ title, media, visible }) {
+      return { title: title || "主视觉模块", subtitle: visible === false ? "已隐藏" : "主视觉", media };
+    },
+  },
 });
 
 const featureCardsSection = defineArrayMember({
@@ -97,6 +103,12 @@ const featureCardsSection = defineArrayMember({
       ],
     }),
   ],
+  preview: {
+    select: { title: "title", media: "cards.0.photo.image", visible: "isVisible" },
+    prepare({ title, media, visible }) {
+      return { title: title || "特色卡片模块", subtitle: visible === false ? "已隐藏" : "特色卡片", media };
+    },
+  },
 });
 
 const gallerySection = defineArrayMember({
@@ -175,6 +187,24 @@ const gallerySection = defineArrayMember({
       validation: (Rule) => Rule.min(1).max(48),
     }),
   ],
+  preview: {
+    select: { title: "title", slotKey: "slotKey", media: "photos.0.image", visible: "isVisible" },
+    prepare({ title, slotKey, media, visible }) {
+      const slotLabels = {
+        landscape: "Landscape",
+        quiet: "Quiet moments",
+        city: "City",
+        harborCarousel: "Harbor carousel",
+        harborStack: "Harbor stack",
+        harborSquare: "Harbor squares",
+      };
+      return {
+        title: title || slotLabels[slotKey as keyof typeof slotLabels] || "照片画廊模块",
+        subtitle: visible === false ? "已隐藏" : "照片画廊",
+        media,
+      };
+    },
+  },
 });
 
 const bannerSection = defineArrayMember({
@@ -208,6 +238,16 @@ const bannerSection = defineArrayMember({
     defineField({ name: "linkLabel", title: "链接文字", type: "string" }),
     defineField({ name: "linkTarget", title: "链接地址", type: "string", validation: linkValidation }),
   ],
+  preview: {
+    select: { title: "title", slotKey: "slotKey", media: "photo.image", visible: "isVisible" },
+    prepare({ title, slotKey, media, visible }) {
+      return {
+        title: title || (slotKey === "harbor" ? "Harbor" : "横幅模块"),
+        subtitle: visible === false ? "已隐藏" : "横幅",
+        media,
+      };
+    },
+  },
 });
 
 const balconyPeriodSection = defineArrayMember({
