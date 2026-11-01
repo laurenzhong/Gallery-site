@@ -6,6 +6,16 @@ const storyOrdering = [{ field: "orderRank", direction: "asc" as const }];
 
 const li = (S: Parameters<StructureResolver>[0], id: string) => S.listItem().id(id);
 
+const safeId = (value: string) => {
+  const ascii = value.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
+  if (ascii) return ascii;
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
+  }
+  return `c${(hash >>> 0).toString(36)}`;
+};
+
 const photoList = (
   S: Parameters<StructureResolver>[0],
   title: string,
@@ -19,7 +29,7 @@ const storyList = (
 ) => S.documentTypeList("story").title(title).filter(filter).defaultOrdering(storyOrdering);
 
 const categoryPhotoItem = (S: Parameters<StructureResolver>[0], title: string) =>
-  li(S, `photos.category.${title}`)
+  li(S, `photos.category.${safeId(title)}`)
     .title(title)
     .schemaType("photo")
     .child(photoList(S, title, '_type == "photo" && category->title == $category').params({ category: title }));
