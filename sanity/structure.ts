@@ -123,7 +123,8 @@ export const structure: StructureResolver = (S, context) =>
                   S.documentTypeList("photo")
                     .title("全部照片")
                     .filter('_type == "photo"')
-                    .defaultOrdering(recentPhotoOrdering),
+                    .defaultOrdering(recentPhotoOrdering)
+                    .defaultLayout("media"),
                 ),
               li(S, "photos.needs-attention")
                 .title("需要补全")
