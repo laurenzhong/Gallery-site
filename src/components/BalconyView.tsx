@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Photo } from "../data/photos";
 import type { PhotoMeta, PhotoStory } from "../data/stories";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
-import type { PhotobalconyLayout } from "../lib/photobalconyLayout";
+import type { PhotobalconyLayout, PhotobalconyPeriod } from "../lib/photobalconyLayout";
 import { photoPath } from "../lib/routes";
 import { AdvancedPhotoLightbox } from "./AdvancedPhotoLightbox";
 
@@ -237,16 +237,19 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
     const winter = configuredPhotos(layout, layout?.winterPhotos, fallbackWinter);
     const summer = configuredPhotos(layout, layout?.summerPhotos, fallbackSummer);
 
+    const fallbackPeriods: PhotobalconyPeriod[] = [
+      { key: "may", title: layout?.mayTitle || DEFAULT_BALCONY_TITLES.may, photos: may },
+      { key: "marchPortraits", title: layout?.marchTitle || DEFAULT_BALCONY_TITLES.march, photos: marchPortraits },
+      { key: "marchWide", title: layout?.marchTitle || DEFAULT_BALCONY_TITLES.march, photos: marchWide },
+      { key: "february", title: layout?.februaryTitle || DEFAULT_BALCONY_TITLES.february, photos: february },
+      { key: "january", title: layout?.januaryTitle || DEFAULT_BALCONY_TITLES.january, photos: january },
+      { key: "winter", title: layout?.winterTitle || DEFAULT_BALCONY_TITLES.winter, photos: winter },
+      { key: "summer", title: layout?.summerTitle || DEFAULT_BALCONY_TITLES.summer, photos: summer },
+    ];
+
     return {
       hero: layout?.heroPhoto ?? fallbackHero,
-      titles: {
-        may: layout?.mayTitle || DEFAULT_BALCONY_TITLES.may,
-        march: layout?.marchTitle || DEFAULT_BALCONY_TITLES.march,
-        february: layout?.februaryTitle || DEFAULT_BALCONY_TITLES.february,
-        january: layout?.januaryTitle || DEFAULT_BALCONY_TITLES.january,
-        winter: layout?.winterTitle || DEFAULT_BALCONY_TITLES.winter,
-        summer: layout?.summerTitle || DEFAULT_BALCONY_TITLES.summer,
-      },
+      periods: layout?.periods?.length ? layout.periods : fallbackPeriods,
       may,
       marchPortraits,
       marchWide,
@@ -265,6 +268,68 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
     if (index >= 0) {
       setLightboxState({ photos: lightboxPhotos, index });
     }
+  };
+
+  const renderPeriod = (period: PhotobalconyPeriod) => {
+    const onOpen = (photo: Photo) => openPhoto(photo, period.photos);
+
+    if (period.key === "marchPortraits") {
+      return (
+        <section className="balcony-portrait-row" aria-label={`${period.title} portrait photos`}>
+          {period.photos.map((photo) => (
+            <PhotoButton key={photo.id} photo={photo} className="balcony-portrait-photo" onOpen={onOpen} />
+          ))}
+        </section>
+      );
+    }
+
+    if (period.key === "marchWide" || period.key === "may" || period.key === "february") {
+      return <BalconyCarousel title={period.title} photos={period.photos} onOpen={onOpen} />;
+    }
+
+    if (period.key === "january") {
+      return (
+        <section className="balcony-grid" aria-label={`${period.title} photo grid`}>
+          {period.photos.map((photo) => (
+            <PhotoButton key={photo.id} photo={photo} className="balcony-grid-photo" onOpen={onOpen} />
+          ))}
+        </section>
+      );
+    }
+
+    if (period.key === "winter") {
+      return (
+        <section className="balcony-grid balcony-grid--wide" aria-label={`${period.title} photo grid`}>
+          {period.photos.map((photo, index) => (
+            <PhotoButton
+              key={photo.id}
+              photo={photo}
+              className="balcony-grid-photo"
+              src={sizedImageUrl(photo.src, 1800, 86)}
+              srcSet={imageSrcSet(photo.src, [1200, 1800, 2400], 86)}
+              sizes={index === 0 ? "100vw" : "(max-width: 700px) 100vw, 50vw"}
+              onOpen={onOpen}
+            />
+          ))}
+        </section>
+      );
+    }
+
+    return (
+      <section className="balcony-final-stack" aria-label={`${period.title} photo stack`}>
+        {period.photos.map((photo, index) => (
+          <PhotoButton
+            key={photo.id}
+            photo={photo}
+            className={index === 0 ? "balcony-final-photo balcony-final-photo--large" : "balcony-final-photo"}
+            src={sizedImageUrl(photo.src, 1800, 86)}
+            srcSet={imageSrcSet(photo.src, [1200, 1800, 2400], 86)}
+            sizes="100vw"
+            onOpen={onOpen}
+          />
+        ))}
+      </section>
+    );
   };
 
   return (
@@ -287,56 +352,16 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
         />
       </section>
 
-      <MonthTitle title={content.titles.may} />
-      <BalconyCarousel title={content.titles.may} photos={content.may} onOpen={(photo) => openPhoto(photo, content.may)} />
-
-      <MonthTitle title={content.titles.march} />
-      <section className="balcony-portrait-row" aria-label={`${content.titles.march} portrait photos`}>
-        {content.marchPortraits.map((photo) => (
-          <PhotoButton key={photo.id} photo={photo} className="balcony-portrait-photo" onOpen={(item) => openPhoto(item, content.marchPortraits)} />
-        ))}
-      </section>
-      <BalconyCarousel title={content.titles.march} photos={content.marchWide} onOpen={(photo) => openPhoto(photo, content.marchWide)} />
-
-      <MonthTitle title={content.titles.february} />
-      <BalconyCarousel title={content.titles.february} photos={content.february} onOpen={(photo) => openPhoto(photo, content.february)} />
-
-      <MonthTitle title={content.titles.january} />
-      <section className="balcony-grid" aria-label={`${content.titles.january} photo grid`}>
-        {content.january.map((photo) => (
-          <PhotoButton key={photo.id} photo={photo} className="balcony-grid-photo" onOpen={(item) => openPhoto(item, content.january)} />
-        ))}
-      </section>
-
-      <MonthTitle title={content.titles.winter} />
-      <section className="balcony-grid balcony-grid--wide" aria-label={`${content.titles.winter} photo grid`}>
-        {content.winter.map((photo, index) => (
-          <PhotoButton
-            key={photo.id}
-            photo={photo}
-            className="balcony-grid-photo"
-            src={sizedImageUrl(photo.src, 1800, 86)}
-            srcSet={imageSrcSet(photo.src, [1200, 1800, 2400], 86)}
-            sizes={index === 0 ? "100vw" : "(max-width: 700px) 100vw, 50vw"}
-            onOpen={(item) => openPhoto(item, content.winter)}
-          />
-        ))}
-      </section>
-
-      <MonthTitle title={content.titles.summer} />
-      <section className="balcony-final-stack" aria-label={`${content.titles.summer} photo stack`}>
-        {content.summer.map((photo, index) => (
-          <PhotoButton
-            key={photo.id}
-            photo={photo}
-            className={index === 0 ? "balcony-final-photo balcony-final-photo--large" : "balcony-final-photo"}
-            src={sizedImageUrl(photo.src, 1800, 86)}
-            srcSet={imageSrcSet(photo.src, [1200, 1800, 2400], 86)}
-            sizes="100vw"
-            onOpen={(item) => openPhoto(item, content.summer)}
-          />
-        ))}
-      </section>
+      {content.periods.map((period, index) => {
+        const previous = content.periods[index - 1];
+        const showTitle = !previous || previous.title !== period.title;
+        return (
+          <Fragment key={`${period.key}-${index}`}>
+            {showTitle ? <MonthTitle title={period.title} /> : null}
+            {renderPeriod(period)}
+          </Fragment>
+        );
+      })}
 
       <AdvancedPhotoLightbox
         photos={lightboxState?.photos ?? []}

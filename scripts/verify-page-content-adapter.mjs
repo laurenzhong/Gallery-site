@@ -84,6 +84,9 @@ if (balcony.photobalconyLayout?.mayTitle !== "2026") fail("balcony title was not
 if (balcony.photobalconyLayout?.mayPhotos?.[0]?.id !== "photo-one") fail("balcony period was not adapted");
 if (balcony.photobalconyLayout?.marchWidePhotos?.[0]?.id !== "photo-three") fail("second March balcony period was not adapted");
 if (balcony.photobalconyLayout?.winterPhotos?.[0]?.id !== "photo-two") fail("second balcony period was not adapted");
+if (balcony.photobalconyLayout?.periods?.map((period) => period.key).join(",") !== "may,marchWide,winter") {
+  fail("balcony period order was not preserved");
+}
 
 const invalid = adapter.adaptPageContent(
   {

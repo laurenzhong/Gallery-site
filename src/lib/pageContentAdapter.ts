@@ -1,6 +1,6 @@
 import type { Photo } from "../data/photos";
 import type { HomepageFeatureCard, HomepageLayout } from "./homepageLayout";
-import type { PhotobalconyLayout } from "./photobalconyLayout";
+import type { PhotobalconyLayout, PhotobalconyPeriod, PhotobalconyPeriodKey } from "./photobalconyLayout";
 import type { CmsPageContent, CmsPageSection, CmsStoryPhoto } from "./cmsQueries";
 
 export type PageContentAdapterResult = {
@@ -197,8 +197,9 @@ function returnHomeHero(slots: Record<string, unknown>, photo: Photo) {
 function adaptBalconyContent(content: CmsPageContent, allPhotos: Photo[], warnings: string[]) {
   const photos = new Map(allPhotos.map((photo) => [photo.id, photo]));
   const layout: PhotobalconyLayout = {};
+  const periods: PhotobalconyPeriod[] = [];
   const heroPhoto = photoFromReference(content.heroPhoto, photos);
-  const periodTargets = {
+  const periodTargets: Record<PhotobalconyPeriodKey, readonly [string, string]> = {
     may: ["mayTitle", "mayPhotos"],
     marchPortraits: ["marchTitle", "marchPortraitPhotos"],
     marchWide: ["marchTitle", "marchWidePhotos"],
@@ -232,7 +233,8 @@ function adaptBalconyContent(content: CmsPageContent, allPhotos: Photo[], warnin
     }
 
     const [titleKey, photosKey] = target;
-    if (layout[photosKey] !== undefined) {
+    const layoutValues = layout as Record<string, unknown>;
+    if (layoutValues[photosKey] !== undefined) {
       addWarning(warnings, section, index, `重复配置时间段 ${periodKey}，已保留第一次配置`);
       continue;
     }
@@ -243,11 +245,13 @@ function adaptBalconyContent(content: CmsPageContent, allPhotos: Photo[], warnin
       continue;
     }
 
-    if (layout[titleKey] === undefined) layout[titleKey] = section.title;
-    layout[photosKey] = resolved;
+    if (layoutValues[titleKey] === undefined) layoutValues[titleKey] = section.title;
+    layoutValues[photosKey] = resolved;
+    periods.push({ key: periodKey as PhotobalconyPeriodKey, title: section.title ?? "", photos: resolved });
   }
 
   if (heroPhoto) layout.heroPhoto = heroPhoto;
+  if (periods.length) layout.periods = periods;
   return { heroPhoto: heroPhoto ?? (layout.heroPhoto as Photo | undefined), photobalconyLayout: layout };
 }
 
