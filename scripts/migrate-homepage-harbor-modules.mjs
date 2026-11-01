@@ -34,11 +34,12 @@ const token = process.env.SANITY_WRITE_TOKEN ?? process.env.SANITY_AUTH_TOKEN;
 if (!projectId || !token) throw new Error("Sanity project ID and write token are required.");
 
 const client = createClient({ projectId, dataset, apiVersion: "2025-02-19", token, useCdn: false });
-const document = await client.fetch(
-  `*[_type == "pageContent" && pageKey == "home"][0]{_id,sections[]{...,"photoRef":photo._ref,"heroPhotoRef":heroPhoto._ref,"carouselRefs":carouselPhotos[]._ref,"stackRefs":stackPhotos[]._ref,"squareRefs":squarePhotos[]._ref}}`,
+const rawClient = client.withConfig({ perspective: "raw" });
+const documents = await rawClient.fetch(
+  `*[_id in ["pageContent-home", "drafts.pageContent-home"]]{_id,sections[]{...}}`,
 );
 
-if (!document?._id) throw new Error("pageContent-home was not found.");
+if (!documents?.length) throw new Error("pageContent-home was not found.");
 
 const referenceList = (ids, prefix) =>
   (ids ?? []).filter(Boolean).map((id, index) => ({ _key: `${prefix}-${index}`, _type: "reference", _ref: id }));
@@ -54,71 +55,75 @@ const gallery = ({ key, slotKey, title, presentation, photos }) => ({
   photos: referenceList(photos, `${key}-photo`),
 });
 
-const migratedSections = [];
-for (const section of document.sections ?? []) {
-  if (section._type === "harborSlot") {
-    if (section.heroPhotoRef) {
-      migratedSections.push({
-        _key: "content-home-harbor",
-        _type: "bannerSlot",
-        title: "Harbor",
-        isVisible: section.isVisible !== false,
-        slotKey: "harbor",
-        photo: { _type: "reference", _ref: section.heroPhotoRef },
-      });
+for (const document of documents) {
+  const migratedSections = [];
+  for (const section of document.sections ?? []) {
+    if (section._type === "harborSlot") {
+      const visible = section.isVisible !== false;
+      const title = section.title || "Harbor";
+      if (section.heroPhoto?._ref) {
+        migratedSections.push({
+          _key: "content-home-harbor",
+          _type: "bannerSlot",
+          title,
+          isVisible: visible,
+          slotKey: "harbor",
+          photo: { _type: "reference", _ref: section.heroPhoto._ref },
+        });
+      }
+      if (section.carouselPhotos?.length) {
+        migratedSections.push(
+          gallery({
+            key: "content-home-harbor-carousel",
+            slotKey: "harborCarousel",
+            title: `${title} carousel`,
+            presentation: "landscapeCarousel",
+            photos: section.carouselPhotos.map(({ _ref }) => _ref),
+          }),
+        );
+      }
+      if (section.stackPhotos?.length) {
+        migratedSections.push(
+          gallery({
+            key: "content-home-harbor-stack",
+            slotKey: "harborStack",
+            title: `${title} stack`,
+            presentation: "stack",
+            photos: section.stackPhotos.map(({ _ref }) => _ref),
+          }),
+        );
+      }
+      if (section.squarePhotos?.length) {
+        migratedSections.push(
+          gallery({
+            key: "content-home-harbor-square",
+            slotKey: "harborSquare",
+            title: `${title} squares`,
+            presentation: "squareGrid",
+            photos: section.squarePhotos.map(({ _ref }) => _ref),
+          }),
+        );
+      }
+      continue;
     }
-    if (section.carouselRefs?.length) {
-      migratedSections.push(
-        gallery({
-          key: "content-home-harbor-carousel",
-          slotKey: "harborCarousel",
-          title: "Harbor carousel",
-          presentation: "landscapeCarousel",
-          photos: section.carouselRefs,
-        }),
-      );
+
+    if (section._type === "bannerSlot" && !section.slotKey) {
+      const banner = { ...section, slotKey: "bannerOne" };
+      if (banner.title === "Harbor") delete banner.title;
+      migratedSections.push(banner);
+      continue;
     }
-    if (section.stackRefs?.length) {
-      migratedSections.push(
-        gallery({
-          key: "content-home-harbor-stack",
-          slotKey: "harborStack",
-          title: "Harbor stack",
-          presentation: "stack",
-          photos: section.stackRefs,
-        }),
-      );
-    }
-    if (section.squareRefs?.length) {
-      migratedSections.push(
-        gallery({
-          key: "content-home-harbor-square",
-          slotKey: "harborSquare",
-          title: "Harbor squares",
-          presentation: "squareGrid",
-          photos: section.squareRefs,
-        }),
-      );
-    }
-    continue;
+
+    migratedSections.push(section);
   }
 
-  if (section._type === "bannerSlot" && !section.slotKey) {
-    const banner = { ...section, slotKey: "bannerOne" };
-    if (banner.title === "Harbor") delete banner.title;
-    migratedSections.push(banner);
-    continue;
+  const harborKeys = migratedSections
+    .filter((section) => ["content-home-harbor", "content-home-harbor-carousel", "content-home-harbor-stack", "content-home-harbor-square"].includes(section._key))
+    .map((section) => `${section._type}:${section._key}:${section.title ?? ""}`);
+  console.log(`${document._id} Harbor modules: ${harborKeys.join(" | ") || "already migrated"}`);
+
+  if (!process.argv.includes("--dry-run") && document.sections?.some((section) => section._type === "harborSlot")) {
+    await client.patch(document._id).set({ sections: migratedSections }).commit();
+    console.log(`Updated ${document._id} with ${migratedSections.length} independent sections.`);
   }
-
-  migratedSections.push(section);
-}
-
-const harborKeys = migratedSections.filter((section) => ["content-home-harbor", "content-home-harbor-carousel", "content-home-harbor-stack", "content-home-harbor-square"].includes(section._key)).map((section) => `${section._type}:${section._key}:${section.title ?? ""}`);
-console.log(`Harbor modules: ${harborKeys.join(" | ")}`);
-
-if (process.argv.includes("--dry-run")) {
-  console.log("Dry run: no document was written.");
-} else {
-  await client.patch(document._id).set({ sections: migratedSections }).commit();
-  console.log(`Updated ${document._id} with ${migratedSections.length} independent sections.`);
 }
