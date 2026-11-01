@@ -7,7 +7,10 @@ import { structure } from "./sanity/structure";
 
 const projectId = process.env.SANITY_STUDIO_PROJECT_ID ?? "yourprojectid";
 const dataset = process.env.SANITY_STUDIO_DATASET ?? "production";
-const previewOrigin = process.env.SANITY_STUDIO_PREVIEW_URL ?? "http://localhost:5173";
+// Local development can override this with SANITY_STUDIO_PREVIEW_URL. The
+// deployed Studio must never fall back to localhost: localhost would refer to
+// the editor's own machine and make Presentation appear unavailable.
+const previewOrigin = process.env.SANITY_STUDIO_PREVIEW_URL ?? "https://www.queenstown.top";
 
 export default defineConfig({
   name: "default",
