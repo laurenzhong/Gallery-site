@@ -18,6 +18,7 @@
     "cms:backfill-dimensions": "node scripts/backfill-photo-dimensions.mjs",
     "cms:photobalcony-layout": "node scripts/create-photobalcony-layout.mjs",
     "cms:page-content-baseline": "node scripts/migrate-page-content-baseline.mjs",
+    "cms:migrate-harbor": "node scripts/migrate-homepage-harbor-modules.mjs",
     "verify:page-content-adapter": "node scripts/verify-page-content-adapter.mjs",
     "verify:page-content-contract": "node scripts/verify-page-content-contract.mjs",
     "sync:photos": "node scripts/sync-photos.mjs",

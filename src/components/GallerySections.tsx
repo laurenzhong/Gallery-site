@@ -1,5 +1,5 @@
 import type { Photo } from "../data/photos";
-import type { HomepageLayout } from "../lib/homepageLayout";
+import type { HomepageContentSection, HomepageLayout } from "../lib/homepageLayout";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { LandscapeSection } from "./LandscapeSection";
 
@@ -253,7 +253,165 @@ function PlantsReferenceLayout({
   );
 }
 
+function SectionTitle({ title }: { title?: string }) {
+  if (!title) return null;
+  return (
+    <div className="section-title-row section-title-row--compact">
+      <h2>{title}</h2>
+    </div>
+  );
+}
+
+function OrderedHomepageSections({
+  sections,
+  photos,
+  onOpen,
+}: {
+  sections: HomepageContentSection[];
+  photos: Photo[];
+  onOpen: (index: number, lightboxPhotos?: Photo[]) => void;
+}) {
+  return (
+    <section className="reference-content" id="photography" aria-label="Photography archive">
+      {sections.map((section) => {
+        if (section.kind === "featureCards") {
+          return (
+            <div className="feature-grid" aria-label={section.title ?? "Featured photography groups"} key={section.id}>
+              {section.cards.map((card) => {
+                const cardContent = (
+                  <>
+                    <img
+                      src={sizedImageUrl(card.photo.src, 900, 82)}
+                      srcSet={imageSrcSet(card.photo.src, [520, 820, 1100], 82)}
+                      sizes="(max-width: 640px) 100vw, 33vw"
+                      alt={`${card.title} ${card.photo.title}`}
+                      loading="eager"
+                      fetchPriority="low"
+                      decoding="async"
+                    />
+                    <span>{card.title}</span>
+                  </>
+                );
+
+                return card.href ? (
+                  <a className="feature-card feature-card--link" href={card.href} key={`${section.id}-${card.title}`} aria-label={card.title}>
+                    {cardContent}
+                  </a>
+                ) : (
+                  <div className="feature-card" key={`${section.id}-${card.title}`} aria-label={card.title}>
+                    {cardContent}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }
+
+        if (section.kind === "banner") {
+          if (section.slotKey === "harbor") {
+            return (
+              <section className="plants-reference" id={section.id} key={section.id} aria-label={`${section.title ?? "Harbor"} gallery`}>
+                <SectionTitle title={section.title} />
+                <ReferencePhoto
+                  photo={section.photo}
+                  allPhotos={photos}
+                  onOpen={onOpen}
+                  className="plants-reference-banner"
+                  loading="eager"
+                />
+              </section>
+            );
+          }
+
+          return (
+            <section key={section.id} aria-label={section.title ?? "Banner"}>
+              <SectionTitle title={section.title} />
+              <BannerImage photo={section.photo} allPhotos={photos} onOpen={onOpen} />
+            </section>
+          );
+        }
+
+        if (section.presentation === "landscapeCarousel") {
+          return (
+            <LandscapeSection
+              id={section.id}
+              key={section.id}
+              title={section.title ?? "Gallery"}
+              photos={section.photos}
+              showTitle={Boolean(section.title)}
+              filterLandscape={false}
+              onOpen={(photo, carouselPhotos) => onOpen(photoIndex(photos, photo), carouselPhotos)}
+            />
+          );
+        }
+
+        if (section.presentation === "squareRail") {
+          return (
+            <div key={section.id}>
+              <GalleryRail
+                group={{ id: section.id, title: section.title ?? "Gallery", photos: section.photos, variant: "square" }}
+                allPhotos={photos}
+                onOpen={onOpen}
+                showTitle={false}
+              />
+            </div>
+          );
+        }
+
+        if (section.presentation === "stack") {
+          return (
+            <section className="plants-reference" id={section.id} key={section.id} aria-label={`${section.title ?? "Gallery"} stack`}>
+              <SectionTitle title={section.title} />
+              <div className="plants-reference-stack">
+                {section.photos.map((photo) => {
+                  const ratio = photo.width / photo.height;
+                  const sizeClass =
+                    ratio < 0.82
+                      ? "plants-reference-full--portrait"
+                      : ratio > 1.2
+                        ? "plants-reference-full--wide"
+                        : "plants-reference-full--four-three";
+                  return (
+                    <ReferencePhoto
+                      key={`${section.id}-${photo.id}`}
+                      photo={photo}
+                      allPhotos={photos}
+                      onOpen={onOpen}
+                      className={`plants-reference-full ${sizeClass}`}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          );
+        }
+
+        return (
+          <section className="plants-reference" id={section.id} key={section.id} aria-label={`${section.title ?? "Gallery"} square gallery`}>
+            <SectionTitle title={section.title} />
+            <div className="plants-reference-squares">
+              {section.photos.map((photo) => (
+                <ReferencePhoto
+                  key={`${section.id}-${photo.id}`}
+                  photo={photo}
+                  allPhotos={photos}
+                  onOpen={onOpen}
+                  className="plants-reference-square"
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </section>
+  );
+}
+
 export function GallerySections({ photos, homepageLayout, onOpen }: GallerySectionsProps) {
+  if (homepageLayout?.sections?.length) {
+    return <OrderedHomepageSections sections={homepageLayout.sections} photos={photos} onOpen={onOpen} />;
+  }
+
   const landscapeCandidates = uniquePhotos(
     byCategory(photos, "山野", 9),
     byCategory(photos, "日出日落", 8),

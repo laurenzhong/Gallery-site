@@ -120,8 +120,8 @@ export type CmsPageSection =
     })
   | (CmsPageSectionBase & {
       type: "gallerySlot";
-      slotKey?: "landscape" | "quiet" | "city" | "harborCarousel";
-      presentation?: "landscapeCarousel" | "squareRail";
+      slotKey?: "landscape" | "quiet" | "city" | "harborCarousel" | "harborStack" | "harborSquare";
+      presentation?: "landscapeCarousel" | "squareRail" | "stack" | "squareGrid";
       sourceMode?: "manual" | "category";
       photos?: CmsStoryPhoto[];
       category?: { id?: string; title?: string };
@@ -129,6 +129,7 @@ export type CmsPageSection =
     })
   | (CmsPageSectionBase & {
       type: "bannerSlot";
+      slotKey?: "bannerOne" | "harbor";
       photo?: CmsStoryPhoto;
       linkLabel?: string;
       linkTarget?: string;

@@ -63,6 +63,9 @@ if (home.homepageLayout?.landscapePhotos?.[0]?.id !== "photo-hero") fail("catego
 if (home.homepageLayout?.bannerOnePhoto?.id !== "photo-two") fail("banner photo was not adapted");
 if (home.homepageLayout?.plantsHeroPhoto?.id !== "photo-three") fail("harbor hero was not adapted");
 if (home.homepageLayout?.plantsCarouselPhotos?.[0]?.id !== "photo-two") fail("harbor carousel was not adapted");
+if (home.homepageLayout?.sections?.map((section) => section.kind).join(",") !== "featureCards,gallery,banner,banner,gallery") {
+  fail("homepage section order was not normalized");
+}
 
 const balcony = adapter.adaptPageContent(
   {

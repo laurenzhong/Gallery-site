@@ -1,5 +1,5 @@
 import type { Photo } from "../data/photos";
-import type { HomepageFeatureCard, HomepageLayout } from "./homepageLayout";
+import type { HomepageContentSection, HomepageFeatureCard, HomepageLayout } from "./homepageLayout";
 import type { PhotobalconyLayout, PhotobalconyPeriod, PhotobalconyPeriodKey } from "./photobalconyLayout";
 import type { CmsPageContent, CmsPageSection, CmsStoryPhoto } from "./cmsQueries";
 
@@ -116,6 +116,7 @@ function adaptGalleryPhotos(
 function adaptHomeContent(content: CmsPageContent, allPhotos: Photo[], warnings: string[]) {
   const photos = new Map(allPhotos.map((photo) => [photo.id, photo]));
   const layout: HomepageLayout = {};
+  const sections: HomepageContentSection[] = [];
   const slots: Record<string, unknown> = {};
   const heroPhoto = photoFromReference(content.heroPhoto, photos);
 
@@ -133,7 +134,12 @@ function adaptHomeContent(content: CmsPageContent, allPhotos: Photo[], warnings:
     }
 
     if (section.type === "featureCardsSlot") {
-      setOnce(layout as unknown as Record<string, HomepageFeatureCard[]>, "featureCards", adaptFeatureCards(section, photos, warnings, index), warnings, section, index);
+      const cards = adaptFeatureCards(section, photos, warnings, index);
+      const hadFeatureCards = layout.featureCards !== undefined;
+      setOnce(layout as unknown as Record<string, HomepageFeatureCard[]>, "featureCards", cards, warnings, section, index);
+      if (cards && !hadFeatureCards) {
+        sections.push({ id: section.id ?? `feature-cards-${index}`, kind: "featureCards", title: section.title, cards });
+      }
       continue;
     }
 
@@ -149,9 +155,25 @@ function adaptHomeContent(content: CmsPageContent, allPhotos: Photo[], warnings:
         quiet: "quietPhotos",
         city: "cityPhotos",
         harborCarousel: "plantsCarouselPhotos",
+        harborStack: "plantsStackPhotos",
+        harborSquare: "plantsSquarePhotos",
       }[slotKey];
       if (resolved && target) {
-        setOnce(layout as unknown as Record<string, Photo[]>, target, resolved, warnings, section, index);
+        const layoutValues = layout as unknown as Record<string, unknown>;
+        if (layoutValues[target] !== undefined) {
+          addWarning(warnings, section, index, `重复配置槽位 ${target}，已保留第一次配置`);
+        } else {
+          layoutValues[target] = resolved;
+          sections.push({
+            id: section.id ?? `${slotKey}-${index}`,
+            kind: "gallery",
+            title: section.title,
+            photos: resolved,
+            presentation:
+              section.presentation ??
+              (slotKey === "harborStack" ? "stack" : slotKey === "harborSquare" ? "squareGrid" : "landscapeCarousel"),
+          });
+        }
       }
       continue;
     }
@@ -161,7 +183,21 @@ function adaptHomeContent(content: CmsPageContent, allPhotos: Photo[], warnings:
       if (!photo) {
         addWarning(warnings, section, index, "横幅缺少可用照片，已跳过");
       } else {
-        setOnce(layout as unknown as Record<string, Photo>, "bannerOnePhoto", photo, warnings, section, index);
+        const slotKey = section.slotKey ?? "bannerOne";
+        const target = slotKey === "harbor" ? "plantsHeroPhoto" : "bannerOnePhoto";
+        const layoutValues = layout as unknown as Record<string, unknown>;
+        if (layoutValues[target] !== undefined) {
+          addWarning(warnings, section, index, `重复配置槽位 ${target}，已保留第一次配置`);
+        } else {
+          layoutValues[target] = photo;
+          sections.push({
+            id: section.id ?? `${slotKey}-${index}`,
+            kind: "banner",
+            title: section.title,
+            photo,
+            slotKey,
+          });
+        }
       }
       continue;
     }
@@ -171,15 +207,27 @@ function adaptHomeContent(content: CmsPageContent, allPhotos: Photo[], warnings:
       const carouselPhotos = photosFromReferences(section.carouselPhotos, photos);
       const stackPhotos = photosFromReferences(section.stackPhotos, photos);
       const squarePhotos = photosFromReferences(section.squarePhotos, photos);
+      if (photoFromReference(section.heroPhoto, photos)) {
+        sections.push({
+          id: `${section.id ?? `harbor-${index}`}-hero`,
+          kind: "banner",
+          title: section.title,
+          photo: photoFromReference(section.heroPhoto, photos)!,
+          slotKey: "harbor",
+        });
+      }
       if (carouselPhotos.length) {
         setOnce(layout as unknown as Record<string, Photo[]>, "plantsCarouselPhotos", carouselPhotos, warnings, section, index);
+        sections.push({ id: `${section.id ?? `harbor-${index}`}-carousel`, kind: "gallery", title: `${section.title ?? "Harbor"} carousel`, photos: carouselPhotos, presentation: "landscapeCarousel" });
       }
       setOnce(layout as unknown as Record<string, Photo>, "plantsFeaturePhoto", photoFromReference(section.featurePhoto, photos), warnings, section, index);
       if (stackPhotos.length) {
         setOnce(layout as unknown as Record<string, Photo[]>, "plantsStackPhotos", stackPhotos, warnings, section, index);
+        sections.push({ id: `${section.id ?? `harbor-${index}`}-stack`, kind: "gallery", title: `${section.title ?? "Harbor"} stack`, photos: stackPhotos, presentation: "stack" });
       }
       if (squarePhotos.length) {
         setOnce(layout as unknown as Record<string, Photo[]>, "plantsSquarePhotos", squarePhotos, warnings, section, index);
+        sections.push({ id: `${section.id ?? `harbor-${index}`}-square`, kind: "gallery", title: `${section.title ?? "Harbor"} squares`, photos: squarePhotos, presentation: "squareGrid" });
       }
       continue;
     }
@@ -187,6 +235,7 @@ function adaptHomeContent(content: CmsPageContent, allPhotos: Photo[], warnings:
     addWarning(warnings, section, index, "该模块不属于首页受控结构，已跳过");
   }
 
+  if (sections.length) layout.sections = sections;
   return { heroPhoto: heroPhoto ?? (slots.heroPhoto as Photo | undefined), homepageLayout: layout };
 }
 

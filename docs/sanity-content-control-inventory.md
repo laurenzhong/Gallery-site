@@ -122,10 +122,9 @@ Photobalcony 是固定的时间段页面，不应在 CMS 中开放任意 section
 - `featureCardsSlot`
 - `gallerySlot`
 - `bannerSlot`
-- `harborSlot`
 - `balconyPeriodSlot`
 
-每种对象只包含该组件真正需要的字段。比如 `gallerySlot` 可以选择手动照片或分类来源，并填写数量和固定 presentation；不能填写任意主题、className 或布局参数。
+每种对象只包含该组件真正需要的字段。Harbor 由一个 `bannerSlot`（标题和主图）以及独立的 `gallerySlot`（轮播、纵向堆叠、方格）组成；这些照片模块不再嵌套在 Harbor 对象中。`gallerySlot` 可以选择手动照片或分类来源，并填写数量和固定 presentation；不能填写任意主题、className 或布局参数。
 
 ## 接入前必须保留的行为
 
@@ -140,7 +139,7 @@ Photobalcony 是固定的时间段页面，不应在 CMS 中开放任意 section
 新 adapter 在 Preview 接入前，必须用当前静态数据生成与线上版本一致的页面。对比范围包括：
 
 - 首页模块顺序和每个模块的照片数量
-- Harbor 的主图、轮播、特色图、堆叠和方格
+- Harbor 主图、轮播、纵向堆叠和方格四个独立模块
 - Photobalcony 的 7 组内容和标题
 - 移动端布局、触摸滑动和灯箱
 - 首页主视觉初次加载和 Sanity 请求失败 fallback

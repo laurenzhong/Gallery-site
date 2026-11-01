@@ -90,11 +90,12 @@ function validateHome(page, photos, categories) {
     }
 
     if (section._type === "gallerySlot") {
-      const allowedSlots = new Set(["landscape", "quiet", "city", "harborCarousel"]);
+      const allowedSlots = new Set(["landscape", "quiet", "city", "harborCarousel", "harborStack", "harborSquare"]);
       if (!allowedSlots.has(section.slotKey)) fail(`${context} 的 slotKey 无效`);
       if (seenSlots.has(section.slotKey)) fail(`${context} 重复配置了槽位 ${section.slotKey}`);
       seenSlots.add(section.slotKey);
-      if (!["landscapeCarousel", "squareRail"].includes(section.presentation)) fail(`${context} 的 presentation 无效`);
+      if (!["landscapeCarousel", "squareRail", "stack", "squareGrid"].includes(section.presentation)) fail(`${context} 的 presentation 无效`);
+      if (!section.title) fail(`${context} 缺少模块标题`);
       if (section.sourceMode === "category") {
         if (!section.categoryId || !categories.has(section.categoryId)) fail(`${context} 的分类来源无效`);
         if (!Number.isInteger(section.limit) || section.limit < 1 || section.limit > 48) fail(`${context} 的 limit 无效`);
@@ -106,17 +107,14 @@ function validateHome(page, photos, categories) {
 
     if (section._type === "bannerSlot") {
       assertPhoto(section.photo, photos, context);
+      if (!["bannerOne", "harbor"].includes(section.slotKey)) fail(`${context} 的 slotKey 无效`);
+      if (section.slotKey === "harbor" && !section.title) fail(`${context} 缺少 Harbor 标题`);
       if (!isInternalPath(section.linkTarget)) fail(`${context} 只能使用站内链接`);
       continue;
     }
 
     if (section._type === "harborSlot") {
-      assertPhoto(section.heroPhoto, photos, `${context}.heroPhoto`);
-      assertPhotoList(section.carouselPhotoIds, photos, `${context}.carouselPhotos`, { required: true });
-      assertPhotoList(section.stackPhotoIds, photos, `${context}.stackPhotos`, { required: true });
-      assertPhotoList(section.squarePhotoIds, photos, `${context}.squarePhotos`, { required: true });
-      if (section.featurePhoto) assertPhoto(section.featurePhoto, photos, `${context}.featurePhoto`);
-      continue;
+      fail(`${context} 仍使用已停用的复合模块，请拆分为 Harbor 主图、轮播、纵向堆叠和方格模块`);
     }
 
     if (section._type === "heroSlot") {

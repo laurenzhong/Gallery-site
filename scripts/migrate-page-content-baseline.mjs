@@ -178,7 +178,7 @@ function buildHomeDocument(layout, siteSettings) {
       ? {
           _key: "content-home-banner",
           _type: "bannerSlot",
-          title: "Harbor",
+          slotKey: "bannerOne",
           isVisible: true,
           photo: reference(layout.bannerOnePhoto?._ref, "banner-photo"),
         }
@@ -190,18 +190,42 @@ function buildHomeDocument(layout, siteSettings) {
       photos: layout.cityPhotos,
       presentation: "landscapeCarousel",
     }),
-    layout.plantsHeroPhoto || layout.plantsCarouselPhotos || layout.plantsFeaturePhoto || layout.plantsStackPhotos || layout.plantsSquarePhotos
+    layout.plantsHeroPhoto
       ? {
-      _key: "content-home-harbor",
-      _type: "harborSlot",
-      title: "Harbor",
-      isVisible: true,
-      heroPhoto: reference(layout.plantsHeroPhoto?._ref, "harbor-hero"),
-      carouselPhotos: referenceList((layout.plantsCarouselPhotos ?? []).map((photo) => photo?._ref).filter(Boolean), "harbor-carousel"),
-      featurePhoto: reference(layout.plantsFeaturePhoto?._ref, "harbor-feature"),
-      stackPhotos: referenceList((layout.plantsStackPhotos ?? []).map((photo) => photo?._ref).filter(Boolean), "harbor-stack"),
-      squarePhotos: referenceList((layout.plantsSquarePhotos ?? []).map((photo) => photo?._ref).filter(Boolean), "harbor-square"),
-    }
+          _key: "content-home-harbor",
+          _type: "bannerSlot",
+          slotKey: "harbor",
+          title: "Harbor",
+          isVisible: true,
+          photo: reference(layout.plantsHeroPhoto?._ref, "harbor-hero"),
+        }
+      : undefined,
+    layout.plantsCarouselPhotos
+      ? gallerySlot({
+          key: "content-home-harbor-carousel",
+          slotKey: "harborCarousel",
+          title: "Harbor carousel",
+          photos: layout.plantsCarouselPhotos,
+          presentation: "landscapeCarousel",
+        })
+      : undefined,
+    layout.plantsStackPhotos
+      ? gallerySlot({
+          key: "content-home-harbor-stack",
+          slotKey: "harborStack",
+          title: "Harbor stack",
+          photos: layout.plantsStackPhotos,
+          presentation: "stack",
+        })
+      : undefined,
+    layout.plantsSquarePhotos
+      ? gallerySlot({
+          key: "content-home-harbor-square",
+          slotKey: "harborSquare",
+          title: "Harbor squares",
+          photos: layout.plantsSquarePhotos,
+          presentation: "squareGrid",
+        })
       : undefined,
   ].filter(Boolean);
 

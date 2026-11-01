@@ -114,7 +114,9 @@ const gallerySection = defineArrayMember({
           { title: "Landscape", value: "landscape" },
           { title: "Quiet moments", value: "quiet" },
           { title: "City", value: "city" },
-          { title: "Harbor 轮播", value: "harborCarousel" },
+          { title: "轮播模块", value: "harborCarousel" },
+          { title: "纵向堆叠模块", value: "harborStack" },
+          { title: "方格模块", value: "harborSquare" },
         ],
         layout: "dropdown",
       },
@@ -128,6 +130,8 @@ const gallerySection = defineArrayMember({
         list: [
           { title: "横向轮播", value: "landscapeCarousel" },
           { title: "方形横向滚动", value: "squareRail" },
+          { title: "纵向堆叠", value: "stack" },
+          { title: "方格组", value: "squareGrid" },
         ],
         layout: "radio",
       },
@@ -180,6 +184,20 @@ const bannerSection = defineArrayMember({
   fields: [
     ...sectionBaseFields,
     defineField({
+      name: "slotKey",
+      title: "模块用途",
+      type: "string",
+      options: {
+        list: [
+          { title: "普通横幅", value: "bannerOne" },
+          { title: "Harbor 主图", value: "harbor" },
+        ],
+        layout: "dropdown",
+      },
+      initialValue: "bannerOne",
+      validation: (Rule) => Rule.required(),
+    }),
+    defineField({
       name: "photo",
       title: "横幅照片",
       type: "reference",
@@ -189,33 +207,6 @@ const bannerSection = defineArrayMember({
     }),
     defineField({ name: "linkLabel", title: "链接文字", type: "string" }),
     defineField({ name: "linkTarget", title: "链接地址", type: "string", validation: linkValidation }),
-  ],
-});
-
-const harborSection = defineArrayMember({
-  type: "object",
-  name: "harborSlot",
-  title: "Harbor 复合模块",
-  fields: [
-    ...sectionBaseFields,
-    defineField({
-      name: "heroPhoto",
-      title: "主图",
-      type: "reference",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
-      validation: (Rule) => Rule.required(),
-    }),
-    defineField({ name: "carouselPhotos", title: "轮播照片", type: "array", of: [photoReference] }),
-    defineField({
-      name: "featurePhoto",
-      title: "特色照片",
-      type: "reference",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
-    }),
-    defineField({ name: "stackPhotos", title: "纵向堆叠照片", type: "array", of: [photoReference] }),
-    defineField({ name: "squarePhotos", title: "方格照片", type: "array", of: [photoReference] }),
   ],
 });
 
@@ -292,7 +283,7 @@ export const pageContentType = defineType({
       title: "内容模块",
       type: "array",
       description: "只能使用已实现的受控组件；模块顺序按此列表保存。",
-      of: [heroSection, featureCardsSection, gallerySection, bannerSection, harborSection, balconyPeriodSection],
+      of: [heroSection, featureCardsSection, gallerySection, bannerSection, balconyPeriodSection],
       validation: (Rule) => Rule.min(1),
     }),
   ],
