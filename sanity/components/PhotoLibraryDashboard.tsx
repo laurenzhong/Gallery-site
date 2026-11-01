@@ -9,6 +9,8 @@ type PhotoCard = {
   category?: string;
   isHidden?: boolean;
   createdAt?: string;
+  date?: string;
+  sortOrder?: number;
   imageUrl?: string;
   usageCount: number;
 };
@@ -20,6 +22,8 @@ const photosQuery = `*[_type == "photo"] | order(_createdAt desc) {
   "category": category->title,
   isHidden,
   "createdAt": _createdAt,
+  date,
+  sortOrder,
   "imageUrl": image.asset->url,
   "usageCount": count(*[_type in ["pageContent", "homepageLayout", "photobalconyLayout", "siteSettings", "story"] && references(^._id)])
 }`;
@@ -36,6 +40,11 @@ export function PhotoLibraryDashboard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [visibilityFilter, setVisibilityFilter] = useState<"all" | "visible" | "hidden">("all");
+  const [sortMode, setSortMode] = useState<"createdAt" | "date" | "sortOrder">("createdAt");
   const [error, setError] = useState<string>();
   const [message, setMessage] = useState<string>();
 
@@ -58,11 +67,29 @@ export function PhotoLibraryDashboard() {
     loadPhotos();
   }, [loadPhotos]);
 
-  const selectedPhotos = useMemo(
-    () => photos.filter((photo) => selectedIds.has(photo._id)),
-    [photos, selectedIds],
+  const categories = useMemo(
+    () => Array.from(new Set(photos.map((photo) => photo.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, "zh-CN")),
+    [photos],
   );
-  const allSelected = photos.length > 0 && selectedPhotos.length === photos.length;
+  const filteredPhotos = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const filtered = photos.filter((photo) => {
+      const matchesSearch = !query || [photo.title, photo.sourceFilename, photo.category].some((value) => value?.toLowerCase().includes(query));
+      const matchesCategory = categoryFilter === "all" || photo.category === categoryFilter;
+      const matchesVisibility = visibilityFilter === "all" || (visibilityFilter === "visible" ? photo.isHidden !== true : photo.isHidden === true);
+      return matchesSearch && matchesCategory && matchesVisibility;
+    });
+    return [...filtered].sort((left, right) => {
+      if (sortMode === "date") return (right.date ?? "").localeCompare(left.date ?? "");
+      if (sortMode === "sortOrder") return (left.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.sortOrder ?? Number.MAX_SAFE_INTEGER);
+      return (right.createdAt ?? "").localeCompare(left.createdAt ?? "");
+    });
+  }, [categoryFilter, photos, search, sortMode, visibilityFilter]);
+  const selectedPhotos = useMemo(
+    () => filteredPhotos.filter((photo) => selectedIds.has(photo._id)),
+    [filteredPhotos, selectedIds],
+  );
+  const allSelected = filteredPhotos.length > 0 && selectedPhotos.length === filteredPhotos.length;
   const blockedPhotos = selectedPhotos.filter((photo) => photo.usageCount > 0);
 
   const togglePhoto = (id: string) => {
@@ -75,7 +102,34 @@ export function PhotoLibraryDashboard() {
   };
 
   const toggleAll = () => {
-    setSelectedIds(allSelected ? new Set() : new Set(photos.map((photo) => photo._id)));
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allSelected) filteredPhotos.forEach((photo) => next.delete(photo._id));
+      else filteredPhotos.forEach((photo) => next.add(photo._id));
+      return next;
+    });
+  };
+
+  const updateVisibility = async (isHidden: boolean) => {
+    if (!selectedPhotos.length) return;
+    const actionLabel = isHidden ? "隐藏" : "公开";
+    if (!window.confirm(`确定${actionLabel}选中的 ${selectedPhotos.length} 张照片吗？`)) return;
+    setIsUpdatingVisibility(true);
+    setError(undefined);
+    setMessage(undefined);
+    try {
+      let transaction = client.transaction();
+      selectedPhotos.forEach((photo) => {
+        transaction = transaction.patch(photo._id, { set: { isHidden } });
+      });
+      await transaction.commit();
+      setMessage(`已${actionLabel} ${selectedPhotos.length} 张照片。`);
+      loadPhotos();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : `${actionLabel}失败，请稍后重试。`);
+    } finally {
+      setIsUpdatingVisibility(false);
+    }
   };
 
   const deleteSelected = async () => {
@@ -139,22 +193,54 @@ export function PhotoLibraryDashboard() {
       </header>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, minHeight: 44, cursor: photos.length ? "pointer" : "default" }}>
-          <input type="checkbox" checked={allSelected} onChange={toggleAll} disabled={!photos.length || isDeleting} style={{ width: 18, height: 18 }} />
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, minHeight: 44, cursor: filteredPhotos.length ? "pointer" : "default" }}>
+          <input type="checkbox" checked={allSelected} onChange={toggleAll} disabled={!filteredPhotos.length || isDeleting || isUpdatingVisibility} style={{ width: 18, height: 18 }} />
           <span>全选</span>
         </label>
-        <span style={{ color: "#64748b", fontSize: 14 }}>共 {photos.length} 张，已选 {selectedPhotos.length} 张</span>
+        <span style={{ color: "#64748b", fontSize: 14 }}>显示 {filteredPhotos.length} / 共 {photos.length} 张，已选 {selectedPhotos.length} 张</span>
+        <button type="button" onClick={() => void updateVisibility(false)} disabled={!selectedPhotos.length || isDeleting || isUpdatingVisibility} style={{ minHeight: 44, border: "1px solid #b7dfc5", borderRadius: 6, padding: "0 13px", background: !selectedPhotos.length || isDeleting || isUpdatingVisibility ? "#f1f5f9" : "#f1fbf4", color: "#136c3a", fontWeight: 700, cursor: !selectedPhotos.length || isDeleting || isUpdatingVisibility ? "default" : "pointer" }}>批量公开</button>
+        <button type="button" onClick={() => void updateVisibility(true)} disabled={!selectedPhotos.length || isDeleting || isUpdatingVisibility} style={{ minHeight: 44, border: "1px solid #f2cf8f", borderRadius: 6, padding: "0 13px", background: !selectedPhotos.length || isDeleting || isUpdatingVisibility ? "#f1f5f9" : "#fff8eb", color: "#8a4b00", fontWeight: 700, cursor: !selectedPhotos.length || isDeleting || isUpdatingVisibility ? "default" : "pointer" }}>批量隐藏</button>
         <button
           type="button"
           onClick={() => void deleteSelected()}
-          disabled={!selectedPhotos.length || isDeleting}
-          style={{ minHeight: 44, border: 0, borderRadius: 6, padding: "0 15px", background: !selectedPhotos.length || isDeleting ? "#cbd5e1" : "#b42318", color: "#fff", fontWeight: 700, cursor: !selectedPhotos.length || isDeleting ? "default" : "pointer" }}
+          disabled={!selectedPhotos.length || isDeleting || isUpdatingVisibility}
+          style={{ minHeight: 44, border: 0, borderRadius: 6, padding: "0 15px", background: !selectedPhotos.length || isDeleting || isUpdatingVisibility ? "#cbd5e1" : "#b42318", color: "#fff", fontWeight: 700, cursor: !selectedPhotos.length || isDeleting || isUpdatingVisibility ? "default" : "pointer" }}
         >
           {isDeleting ? "正在删除…" : `删除已选 (${selectedPhotos.length})`}
         </button>
-        <button type="button" onClick={loadPhotos} disabled={isLoading || isDeleting} style={{ minHeight: 44, border: "1px solid #cbd5e1", borderRadius: 6, padding: "0 15px", background: "#fff", color: "#334155", fontWeight: 600, cursor: isLoading || isDeleting ? "default" : "pointer" }}>
+        <button type="button" onClick={loadPhotos} disabled={isLoading || isDeleting || isUpdatingVisibility} style={{ minHeight: 44, border: "1px solid #cbd5e1", borderRadius: 6, padding: "0 15px", background: "#fff", color: "#334155", fontWeight: 600, cursor: isLoading || isDeleting || isUpdatingVisibility ? "default" : "pointer" }}>
           刷新
         </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1.5fr) repeat(3, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
+        <label style={{ display: "grid", gap: 5, fontSize: 12, color: "#64748b" }}>
+          搜索
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="标题或文件名" style={{ minHeight: 40, border: "1px solid #cbd5e1", borderRadius: 6, padding: "0 10px", fontSize: 14 }} />
+        </label>
+        <label style={{ display: "grid", gap: 5, fontSize: 12, color: "#64748b" }}>
+          分类
+          <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} style={{ minHeight: 40, border: "1px solid #cbd5e1", borderRadius: 6, padding: "0 8px", background: "#fff" }}>
+            <option value="all">全部分类</option>
+            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+        </label>
+        <label style={{ display: "grid", gap: 5, fontSize: 12, color: "#64748b" }}>
+          状态
+          <select value={visibilityFilter} onChange={(event) => setVisibilityFilter(event.target.value as typeof visibilityFilter)} style={{ minHeight: 40, border: "1px solid #cbd5e1", borderRadius: 6, padding: "0 8px", background: "#fff" }}>
+            <option value="all">全部状态</option>
+            <option value="visible">公开</option>
+            <option value="hidden">已隐藏</option>
+          </select>
+        </label>
+        <label style={{ display: "grid", gap: 5, fontSize: 12, color: "#64748b" }}>
+          排序
+          <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)} style={{ minHeight: 40, border: "1px solid #cbd5e1", borderRadius: 6, padding: "0 8px", background: "#fff" }}>
+            <option value="createdAt">最近导入</option>
+            <option value="date">拍摄日期</option>
+            <option value="sortOrder">排序值</option>
+          </select>
+        </label>
       </div>
 
       {error ? <div style={{ border: "1px solid #f2b8b5", background: "#fff5f5", borderRadius: 7, padding: 12, color: "#a5281b", marginBottom: 16 }}>{error}</div> : null}
@@ -162,8 +248,9 @@ export function PhotoLibraryDashboard() {
 
       {isLoading ? <p style={{ color: "#64748b" }}>正在读取照片…</p> : null}
       {!isLoading && !photos.length ? <p style={{ color: "#64748b" }}>还没有照片。</p> : null}
+      {!isLoading && photos.length > 0 && !filteredPhotos.length ? <p style={{ color: "#64748b" }}>没有符合当前搜索或筛选条件的照片。</p> : null}
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 14 }}>
-        {photos.map((photo) => {
+        {filteredPhotos.map((photo) => {
           const selected = selectedIds.has(photo._id);
           return (
             <article key={photo._id} style={{ border: `1px solid ${selected ? "#2563eb" : "#e5e7eb"}`, borderRadius: 9, overflow: "hidden", background: "#fff", boxShadow: selected ? "0 0 0 2px #bfdbfe" : "none" }}>
