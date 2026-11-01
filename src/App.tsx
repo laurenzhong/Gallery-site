@@ -9,6 +9,7 @@ import { Header } from "./components/Header";
 import { Journal } from "./components/Journal";
 import { PhotoStory } from "./components/PhotoStory";
 import { StoryDetail } from "./components/StoryDetail";
+import { VisualEditingBridge } from "./components/VisualEditingBridge";
 import type { Photo } from "./data/photos";
 import { useGalleryContent } from "./lib/galleryContent";
 import { imageSrcSet, sizedImageUrl } from "./lib/imageUrl";
@@ -185,6 +186,7 @@ function App() {
 
   return (
     <>
+      <VisualEditingBridge enabled={showPreview} />
       <Header />
 
       <CmsSourceBadge content={content} />
