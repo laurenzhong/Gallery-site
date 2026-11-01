@@ -178,12 +178,18 @@ export const pageLayoutType = defineType({
           title: "页面模块",
           fields: sectionFields,
           preview: {
-            select: { title: "title", style: "style", visible: "isVisible", media: "coverPhoto.image" },
-            prepare({ title, style, visible, media }) {
+            select: {
+              title: "title",
+              style: "style",
+              visible: "isVisible",
+              coverImage: "coverPhoto.image",
+              firstImage: "photos.0.image",
+            },
+            prepare({ title, style, visible, coverImage, firstImage }) {
               return {
                 title: title || "未命名模块",
                 subtitle: `${style || "未选择样式"}${visible === false ? " / 已隐藏" : ""}`,
-                media,
+                media: coverImage || firstImage,
               };
             },
           },
