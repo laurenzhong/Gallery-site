@@ -1,5 +1,6 @@
 import type { StructureResolver } from "sanity/structure";
 import { orderableDocumentListDeskItem } from "@sanity/orderable-document-list";
+import { PhotoImportDashboard } from "./components/PhotoImportDashboard";
 
 const photoOrdering = [{ field: "sortOrder", direction: "asc" as const }];
 const storyOrdering = [{ field: "orderRank", direction: "asc" as const }];
@@ -110,6 +111,10 @@ export const structure: StructureResolver = (S, context) =>
             .id("photos-list")
             .title("照片库")
             .items([
+              li(S, "photos.import")
+                .title("导入照片")
+                .child(S.component(PhotoImportDashboard).id("photos-import-dashboard").title("导入照片")),
+              S.divider(),
               li(S, "photos.all")
                 .title("全部照片")
                 .schemaType("photo")

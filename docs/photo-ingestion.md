@@ -90,16 +90,28 @@ npm run cms:backfill-dimensions
 
 会从 `image.asset.metadata.dimensions` 读真实尺寸，写回 `photo.dimensions` 字段。
 
-### 5. 站点接线（人工部分）
+### 5. 在 Studio 中批量导入
+
+也可以直接在在线 Studio 中完成批量导入，不需要运行命令行：
+
+1. 打开 **照片库 → 导入照片**。
+2. 选择照片分类。
+3. 将多张照片拖入导入区域，或点击选择文件。
+4. 检查系统读取到的拍摄日期、相机、镜头、光圈、快门、ISO、焦距和 GPS 信息。
+5. 点击 **导入**。
+
+导入会根据文件名创建标题和 URL 标识，并自动上传图片资源、创建照片文档。新照片默认处于隐藏状态；重复的原始文件名会自动跳过。没有 EXIF 的字段可以在照片文档中手动补充。
+
+### 6. 站点接线（人工部分）
 
 进 `npm run cms:dev`：
 
-1. **Photos Inbox → Visible But Not Placed** 看新上传的所有可见/隐藏照片
-2. 选要展示的 → 取消勾 `Hidden From Website`（`isHidden=false`）
-3. 若要进 Homepage / Photobalcony 的具体位置 → 打开 `Homepage Layout Editor` / `Photobalcony Layout Editor`，把照片拖到对应数组字段
+1. **照片库 → 需要补全** 查看新上传后缺少必要字段的照片
+2. 选要展示的 → 取消勾 **从网站隐藏**（`isHidden=false`）
+3. 若要进首页 / 影像阳台的具体位置 → 打开 **页面内容 → 首页** 或 **页面内容 → 影像阳台**，把照片添加到对应模块
 4. 写 `title`、可选 `date` / `location` / 摄影参数
 
-不做这些 → 照片仅在 Sanity 资产库存在，**不会出现在任何 layout 视图里**，但 `Photo Placement → All Visible Website Photos` 视图会列出。
+不做这些 → 照片仅在 Sanity 资产库存在，**不会出现在网站页面里**，但仍会保留在照片库中。
 
 ### 6. 部署到生产
 
