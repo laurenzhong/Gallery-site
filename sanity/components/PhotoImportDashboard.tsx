@@ -19,7 +19,7 @@ type ExifData = {
   description?: string;
 };
 
-type ImportStatus = "pending" | "uploading" | "imported" | "skipped" | "error";
+type ImportStatus = "pending" | "uploading" | "imported" | "skipped" | "error" | "deleting";
 
 type ImportItem = {
   id: string;
@@ -29,6 +29,7 @@ type ImportItem = {
   previewUrl: string;
   exif: ExifData;
   status: ImportStatus;
+  documentId?: string;
   error?: string;
 };
 
@@ -126,6 +127,7 @@ async function readExif(file: File) {
 
 function statusLabel(status: ImportStatus) {
   if (status === "uploading") return "正在上传";
+  if (status === "deleting") return "正在删除";
   if (status === "imported") return "已导入";
   if (status === "skipped") return "已跳过（重复文件名）";
   if (status === "error") return "导入失败";
@@ -213,6 +215,29 @@ export function PhotoImportDashboard() {
     });
   };
 
+  const deleteImportedPhoto = async (item: ImportItem) => {
+    if (!item.documentId || item.status !== "imported") return;
+    const confirmed = window.confirm(`确定删除“${item.title}”这张照片吗？此操作会删除照片文档。`);
+    if (!confirmed) return;
+
+    setItems((current) => current.map((candidate) => (candidate.id === item.id ? { ...candidate, status: "deleting" } : candidate)));
+    try {
+      await client.delete(item.documentId);
+      URL.revokeObjectURL(item.previewUrl);
+      setItems((current) => current.filter((candidate) => candidate.id !== item.id));
+      setMessage(`已删除“${item.title}”的照片文档。`);
+    } catch (reason) {
+      setItems((current) =>
+        current.map((candidate) =>
+          candidate.id === item.id
+            ? { ...candidate, status: "error", error: reason instanceof Error ? reason.message : "删除失败" }
+            : candidate,
+        ),
+      );
+      setError(`删除“${item.title}”失败，请打开照片文档后重试。`);
+    }
+  };
+
   const importPhotos = async () => {
     if (!categoryId) {
       setError("请先选择照片分类。");
@@ -257,7 +282,7 @@ export function PhotoImportDashboard() {
           const slugTaken = await client.fetch<number>(`count(*[_type == "photo" && slug.current == $slug])`, { slug: item.slug });
           const slug = slugTaken ? `${item.slug}-${hashString(`${item.file.name}-${item.file.lastModified}`)}` : item.slug;
           const dimensions = uploadResult.metadata?.dimensions;
-          await client.create({
+          const createdPhoto = await client.create({
             _type: "photo",
             title: item.exif.description || item.title,
             slug: { _type: "slug", current: slug },
@@ -265,7 +290,7 @@ export function PhotoImportDashboard() {
             altText: item.exif.description || item.title,
             category: { _type: "reference", _ref: categoryId },
             sortOrder: nextSortOrder + 1,
-            isHidden: true,
+            isHidden: false,
             isHero: false,
             isFeatured: false,
             sourceFilename: item.file.name,
@@ -283,7 +308,13 @@ export function PhotoImportDashboard() {
           });
           nextSortOrder += 1;
           importedCount += 1;
-          setItems((current) => current.map((candidate) => (candidate.id === item.id ? { ...candidate, status: "imported" } : candidate)));
+          setItems((current) =>
+            current.map((candidate) =>
+              candidate.id === item.id
+                ? { ...candidate, status: "imported", documentId: createdPhoto._id }
+                : candidate,
+            ),
+          );
         } catch (reason) {
           setItems((current) =>
             current.map((candidate) =>
@@ -294,7 +325,7 @@ export function PhotoImportDashboard() {
           );
         }
       }
-      setMessage(`导入完成：${importedCount} 张成功${skippedCount ? `，${skippedCount} 张因文件名重复已跳过` : ""}。新照片默认隐藏，请在照片库中确认后再发布。`);
+      setMessage(`导入完成：${importedCount} 张成功${skippedCount ? `，${skippedCount} 张因文件名重复已跳过` : ""}。新照片已公开，可在页面内容中选择具体展示位置。`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "导入失败，请稍后重试。");
     } finally {
@@ -308,7 +339,7 @@ export function PhotoImportDashboard() {
         <p style={{ margin: "0 0 6px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>照片库</p>
         <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.2 }}>导入照片</h1>
         <p style={{ margin: "10px 0 0", color: "#4b5563", lineHeight: 1.5 }}>
-          一次拖入多张照片，系统会读取 EXIF 拍摄信息并创建照片文档。导入后默认隐藏，不会立即出现在网站上。
+          一次拖入多张照片，系统会读取 EXIF 拍摄信息并创建照片文档。导入后默认公开，会根据分类或页面模块配置出现在网站上。
         </p>
       </header>
 
@@ -386,21 +417,24 @@ export function PhotoImportDashboard() {
               {isImporting ? "正在导入…" : `导入 ${pendingItems.length} 张照片`}
             </button>
           </div>
-          <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
             {items.map((item) => (
-              <article key={item.id} style={{ display: "grid", gridTemplateColumns: "72px minmax(0, 1fr) auto", gap: 12, alignItems: "center", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10 }}>
-                <img src={item.previewUrl} alt="" style={{ width: 72, height: 58, objectFit: "cover", borderRadius: 5, background: "#e2e8f0" }} />
+              <article key={item.id} style={{ display: "grid", gap: 10, border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, minWidth: 0 }}>
+                <img src={item.previewUrl} alt="" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 5, background: "#e2e8f0" }} />
                 <div style={{ minWidth: 0 }}>
                   <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</strong>
-                  <span style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 13 }}>
+                  <span style={{ display: "block", marginTop: 4, color: "#64748b", fontSize: 13, lineHeight: 1.45 }}>
                     {[item.exif.date, item.exif.camera, item.exif.lens, item.exif.iso ? `ISO ${item.exif.iso}` : undefined].filter(Boolean).join(" · ") || "未读取到 EXIF，可导入后手动补充"}
                   </span>
                   {item.error ? <span style={{ display: "block", marginTop: 4, color: "#a5281b", fontSize: 12 }}>{item.error}</span> : null}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: item.status === "error" ? "#a5281b" : item.status === "imported" ? "#136c3a" : "#64748b", fontSize: 13, whiteSpace: "nowrap" }}>{statusLabel(item.status)}</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ color: item.status === "error" ? "#a5281b" : item.status === "imported" ? "#136c3a" : "#64748b", fontSize: 13 }}>{statusLabel(item.status)}</span>
                   {item.status === "pending" ? (
                     <button type="button" onClick={() => removeItem(item.id)} aria-label={`移除 ${item.title}`} style={{ minWidth: 44, minHeight: 44, border: 0, background: "transparent", color: "#64748b", cursor: "pointer" }}>移除</button>
+                  ) : null}
+                  {item.status === "imported" ? (
+                    <button type="button" onClick={() => void deleteImportedPhoto(item)} aria-label={`删除 ${item.title}`} style={{ minWidth: 44, minHeight: 44, border: 0, background: "transparent", color: "#a5281b", cursor: "pointer" }}>删除</button>
                   ) : null}
                 </div>
               </article>

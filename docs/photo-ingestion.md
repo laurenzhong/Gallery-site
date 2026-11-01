@@ -7,14 +7,14 @@
 ```
 本地文件夹           Sanity 文档                网站
 gallery-site/       photo.queenstown-dsc-NNNN  /photobalcony
-Queenstown/  --->   isHidden=true (默认)  --->  /journal
+Queenstown/  --->   isHidden=false (Studio 默认) --->  /journal
 DSC_NNNN.JPG        sourceFilename=DSC_NNNN.JPG    /...
                     category=Queenstown
                     sortOrder=9000+NNN
                     dimensions={w,h}
 ```
 
-入站默认 `isHidden=true`，必须在 Studio 里手动改成 `false` 才会出现在公开网站。layout 编辑完全独立于 visibility。
+Studio 批量导入默认 `isHidden=false`，照片发布后会进入公开照片数据；是否出现在首页或影像阳台的具体模块，仍由页面内容中的照片引用或分类来源决定。命令行脚本仍默认隐藏上传。
 
 ## 本地文件存放
 
@@ -100,20 +100,20 @@ npm run cms:backfill-dimensions
 4. 检查系统读取到的拍摄日期、相机、镜头、光圈、快门、ISO、焦距和 GPS 信息。
 5. 点击 **导入**。
 
-导入会根据文件名创建标题和 URL 标识，并自动上传图片资源、创建照片文档。新照片默认处于隐藏状态；重复的原始文件名会自动跳过。没有 EXIF 的字段可以在照片文档中手动补充。
+导入会根据文件名创建标题和 URL 标识，并自动上传图片资源、创建照片文档。Studio 导入的新照片默认公开；重复的原始文件名会自动跳过。没有 EXIF 的字段可以在照片文档中手动补充。
 
 ### 6. 站点接线（人工部分）
 
 进 `npm run cms:dev`：
 
 1. **照片库 → 需要补全** 查看新上传后缺少必要字段的照片
-2. 选要展示的 → 取消勾 **从网站隐藏**（`isHidden=false`）
+2. 需要暂时下线时，勾选 **从网站隐藏**（`isHidden=true`）
 3. 若要进首页 / 影像阳台的具体位置 → 打开 **页面内容 → 首页** 或 **页面内容 → 影像阳台**，把照片添加到对应模块
 4. 写 `title`、可选 `date` / `location` / 摄影参数
 
 不做这些 → 照片仅在 Sanity 资产库存在，**不会出现在网站页面里**，但仍会保留在照片库中。
 
-### 6. 部署到生产
+### 7. 部署到生产
 
 ```bash
 npm run deploy:trigger     # 触发 Vercel rebuild
