@@ -3,6 +3,7 @@ import { orderableDocumentListDeskItem } from "@sanity/orderable-document-list";
 import { PhotoImportDashboard } from "./components/PhotoImportDashboard";
 
 const photoOrdering = [{ field: "sortOrder", direction: "asc" as const }];
+const recentPhotoOrdering = [{ field: "_createdAt", direction: "desc" as const }];
 const storyOrdering = [{ field: "orderRank", direction: "asc" as const }];
 
 const li = (S: Parameters<StructureResolver>[0], id: string) => S.listItem().id(id);
@@ -118,7 +119,12 @@ export const structure: StructureResolver = (S, context) =>
               li(S, "photos.all")
                 .title("全部照片")
                 .schemaType("photo")
-                .child(photoList(S, "全部照片")),
+                .child(
+                  S.documentTypeList("photo")
+                    .title("全部照片")
+                    .filter('_type == "photo"')
+                    .defaultOrdering(recentPhotoOrdering),
+                ),
               li(S, "photos.needs-attention")
                 .title("需要补全")
                 .schemaType("photo")

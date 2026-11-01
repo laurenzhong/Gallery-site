@@ -321,6 +321,11 @@ export const photoType = defineType({
   ],
   orderings: [
     {
+      title: "最近导入",
+      name: "createdAtDesc",
+      by: [{ field: "_createdAt", direction: "desc" }],
+    },
+    {
       title: "最新优先",
       name: "dateDesc",
       by: [{ field: "date", direction: "desc" }],
