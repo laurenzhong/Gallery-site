@@ -2,11 +2,14 @@ import { readdir, readFile, stat, writeFile, mkdir } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import exifr from "exifr";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const reportDir = path.join(projectRoot, "sanity", "seed", "generated");
+const execFileAsync = promisify(execFile);
 
 function parseArgs(argv) {
   const args = {
@@ -16,6 +19,9 @@ function parseArgs(argv) {
     limit: undefined,
     publish: false,
     sortOffset: undefined,
+    subjects: [],
+    conditions: [],
+    classify: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
@@ -34,6 +40,13 @@ function parseArgs(argv) {
       args.concurrency = v;
       i += 1;
     } else if (a === "--publish") args.publish = true;
+    else if (a === "--subjects") {
+      args.subjects = String(argv[i + 1] ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+      i += 1;
+    } else if (a === "--conditions") {
+      args.conditions = String(argv[i + 1] ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+      i += 1;
+    } else if (a === "--classify") args.classify = true;
     else if (a === "--sort-offset") {
       const v = Number(argv[i + 1]);
       if (!Number.isInteger(v)) throw new Error("--sort-offset must be integer");
@@ -155,6 +168,34 @@ async function listJpgFiles(sourceDir) {
   await walk(sourceDir);
   collected.sort((a, b) => a.localeCompare(b));
   return collected;
+}
+
+async function isDirectory(candidate) {
+  try {
+    return (await stat(candidate)).isDirectory();
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+async function resolveSourceDirectory(rawSource) {
+  const direct = path.resolve(projectRoot, rawSource);
+  if (await isDirectory(direct)) return direct;
+
+  // The docs are also commonly followed from the parent workspace, so accept
+  // `gallery-site/<folder>` when the command itself runs in `gallery-site/`.
+  const sourceParts = String(rawSource)
+    .split(/[\\/]+/)
+    .filter(Boolean);
+  if (sourceParts[0]?.toLowerCase() === path.basename(projectRoot).toLowerCase()) {
+    const withoutProjectPrefix = path.join(projectRoot, ...sourceParts.slice(1));
+    if (await isDirectory(withoutProjectPrefix)) return withoutProjectPrefix;
+  }
+
+  throw new Error(
+    `Source directory not found: ${direct}. Run from ${projectRoot} with --source .\\<folder>, or pass an absolute path.`,
+  );
 }
 
 function fileBase(filename) {
@@ -347,9 +388,11 @@ async function uploadOne(category, categoryId, sourceDirAbs, localPath, filename
           title: base,
           altText: `${category} ${base}`,
           slug: { _type: "slug", current: slug },
-          category: { _type: "reference", _ref: categoryId },
+          ...(categoryId ? { category: { _type: "reference", _ref: categoryId } } : {}),
+          subjects: opts.subjects,
+          conditions: opts.conditions,
           sortOrder: opts.sortOrder,
-          isHidden: opts.isHidden,
+          isHidden: opts.isHidden || opts.subjects.length === 0,
           sourceFilename: filename,
           legacyLocalPath: localPath,
           legacyPublicPath: path.posix.join("photos", category, filename),
@@ -409,10 +452,12 @@ async function main() {
     }
   }
 
-  const sourceAbs = path.resolve(args.source);
+  const sourceAbs = await resolveSourceDirectory(args.source);
   const category = path.basename(sourceAbs);
   console.log(`Source: ${sourceAbs}`);
   console.log(`Category (derived from folder): ${category}`);
+  if (args.subjects.length) console.log(`Default subject tags: ${args.subjects.join(", ")}`);
+  if (args.conditions.length) console.log(`Default conditions: ${args.conditions.join(", ")}`);
 
   const files = await listJpgFiles(sourceAbs);
   console.log(`Found ${files.length} JPG files in ${category}/`);
@@ -491,6 +536,8 @@ async function main() {
       const r = await uploadOne(category, catDoc._id, sourceAbs, item.localPath, item.filename, {
         sortOrder: defaultSortOrderFromFilename(item.filename, sortOffset),
         isHidden: !args.publish,
+        subjects: args.subjects,
+        conditions: args.conditions,
       });
       ok += 1;
       const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -502,6 +549,14 @@ async function main() {
       report.push({ ...item, status: "failed", error: e.message ?? String(e) });
     }
   });
+
+  if (args.classify) {
+    const ids = report.map((item) => item.photoId).filter(Boolean);
+    if (ids.length) {
+      console.log(`\nStarting AI classification for ${ids.length} uploaded photo(s)...`);
+      await execFileAsync(process.execPath, [path.join(projectRoot, "scripts", "classify-sanity-photos.mjs"), "--ids", ids.join(",")], { stdio: "inherit" });
+    }
+  }
 
   await mkdir(reportDir, { recursive: true });
   const out = path.join(reportDir, `upload-photos-${category.toLowerCase()}-${Date.now()}.json`);

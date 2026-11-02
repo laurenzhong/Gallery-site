@@ -4,7 +4,9 @@ export type CmsPhoto = {
   legacyPublicPath?: string;
   title: string;
   slug?: string;
-  category: string;
+  category?: string;
+  subjects?: string[];
+  conditions?: string[];
   filename: string;
   width: number;
   height: number;
@@ -162,6 +164,8 @@ export type CmsStoryPhoto = {
   legacyPublicPath?: string;
   filename?: string;
   category?: string;
+  subjects?: string[];
+  conditions?: string[];
   width?: number;
   height?: number;
 };
@@ -174,6 +178,8 @@ const cmsReferencedPhotoFields = `
     isHidden,
     "legacyPublicPath": legacyPublicPath,
     "category": category->title,
+    subjects,
+    conditions,
     "filename": sourceFilename,
     "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
     "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
@@ -186,6 +192,8 @@ export const cmsPhotosQuery = `*[_type == "photo" && isHidden != true] | order(s
   title,
   "slug": slug.current,
   "category": category->title,
+  subjects,
+  conditions,
   "filename": sourceFilename,
   "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
   "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height),

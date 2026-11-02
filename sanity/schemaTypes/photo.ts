@@ -1,6 +1,7 @@
-import { defineField, defineType } from "sanity";
+import { defineArrayMember, defineField, defineType } from "sanity";
 import { PhotoReadinessInput } from "../components/PhotoReadinessInput";
 import { PhotoUsageInput } from "../components/PhotoUsageInput";
+import { photoConditionOptions, photoSubjectOptions } from "../photoTaxonomy";
 
 const usageWarningQuery = `{
   "homepageCount": count(*[
@@ -43,6 +44,11 @@ export const photoType = defineType({
     {
       name: "identity",
       title: "照片信息",
+      options: { collapsible: true, collapsed: false },
+    },
+    {
+      name: "classification",
+      title: "内容分类",
       options: { collapsible: true, collapsed: false },
     },
     {
@@ -121,14 +127,101 @@ export const photoType = defineType({
       description: "可选的摄影师署名或版权说明。",
     }),
     defineField({
+      name: "subjects",
+      title: "主体标签",
+      type: "array",
+      fieldset: "classification",
+      of: [{ type: "string" }],
+      options: { list: [...photoSubjectOptions] },
+      description:
+        "描述画面中值得被搜索的主体，可选择多个。例如花朵前景、山体背景可以同时选择「花朵」和「山体」。建议控制在 1–5 个。",
+      validation: (Rule) => Rule.unique().max(5),
+    }),
+    defineField({
+      name: "primarySubject",
+      title: "主主体（可选）",
+      type: "string",
+      fieldset: "classification",
+      options: { list: [...photoSubjectOptions] },
+      description: "只有在需要显示一个主标签或排序时选择；主体同等重要时可以留空。",
+    }),
+    defineField({
+      name: "conditions",
+      title: "时间 / 天气",
+      type: "array",
+      fieldset: "classification",
+      of: [{ type: "string" }],
+      options: { list: [...photoConditionOptions] },
+      description: "可选。只在画面或 EXIF 能明确判断时填写。",
+      validation: (Rule) => Rule.unique().max(4),
+    }),
+    defineField({
+      name: "aiClassification",
+      title: "AI 分类建议",
+      type: "object",
+      fieldset: "classification",
+      readOnly: true,
+      description: "由服务端视觉模型生成的建议。请在照片库确认后，才会写入正式标签。",
+      fields: [
+        defineField({
+          name: "status",
+          title: "状态",
+          type: "string",
+          options: {
+            list: [
+              { title: "处理中", value: "processing" },
+              { title: "待确认", value: "suggested" },
+              { title: "已应用", value: "approved" },
+              { title: "失败", value: "error" },
+            ],
+          },
+        }),
+        defineField({ name: "model", title: "模型", type: "string" }),
+        defineField({
+          name: "subjects",
+          title: "主体建议",
+          type: "array",
+          of: [
+            defineArrayMember({
+              type: "object",
+              fields: [
+                defineField({ name: "value", title: "标签", type: "string" }),
+                defineField({ name: "confidence", title: "置信度", type: "number" }),
+              ],
+              preview: { select: { title: "value", confidence: "confidence" }, prepare: ({ title, confidence }) => ({ title, subtitle: confidence == null ? undefined : `${Math.round(confidence * 100)}%` }) },
+            }),
+          ],
+        }),
+        defineField({
+          name: "conditions",
+          title: "时间 / 天气建议",
+          type: "array",
+          of: [
+            defineArrayMember({
+              type: "object",
+              fields: [
+                defineField({ name: "value", title: "标签", type: "string" }),
+                defineField({ name: "confidence", title: "置信度", type: "number" }),
+              ],
+              preview: { select: { title: "value", confidence: "confidence" }, prepare: ({ title, confidence }) => ({ title, subtitle: confidence == null ? undefined : `${Math.round(confidence * 100)}%` }) },
+            }),
+          ],
+        }),
+        defineField({ name: "primarySubject", title: "主主体建议", type: "string" }),
+        defineField({ name: "altText", title: "替代文本建议", type: "string" }),
+        defineField({ name: "caption", title: "说明建议", type: "text", rows: 2 }),
+        defineField({ name: "processedAt", title: "处理时间", type: "datetime" }),
+        defineField({ name: "error", title: "错误信息", type: "text", rows: 2 }),
+      ],
+    }),
+    defineField({
       name: "category",
-      title: "首页模块 / 分类",
+      title: "旧版展示栏目（可选）",
       type: "reference",
       fieldset: "placement",
       to: [{ type: "category" }],
       description:
-        "决定这张照片可以出现在首页的哪个模块中。当前的首页模块主要根据分类与图片形状组合而成。",
-      validation: (Rule) => Rule.required(),
+        "保留给旧页面和已有数据使用。新照片的主体请填写上面的「主体标签」，不要用地点或时间代替主体。",
     }),
     defineField({
       name: "sortOrder",
@@ -341,6 +434,7 @@ export const photoType = defineType({
       title: "title",
       filename: "sourceFilename",
       category: "category.title",
+      subjects: "subjects",
       hidden: "isHidden",
       hero: "isHero",
       order: "sortOrder",
@@ -350,6 +444,7 @@ export const photoType = defineType({
       title,
       filename,
       category,
+      subjects,
       hidden,
       hero,
       order,
@@ -357,7 +452,7 @@ export const photoType = defineType({
     }) {
       const status = hidden ? "已隐藏" : hero ? "主视觉备选" : "正常显示";
       const details = [
-        category,
+        subjects?.length ? subjects.join("、") : category,
         status,
         order != null ? `排序 ${order}` : null,
         filename,

@@ -96,7 +96,7 @@ function hasMeta(photo: CmsPhoto) {
 
 function toPhoto(photo: CmsPhoto): Photo | null {
   const src = resolvePhotoSrc(photo.src, photo.legacyPublicPath);
-  if (!src || !photo.title || !photo.category || !photo.filename) {
+  if (!src || !photo.title || !photo.filename) {
     return null;
   }
 
@@ -105,7 +105,7 @@ function toPhoto(photo: CmsPhoto): Photo | null {
     src,
     title: photo.title,
     slug: photo.slug,
-    category: photo.category,
+    category: photo.category ?? "未分类",
     filename: photo.filename,
     width: photo.width || 1,
     height: photo.height || 1,

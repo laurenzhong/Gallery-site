@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import exifr from "exifr";
 import { useClient } from "sanity";
+import { photoConditionOptions, photoSubjectOptions } from "../photoTaxonomy";
 
 type Category = {
   _id: string;
@@ -134,12 +135,25 @@ function statusLabel(status: ImportStatus) {
   return "待导入";
 }
 
+function formatImportError(reason: unknown) {
+  if (reason instanceof Error && reason.message) return reason.message;
+  if (reason && typeof reason === "object") {
+    const candidate = reason as { message?: unknown; response?: { body?: { error?: { description?: unknown } } } };
+    const apiMessage = candidate.response?.body?.error?.description;
+    if (typeof apiMessage === "string" && apiMessage) return apiMessage;
+    if (typeof candidate.message === "string" && candidate.message) return candidate.message;
+  }
+  return "上传失败，请检查登录状态、文件格式和网络连接后重试。";
+}
+
 export function PhotoImportDashboard() {
   const client = useClient({ apiVersion: clientApiVersion });
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef<ImportItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState("");
+  const [subjectTags, setSubjectTags] = useState<string[]>([]);
+  const [conditionTags, setConditionTags] = useState<string[]>([]);
   const [items, setItems] = useState<ImportItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
@@ -239,12 +253,16 @@ export function PhotoImportDashboard() {
   };
 
   const importPhotos = async () => {
-    if (!categoryId) {
-      setError("请先选择照片分类。");
-      return;
-    }
     if (!pendingItems.length) {
       setError("请先拖入或选择照片。");
+      return;
+    }
+    if (subjectTags.length > 5) {
+      setError("主体标签最多选择 5 个，请减少后再导入。");
+      return;
+    }
+    if (conditionTags.length > 4) {
+      setError("时间 / 天气标签最多选择 4 个，请减少后再导入。");
       return;
     }
 
@@ -259,11 +277,14 @@ export function PhotoImportDashboard() {
       );
       let nextSortOrder =
         (await client.fetch<number | null>(
-          `*[_type == "photo" && category._ref == $category] | order(sortOrder desc)[0].sortOrder`,
-          { category: categoryId },
+          categoryId
+            ? `*[_type == "photo" && category._ref == $category] | order(sortOrder desc)[0].sortOrder`
+            : `*[_type == "photo"] | order(sortOrder desc)[0].sortOrder`,
+          categoryId ? { category: categoryId } : {},
         )) ?? 0;
       let importedCount = 0;
       let skippedCount = 0;
+      let failedCount = 0;
 
       for (const item of pendingItems) {
         if (existingNames.includes(item.file.name)) {
@@ -274,11 +295,13 @@ export function PhotoImportDashboard() {
 
         setItems((current) => current.map((candidate) => (candidate.id === item.id ? { ...candidate, status: "uploading" } : candidate)));
         try {
-          const asset = await client.assets.upload("image", item.file, {
+          const uploadOptions = {
             filename: item.file.name,
-            contentType: item.file.type || undefined,
-          });
+            ...(item.file.type ? { contentType: item.file.type } : {}),
+          };
+          const asset = await client.assets.upload("image", item.file, uploadOptions);
           const uploadResult = asset as AssetUploadResult;
+          if (!uploadResult._id) throw new Error("Sanity 没有返回图片资源 ID，请重试。");
           const slugTaken = await client.fetch<number>(`count(*[_type == "photo" && slug.current == $slug])`, { slug: item.slug });
           const slug = slugTaken ? `${item.slug}-${hashString(`${item.file.name}-${item.file.lastModified}`)}` : item.slug;
           const dimensions = uploadResult.metadata?.dimensions;
@@ -288,9 +311,11 @@ export function PhotoImportDashboard() {
             slug: { _type: "slug", current: slug },
             image: { _type: "image", asset: { _type: "reference", _ref: uploadResult._id } },
             altText: item.exif.description || item.title,
-            category: { _type: "reference", _ref: categoryId },
+            ...(categoryId ? { category: { _type: "reference", _ref: categoryId } } : {}),
+            subjects: subjectTags,
+            conditions: conditionTags,
             sortOrder: nextSortOrder + 1,
-            isHidden: false,
+            isHidden: subjectTags.length === 0,
             isHero: false,
             isFeatured: false,
             sourceFilename: item.file.name,
@@ -316,18 +341,25 @@ export function PhotoImportDashboard() {
             ),
           );
         } catch (reason) {
+          failedCount += 1;
           setItems((current) =>
             current.map((candidate) =>
               candidate.id === item.id
-                ? { ...candidate, status: "error", error: reason instanceof Error ? reason.message : "上传失败" }
+                ? { ...candidate, status: "error", error: formatImportError(reason) }
                 : candidate,
             ),
           );
         }
       }
-      setMessage(`导入完成：${importedCount} 张成功${skippedCount ? `，${skippedCount} 张因文件名重复已跳过` : ""}。新照片已公开，可在页面内容中选择具体展示位置。`);
+      const pendingClassification = subjectTags.length === 0 ? `其中 ${importedCount} 张暂时隐藏，等待补充主体标签。` : "已应用本批次默认标签。";
+      if (failedCount) {
+        setError(`${failedCount} 张照片导入失败。请查看每张照片下方的具体错误，修正后可重新导入。`);
+      }
+      if (importedCount || skippedCount) {
+        setMessage(`导入完成：${importedCount} 张成功${skippedCount ? `，${skippedCount} 张因文件名重复已跳过` : ""}。${pendingClassification}`);
+      }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "导入失败，请稍后重试。");
+      setError(formatImportError(reason));
     } finally {
       setIsImporting(false);
     }
@@ -339,27 +371,68 @@ export function PhotoImportDashboard() {
         <p style={{ margin: "0 0 6px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>照片库</p>
         <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.2 }}>导入照片</h1>
         <p style={{ margin: "10px 0 0", color: "#4b5563", lineHeight: 1.5 }}>
-          一次拖入多张照片，系统会读取 EXIF 拍摄信息并创建照片文档。导入后默认公开，会根据分类或页面模块配置出现在网站上。
+          一次拖入多张照片，系统会读取 EXIF 拍摄信息并创建照片文档。下面的标签是本批次默认值，导入后仍可在照片库中批量调整。
         </p>
       </header>
 
       <section style={{ display: "grid", gap: 16, marginBottom: 24 }}>
-        <label style={{ display: "grid", gap: 7, maxWidth: 420, fontWeight: 600 }}>
-          <span>照片分类（必选）</span>
+        <div style={{ display: "grid", gap: 14, padding: 16, border: "1px solid #e2e8f0", borderRadius: 10, background: "#f8fafc" }}>
+          <div>
+            <strong style={{ display: "block", fontSize: 16 }}>本批次默认信息</strong>
+            <span style={{ display: "block", marginTop: 5, color: "#64748b", fontSize: 13, lineHeight: 1.5 }}>
+              不需要逐张选择。这里选择的标签会应用到本次导入的所有照片；不同的照片可以稍后在照片库中单独补充。
+            </span>
+          </div>
+          <label style={{ display: "grid", gap: 7, maxWidth: 420, fontWeight: 600 }}>
+            <span>旧版展示栏目（可选）</span>
           <select
             value={categoryId}
             onChange={(event) => setCategoryId(event.target.value)}
             disabled={isImporting || isLoadingCategories}
             style={{ minHeight: 44, border: "1px solid #cbd5e1", borderRadius: 6, padding: "0 12px", fontSize: 15, background: "#fff" }}
           >
-            <option value="">{isLoadingCategories ? "正在读取分类…" : "请选择分类"}</option>
+            <option value="">{isLoadingCategories ? "正在读取栏目…" : "不设置展示栏目"}</option>
             {categories.map((category) => (
               <option key={category._id} value={category._id}>
                 {category.title}
               </option>
             ))}
           </select>
-        </label>
+          </label>
+
+          <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend style={{ fontWeight: 600, marginBottom: 8 }}>主体标签（可多选）</legend>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {photoSubjectOptions.map((option) => {
+                const checked = subjectTags.includes(option.value);
+                return (
+                  <label key={option.value} style={{ display: "inline-flex", alignItems: "center", gap: 6, minHeight: 36, padding: "0 10px", border: `1px solid ${checked ? "#2563eb" : "#cbd5e1"}`, borderRadius: 999, background: checked ? "#eff6ff" : "#fff", color: checked ? "#1d4ed8" : "#475569", cursor: "pointer", fontSize: 13 }}>
+                    <input type="checkbox" checked={checked} onChange={() => setSubjectTags((current) => (checked ? current.filter((value) => value !== option.value) : [...current, option.value]))} disabled={isImporting} style={{ position: "absolute", opacity: 0, pointerEvents: "none" }} />
+                    {option.title}
+                  </label>
+                );
+              })}
+            </div>
+            <span style={{ display: "block", marginTop: 6, color: "#64748b", fontSize: 12 }}>
+              留空也可以导入，但照片会进入“待分类”并保持隐藏。
+            </span>
+          </fieldset>
+
+          <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend style={{ fontWeight: 600, marginBottom: 8 }}>时间 / 天气（可选）</legend>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {photoConditionOptions.map((option) => {
+                const checked = conditionTags.includes(option.value);
+                return (
+                  <label key={option.value} style={{ display: "inline-flex", alignItems: "center", gap: 6, minHeight: 36, padding: "0 10px", border: `1px solid ${checked ? "#0f766e" : "#cbd5e1"}`, borderRadius: 999, background: checked ? "#f0fdfa" : "#fff", color: checked ? "#0f766e" : "#475569", cursor: "pointer", fontSize: 13 }}>
+                    <input type="checkbox" checked={checked} onChange={() => setConditionTags((current) => (checked ? current.filter((value) => value !== option.value) : [...current, option.value]))} disabled={isImporting} style={{ position: "absolute", opacity: 0, pointerEvents: "none" }} />
+                    {option.title}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        </div>
 
         <input ref={inputRef} type="file" accept="image/*" multiple onChange={onFileInput} style={{ display: "none" }} />
         <div

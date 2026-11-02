@@ -50,7 +50,7 @@ const photoNeedsAttentionFilter = `
   _type == "photo" &&
   (
     !defined(image.asset._ref) ||
-    !defined(category._ref) ||
+    (!defined(category._ref) && count(subjects) == 0) ||
     !defined(slug.current) ||
     (
       isHidden != true &&

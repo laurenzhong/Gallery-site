@@ -9,6 +9,7 @@ type ReadinessResult = {
   visibleStoryCount: number;
   hasImage: boolean;
   hasCategory: boolean;
+  hasSubjects: boolean;
   hasSlug: boolean;
   hasSortOrder: boolean;
   hasAltText: boolean;
@@ -39,6 +40,7 @@ const readinessQuery = `*[_id == $publishedId || _id == $draftId][0]{
   ]),
   "hasImage": defined(image.asset._ref),
   "hasCategory": defined(category._ref),
+  "hasSubjects": count(subjects) > 0,
   "hasSlug": defined(slug.current),
   "hasSortOrder": defined(sortOrder),
   "hasAltText": defined(altText),
@@ -70,13 +72,13 @@ function statusStyle(tone: "ready" | "warning" | "blocked") {
 function buildReadiness(result: ReadinessResult) {
   const blocking = [
     !result.hasImage ? "缺少图片资源" : undefined,
-    !result.hasCategory ? "未设置分类" : undefined,
     !result.hasSlug ? "缺少 URL 标识" : undefined,
   ].filter(Boolean);
 
   const warnings = [
     !result.hasSortOrder ? "未设置排序" : undefined,
     !result.hasAltText ? "未设置替代文本" : undefined,
+    !result.hasSubjects && !result.hasCategory ? "未设置主体标签（当前照片仍可作为旧数据保留）" : undefined,
     result.isHidden ? "已从网站隐藏" : undefined,
     result.homepageLayoutCount === 0 &&
     result.siteHeroCount === 0 &&
