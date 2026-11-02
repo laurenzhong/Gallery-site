@@ -332,12 +332,23 @@ export function PhotoImportDashboard() {
           const uploadResult = await new Promise<AssetUploadResult>((resolve, reject) => {
             client.observable.assets.upload("image", item.file, uploadOptions).subscribe({
               next: (event) => {
-                if (event.type === "progress" && event.stage === "upload" && Number.isFinite(event.percent)) {
-                  setImportProgress((current) =>
-                    current
-                      ? { ...current, currentPercent: Math.max(0, Math.min(100, event.percent)) }
-                      : current,
-                  );
+                if (event.type === "progress" && event.stage === "upload") {
+                  const eventPercent = Number(event.percent);
+                  const loaded = Number(event.loaded);
+                  const total = Number(event.total) > 0 ? Number(event.total) : item.file.size;
+                  const percent =
+                    Number.isFinite(eventPercent) && eventPercent >= 0
+                      ? eventPercent
+                      : Number.isFinite(loaded) && total > 0
+                        ? (loaded / total) * 100
+                        : undefined;
+                  if (percent != null && Number.isFinite(percent)) {
+                    setImportProgress((current) =>
+                      current
+                        ? { ...current, currentPercent: Math.max(0, Math.min(100, percent)) }
+                        : current,
+                    );
+                  }
                 } else if (event.type === "response") {
                   resolve(event.body.document as AssetUploadResult);
                 }
