@@ -138,6 +138,16 @@ function cleanJson(value) {
   return value.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
 }
 
+function errorMessage(error) {
+  if (error instanceof Error) {
+    const details = [error.message, error.cause instanceof Error ? error.cause.message : ""]
+      .filter(Boolean)
+      .join(" (cause: ");
+    return details ? `${details}${details.includes(" (cause: ") ? ")" : ""}` : "Unknown error";
+  }
+  return "Unknown error";
+}
+
 function normalizePredictions(prediction) {
   const subjectValues = new Set(subjectOptions.map(([value]) => value));
   const conditionValues = new Set(conditionOptions.map(([value]) => value));
@@ -219,13 +229,18 @@ if (!process.env.OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 const proxyUrl = process.env.OPENAI_HTTPS_PROXY ?? process.env.HTTPS_PROXY ?? process.env.HTTP_PROXY ?? "http://127.0.0.1:7897";
 setGlobalDispatcher(new ProxyAgent({ uri: proxyUrl, requestTls: { rejectUnauthorized: true } }));
 
-const client = createClient({ projectId, dataset, token, apiVersion, useCdn: false });
+const client = createClient({ projectId, dataset, token, apiVersion, useCdn: false, proxy: proxyUrl });
 const baseFilter = args.force ? "true" : "(!defined(aiClassification.status) || aiClassification.status == \"error\")";
 const idFilter = args.ids?.length ? " && _id in $ids" : "";
 const query = `*[_type == "photo" && defined(image.asset->url) && (${baseFilter})${idFilter}] | order(_createdAt asc) {
   _id, title, date, location, "imageUrl": image.asset->url
 }`;
-const photos = await client.fetch(query, args.ids?.length ? { ids: args.ids } : {});
+let photos;
+try {
+  photos = await client.fetch(query, args.ids?.length ? { ids: args.ids } : {});
+} catch (error) {
+  throw new Error(`Sanity query failed: ${errorMessage(error)}`);
+}
 const selected = args.limit ? photos.slice(0, args.limit) : photos;
 console.log(`AI classification: ${selected.length} photo(s), model=${model}, dryRun=${args.dryRun}`);
 
@@ -252,8 +267,14 @@ await runPool(selected, args.concurrency, async (photo, index) => {
     report.push({ id: photo._id, status: "suggested", ...result });
     console.log(`${prefix} ok -> ${result.subjects.map((item) => item.value).join(", ") || "no subject"}`);
   } catch (error) {
-    const message = error instanceof Error ? `${error.message}${error.cause?.message ? ` (${error.cause.message})` : ""}` : String(error);
-    if (!args.dryRun) await client.patch(photo._id).set({ aiClassification: { status: "error", model, error: message.slice(0, 1000), processedAt: new Date().toISOString() } }).commit();
+    const message = errorMessage(error);
+    if (!args.dryRun) {
+      try {
+        await client.patch(photo._id).set({ aiClassification: { status: "error", model, error: message.slice(0, 1000), processedAt: new Date().toISOString() } }).commit();
+      } catch (writeError) {
+        console.error(`${prefix} could not save error status -> ${errorMessage(writeError)}`);
+      }
+    }
     report.push({ id: photo._id, status: "error", error: message });
     console.error(`${prefix} failed -> ${message}`);
   }
