@@ -50,6 +50,7 @@ type ImportProgress = {
   imported: number;
   skipped: number;
   failed: number;
+  currentPercent: number;
   current?: string;
   phase: "preparing" | "uploading" | "complete";
 };
@@ -287,6 +288,7 @@ export function PhotoImportDashboard() {
       imported: 0,
       skipped: 0,
       failed: 0,
+      currentPercent: 0,
       phase: "preparing",
     });
     try {
@@ -309,7 +311,7 @@ export function PhotoImportDashboard() {
       setImportProgress((current) => (current ? { ...current, phase: "uploading" } : current));
 
       for (const item of pendingItems) {
-        setImportProgress((current) => (current ? { ...current, current: item.title } : current));
+        setImportProgress((current) => (current ? { ...current, current: item.title, currentPercent: 0 } : current));
         if (existingNames.includes(item.file.name)) {
           skippedCount += 1;
           setItems((current) => current.map((candidate) => (candidate.id === item.id ? { ...candidate, status: "skipped" } : candidate)));
@@ -327,8 +329,22 @@ export function PhotoImportDashboard() {
             filename: item.file.name,
             ...(item.file.type ? { contentType: item.file.type } : {}),
           };
-          const asset = await client.assets.upload("image", item.file, uploadOptions);
-          const uploadResult = asset as AssetUploadResult;
+          const uploadResult = await new Promise<AssetUploadResult>((resolve, reject) => {
+            client.observable.assets.upload("image", item.file, uploadOptions).subscribe({
+              next: (event) => {
+                if (event.type === "progress" && event.stage === "upload" && Number.isFinite(event.percent)) {
+                  setImportProgress((current) =>
+                    current
+                      ? { ...current, currentPercent: Math.max(0, Math.min(100, event.percent)) }
+                      : current,
+                  );
+                } else if (event.type === "response") {
+                  resolve(event.body.document as AssetUploadResult);
+                }
+              },
+              error: reject,
+            });
+          });
           if (!uploadResult._id) throw new Error("Sanity 没有返回图片资源 ID，请重试。");
           const slugTaken = await client.fetch<number>(`count(*[_type == "photo" && slug.current == $slug])`, { slug: item.slug });
           const slug = slugTaken ? `${item.slug}-${hashString(`${item.file.name}-${item.file.lastModified}`)}` : item.slug;
@@ -363,7 +379,7 @@ export function PhotoImportDashboard() {
           importedCount += 1;
           setImportProgress((current) =>
             current
-              ? { ...current, processed: current.processed + 1, imported: current.imported + 1 }
+              ? { ...current, processed: current.processed + 1, imported: current.imported + 1, currentPercent: 0 }
               : current,
           );
           setItems((current) =>
@@ -377,7 +393,7 @@ export function PhotoImportDashboard() {
           failedCount += 1;
           setImportProgress((current) =>
             current
-              ? { ...current, processed: current.processed + 1, failed: current.failed + 1 }
+              ? { ...current, processed: current.processed + 1, failed: current.failed + 1, currentPercent: 0 }
               : current,
           );
           setItems((current) =>
@@ -396,10 +412,10 @@ export function PhotoImportDashboard() {
       if (importedCount || skippedCount) {
         setMessage(`导入完成：${importedCount} 张成功${skippedCount ? `，${skippedCount} 张因文件名重复已跳过` : ""}。${pendingClassification}`);
       }
-      setImportProgress((current) => (current ? { ...current, current: undefined, phase: "complete" } : current));
+      setImportProgress((current) => (current ? { ...current, current: undefined, currentPercent: 0, phase: "complete" } : current));
     } catch (reason) {
       setError(formatImportError(reason));
-      setImportProgress((current) => (current ? { ...current, current: undefined, phase: "complete" } : current));
+      setImportProgress((current) => (current ? { ...current, current: undefined, currentPercent: 0, phase: "complete" } : current));
     } finally {
       setIsImporting(false);
     }
@@ -522,20 +538,21 @@ export function PhotoImportDashboard() {
         >
           {(() => {
             const percentage = importProgress.total
-              ? Math.round((importProgress.processed / importProgress.total) * 100)
+              ? Math.min(100, ((importProgress.processed + (importProgress.phase === "uploading" ? importProgress.currentPercent / 100 : 0)) / importProgress.total) * 100)
               : 0;
+            const percentageLabel = `${percentage < 10 && percentage % 1 ? percentage.toFixed(1) : Math.round(percentage)}%`;
             const status = importProgress.phase === "preparing"
               ? "正在准备导入…"
               : importProgress.phase === "complete"
                 ? "导入处理完成"
                 : importProgress.current
-                  ? `正在处理：${importProgress.current}`
+                  ? `正在处理：${importProgress.current}（当前文件 ${Math.round(importProgress.currentPercent)}%）`
                   : "正在上传照片…";
             return (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 9 }}>
                   <strong>{status}</strong>
-                  <span style={{ color: "#1d4ed8", fontWeight: 700 }}>{percentage}%</span>
+                  <span style={{ color: "#1d4ed8", fontWeight: 700 }}>{percentageLabel}</span>
                 </div>
                 <div
                   role="progressbar"
