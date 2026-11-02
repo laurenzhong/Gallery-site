@@ -44,6 +44,16 @@ type AssetUploadResult = {
   };
 };
 
+type ImportProgress = {
+  total: number;
+  processed: number;
+  imported: number;
+  skipped: number;
+  failed: number;
+  current?: string;
+  phase: "preparing" | "uploading" | "complete";
+};
+
 const clientApiVersion = "2025-02-19";
 
 function basename(filename: string) {
@@ -158,6 +168,7 @@ export function PhotoImportDashboard() {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
 
@@ -199,6 +210,7 @@ export function PhotoImportDashboard() {
       return;
     }
     setError(undefined);
+    setImportProgress(null);
     const newItems = await Promise.all(
       files.map(async (file, index) => {
         const title = basename(file.name).trim() || `照片 ${index + 1}`;
@@ -269,6 +281,14 @@ export function PhotoImportDashboard() {
     setIsImporting(true);
     setError(undefined);
     setMessage(undefined);
+    setImportProgress({
+      total: pendingItems.length,
+      processed: 0,
+      imported: 0,
+      skipped: 0,
+      failed: 0,
+      phase: "preparing",
+    });
     try {
       const selectedNames = pendingItems.map((item) => item.file.name);
       const existingNames = await client.fetch<string[]>(
@@ -286,10 +306,18 @@ export function PhotoImportDashboard() {
       let skippedCount = 0;
       let failedCount = 0;
 
+      setImportProgress((current) => (current ? { ...current, phase: "uploading" } : current));
+
       for (const item of pendingItems) {
+        setImportProgress((current) => (current ? { ...current, current: item.title } : current));
         if (existingNames.includes(item.file.name)) {
           skippedCount += 1;
           setItems((current) => current.map((candidate) => (candidate.id === item.id ? { ...candidate, status: "skipped" } : candidate)));
+          setImportProgress((current) =>
+            current
+              ? { ...current, processed: current.processed + 1, skipped: current.skipped + 1 }
+              : current,
+          );
           continue;
         }
 
@@ -333,6 +361,11 @@ export function PhotoImportDashboard() {
           });
           nextSortOrder += 1;
           importedCount += 1;
+          setImportProgress((current) =>
+            current
+              ? { ...current, processed: current.processed + 1, imported: current.imported + 1 }
+              : current,
+          );
           setItems((current) =>
             current.map((candidate) =>
               candidate.id === item.id
@@ -342,6 +375,11 @@ export function PhotoImportDashboard() {
           );
         } catch (reason) {
           failedCount += 1;
+          setImportProgress((current) =>
+            current
+              ? { ...current, processed: current.processed + 1, failed: current.failed + 1 }
+              : current,
+          );
           setItems((current) =>
             current.map((candidate) =>
               candidate.id === item.id
@@ -358,8 +396,10 @@ export function PhotoImportDashboard() {
       if (importedCount || skippedCount) {
         setMessage(`导入完成：${importedCount} 张成功${skippedCount ? `，${skippedCount} 张因文件名重复已跳过` : ""}。${pendingClassification}`);
       }
+      setImportProgress((current) => (current ? { ...current, current: undefined, phase: "complete" } : current));
     } catch (reason) {
       setError(formatImportError(reason));
+      setImportProgress((current) => (current ? { ...current, current: undefined, phase: "complete" } : current));
     } finally {
       setIsImporting(false);
     }
@@ -473,6 +513,51 @@ export function PhotoImportDashboard() {
           </div>
         </div>
       </section>
+
+      {importProgress ? (
+        <section
+          aria-label="照片导入进度"
+          aria-live="polite"
+          style={{ border: "1px solid #bfdbfe", borderRadius: 10, padding: 16, marginBottom: 16, background: "#eff6ff" }}
+        >
+          {(() => {
+            const percentage = importProgress.total
+              ? Math.round((importProgress.processed / importProgress.total) * 100)
+              : 0;
+            const status = importProgress.phase === "preparing"
+              ? "正在准备导入…"
+              : importProgress.phase === "complete"
+                ? "导入处理完成"
+                : importProgress.current
+                  ? `正在处理：${importProgress.current}`
+                  : "正在上传照片…";
+            return (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 9 }}>
+                  <strong>{status}</strong>
+                  <span style={{ color: "#1d4ed8", fontWeight: 700 }}>{percentage}%</span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={percentage}
+                  aria-label="照片导入进度"
+                  style={{ height: 10, borderRadius: 999, overflow: "hidden", background: "#dbeafe" }}
+                >
+                  <div style={{ width: `${percentage}%`, height: "100%", borderRadius: 999, background: "#2563eb", transition: "width 180ms ease" }} />
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 10, color: "#475569", fontSize: 13 }}>
+                  <span>已处理 {importProgress.processed} / {importProgress.total}</span>
+                  <span>成功 {importProgress.imported}</span>
+                  <span>跳过 {importProgress.skipped}</span>
+                  {importProgress.failed ? <span style={{ color: "#b91c1c" }}>失败 {importProgress.failed}</span> : null}
+                </div>
+              </>
+            );
+          })()}
+        </section>
+      ) : null}
 
       {error ? <div style={{ border: "1px solid #f2b8b5", background: "#fff5f5", borderRadius: 7, padding: 12, color: "#a5281b", marginBottom: 16 }}>{error}</div> : null}
       {message ? <div style={{ border: "1px solid #b7dfc5", background: "#f1fbf4", borderRadius: 7, padding: 12, color: "#136c3a", marginBottom: 16 }}>{message}</div> : null}
