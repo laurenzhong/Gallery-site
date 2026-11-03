@@ -97,12 +97,11 @@ const body = {
   description: "Processes queued photo AI tasks after a photo document is created.",
   dataset,
   url,
-  rule: { on: ["create", "update"], filter: '_type == "photo" && aiClassification.status == "queued"' },
-  projection: { _id: "_id", _type: "_type", aiClassification: "aiClassification" },
+  rule: { on: ["create", "update"], filter: '_type == "photo" && aiClassification.status == "queued"', projection: "{_id, _type, aiClassification}" },
   httpMethod: "POST",
   apiVersion: "v2025-02-19",
   type: "document",
-  headers: [{ name: "x-ai-webhook-secret", value: secret }],
+  headers: { "x-ai-webhook-secret": secret },
 };
 let result;
 try {
