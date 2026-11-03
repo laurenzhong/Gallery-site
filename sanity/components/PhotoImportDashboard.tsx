@@ -10,9 +10,11 @@ type RestoredTask = { id: string; title: string; sourceFilename?: string; status
 type StoredImportItem = Omit<ImportItem, "previewUrl">;
 type AssetUploadResult = { _id: string; metadata?: { dimensions?: { width?: number; height?: number } } };
 type ImportProgress = { total: number; processed: number; imported: number; skipped: number; failed: number; currentPercent: number; current?: string; phase: "preparing" | "uploading" | "processing" | "complete" };
+type StoredImportSession = ImportProgress & { itemIds: string[]; startedAt: string; active: boolean; placeTitle?: string; spot?: string; generateStory?: boolean; storyPrompt?: string };
 
 const clientApiVersion = "2025-02-19";
 const importTaskStorageKey = "sanity-photo-import-task-ids";
+const importSessionStorageKey = "sanity-photo-import-session";
 const importDraftDbName = "sanity-photo-import-drafts";
 const importDraftStoreName = "items";
 const basename = (filename: string) => filename.replace(/\.[^.]+$/, "");
@@ -32,22 +34,78 @@ function formatImportError(reason: unknown) { if (reason instanceof Error && rea
 function readImportTaskIds() { if (typeof window === "undefined") return []; try { const value = JSON.parse(window.localStorage.getItem(importTaskStorageKey) || "[]"); return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").slice(-50) : []; } catch { return []; } }
 function rememberImportTask(id: string) { if (typeof window === "undefined") return; const ids = [...readImportTaskIds().filter((item) => item !== id), id].slice(-50); window.localStorage.setItem(importTaskStorageKey, JSON.stringify(ids)); }
 function forgetImportTask(id: string) { if (typeof window === "undefined") return; window.localStorage.setItem(importTaskStorageKey, JSON.stringify(readImportTaskIds().filter((item) => item !== id))); }
+function readImportSession(): StoredImportSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = JSON.parse(window.localStorage.getItem(importSessionStorageKey) || "null") as Partial<StoredImportSession> | null;
+    if (!value || !Array.isArray(value.itemIds) || typeof value.total !== "number" || typeof value.phase !== "string") return null;
+    return { total: value.total, processed: Number(value.processed) || 0, imported: Number(value.imported) || 0, skipped: Number(value.skipped) || 0, failed: Number(value.failed) || 0, currentPercent: Number(value.currentPercent) || 0, current: typeof value.current === "string" ? value.current : undefined, phase: value.phase as ImportProgress["phase"], itemIds: value.itemIds.filter((item): item is string => typeof item === "string"), startedAt: typeof value.startedAt === "string" ? value.startedAt : new Date().toISOString(), active: value.active !== false, placeTitle: typeof value.placeTitle === "string" ? value.placeTitle : undefined, spot: typeof value.spot === "string" ? value.spot : undefined, generateStory: value.generateStory === true, storyPrompt: typeof value.storyPrompt === "string" ? value.storyPrompt : undefined };
+  } catch { return null; }
+}
+function writeImportSession(progress: ImportProgress, itemIds: string[], active = true, metadata?: Pick<StoredImportSession, "placeTitle" | "spot" | "generateStory" | "storyPrompt">) {
+  if (typeof window === "undefined") return;
+  const previous = readImportSession();
+  const session: StoredImportSession = { ...progress, itemIds, startedAt: previous?.startedAt || new Date().toISOString(), active, placeTitle: metadata?.placeTitle ?? previous?.placeTitle, spot: metadata?.spot ?? previous?.spot, generateStory: metadata?.generateStory ?? previous?.generateStory, storyPrompt: metadata?.storyPrompt ?? previous?.storyPrompt };
+  window.localStorage.setItem(importSessionStorageKey, JSON.stringify(session));
+}
 function openImportDraftDb() { return new Promise<IDBDatabase>((resolve, reject) => { if (typeof window === "undefined" || !window.indexedDB) { reject(new Error("IndexedDB unavailable")); return; } const request = window.indexedDB.open(importDraftDbName, 1); request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains(importDraftStoreName)) request.result.createObjectStore(importDraftStoreName, { keyPath: "id" }); }; request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error || new Error("IndexedDB open failed")); }); }
 async function loadImportDraft() { const db = await openImportDraftDb(); return new Promise<StoredImportItem[]>((resolve, reject) => { const request = db.transaction(importDraftStoreName, "readonly").objectStore(importDraftStoreName).getAll(); request.onsuccess = () => { db.close(); resolve(request.result as StoredImportItem[]); }; request.onerror = () => { db.close(); reject(request.error || new Error("IndexedDB read failed")); }; }); }
 async function saveImportDraft(items: ImportItem[]) { const db = await openImportDraftDb(); return new Promise<void>((resolve, reject) => { const transaction = db.transaction(importDraftStoreName, "readwrite"); const store = transaction.objectStore(importDraftStoreName); store.clear(); items.forEach((item) => store.put(item)); transaction.oncomplete = () => { db.close(); resolve(); }; transaction.onerror = () => { db.close(); reject(transaction.error || new Error("IndexedDB write failed")); }; }); }
 
 export function PhotoImportDashboard() {
-  const client = useClient({ apiVersion: clientApiVersion }); const inputRef = useRef<HTMLInputElement>(null); const itemsRef = useRef<ImportItem[]>([]); const draftHydratedRef = useRef(false);
+  const client = useClient({ apiVersion: clientApiVersion }); const inputRef = useRef<HTMLInputElement>(null); const itemsRef = useRef<ImportItem[]>([]); const importPhotosRef = useRef<(() => Promise<void>) | null>(null); const draftHydratedRef = useRef(false); const sessionResumedRef = useRef(false);
   const [places, setPlaces] = useState<Place[]>([]); const [placeTitle, setPlaceTitle] = useState(""); const [spot, setSpot] = useState(""); const [generateStory, setGenerateStory] = useState(false); const [storyPrompt, setStoryPrompt] = useState(""); const [items, setItems] = useState<ImportItem[]>([]); const [restoredTasks, setRestoredTasks] = useState<RestoredTask[]>([]); const [isDragging, setIsDragging] = useState(false); const [isLoadingPlaces, setIsLoadingPlaces] = useState(true); const [isImporting, setIsImporting] = useState(false); const [importProgress, setImportProgress] = useState<ImportProgress | null>(null); const [message, setMessage] = useState<string>(); const [error, setError] = useState<string>();
 
   useEffect(() => { let active = true; client.fetch<Place[]>(`*[_type == "place" && isVisible != false] | order(sortOrder asc, title asc) { _id, title }`).then((result) => { if (active) setPlaces(result); }).catch(() => { if (active) setError("无法读取地点列表，请刷新后重试。"); }).finally(() => { if (active) setIsLoadingPlaces(false); }); return () => { active = false; }; }, [client]);
-  useEffect(() => { let active = true; void loadImportDraft().then((storedItems) => { if (!active || !storedItems.length) return; const restoredItems = storedItems.filter((item) => item.file instanceof File).map((item) => ({ ...item, previewUrl: URL.createObjectURL(item.file) })); if (restoredItems.length) setItems((current) => current.length ? current : restoredItems); }).catch(() => undefined).finally(() => { if (active) draftHydratedRef.current = true; }); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; const storedSession = readImportSession(); if (storedSession?.active && storedSession.phase !== "complete") { setImportProgress(storedSession); if (storedSession.placeTitle) setPlaceTitle(storedSession.placeTitle); if (storedSession.spot) setSpot(storedSession.spot); if (storedSession.generateStory) setGenerateStory(true); if (storedSession.storyPrompt) setStoryPrompt(storedSession.storyPrompt); } void loadImportDraft().then((storedItems) => { if (!active || !storedItems.length) return; const restoredItems = storedItems.filter((item) => item.file instanceof File).map((item) => ({ ...item, previewUrl: URL.createObjectURL(item.file) })); if (restoredItems.length) setItems((current) => current.length ? current : restoredItems); }).catch(() => undefined).finally(() => { if (active) draftHydratedRef.current = true; }); return () => { active = false; }; }, []);
   useEffect(() => { let active = true; const loadRestoredTasks = async () => { try { const ids = readImportTaskIds(); const result = await client.fetch<RestoredTask[]>(`*[_type == "photo" && ((_id in $ids) || aiClassification.status in ["queued", "processing", "error"])] | order(_updatedAt desc)[0...50]{ "id": _id, title, sourceFilename, "status": select(aiClassification.status == "approved" => "approved", aiClassification.status == "error" => "error", aiClassification.status == "processing" => "processing", "queued"), "error": aiClassification.error, "imageUrl": image.asset->url, altText }`, { ids }); if (active) setRestoredTasks(result); } catch { /* The import list remains usable when the background status query is unavailable. */ } }; void loadRestoredTasks(); const interval = window.setInterval(() => void loadRestoredTasks(), 4000); return () => { active = false; window.clearInterval(interval); }; }, [client]);
+  useEffect(() => {
+    if (!restoredTasks.length) return;
+    setItems((current) => {
+      let changed = false;
+      const next = current.map((item) => {
+        if (!item.documentId) return item;
+        const task = restoredTasks.find((candidate) => candidate.id === item.documentId);
+        if (!task) return item;
+        const status: ImportStatus = task.status === "approved" ? "complete" : task.status === "processing" ? "processing" : task.status === "error" ? "error" : "imported";
+        const error = task.status === "error" ? task.error : undefined;
+        if (item.status === status && item.error === error) return item;
+        changed = true;
+        return { ...item, status, error };
+      });
+      return changed ? next : current;
+    });
+  }, [restoredTasks]);
   useEffect(() => { itemsRef.current = items; }, [items]); useEffect(() => () => { itemsRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl)); }, []);
   useEffect(() => { if (draftHydratedRef.current) void saveImportDraft(items).catch(() => undefined); }, [items]);
+  useEffect(() => { if (!importProgress || !draftHydratedRef.current) return; const session = readImportSession(); writeImportSession(importProgress, session?.itemIds?.length ? session.itemIds : items.map((item) => item.id), importProgress.phase !== "complete"); }, [importProgress, items]);
   const pendingItems = useMemo(() => items.filter((item) => item.status === "pending"), [items]);
   const currentDocumentIds = useMemo(() => new Set(items.map((item) => item.documentId).filter(Boolean)), [items]);
   const visibleRestoredTasks = useMemo(() => restoredTasks.filter((task) => !currentDocumentIds.has(task.id)), [currentDocumentIds, restoredTasks]);
+  useEffect(() => {
+    if (!draftHydratedRef.current || !items.length) return;
+    const session = readImportSession();
+    if (!session?.active || session.phase === "complete") return;
+    const trackedIds = new Set(session.itemIds);
+    const trackedItems = items.filter((item) => trackedIds.has(item.id));
+    if (!trackedItems.length) return;
+    const uploading = trackedItems.some((item) => item.status === "pending" || item.status === "uploading");
+    const processing = trackedItems.some((item) => item.status === "imported" || item.status === "processing");
+    const activeItems = trackedItems.filter((item) => ["pending", "uploading", "imported", "processing"].includes(item.status));
+    const processed = trackedItems.filter((item) => ["complete", "error", "skipped"].includes(item.status)).length;
+    const failed = trackedItems.filter((item) => item.status === "error").length;
+    const imported = trackedItems.filter((item) => ["imported", "processing", "complete"].includes(item.status)).length;
+    const nextPhase: ImportProgress["phase"] = uploading ? "uploading" : processing ? "processing" : "complete";
+    const nextCurrent = activeItems[0]?.title;
+    setImportProgress((current) => {
+      const total = session.total || trackedItems.length;
+      const skipped = Math.max(session.skipped, trackedItems.filter((item) => item.status === "skipped").length);
+      const nextProcessed = nextPhase === "processing" ? processed : nextPhase === "complete" ? total : Math.min(total, imported + skipped + failed);
+      const next: ImportProgress = { total, processed: nextProcessed, imported: Math.max(session.imported, imported), skipped, failed: Math.max(session.failed, failed), currentPercent: nextPhase === "processing" ? 0 : current?.currentPercent ?? session.currentPercent, current: nextCurrent, phase: nextPhase };
+      if (current && JSON.stringify(current) === JSON.stringify(next)) return current;
+      return next;
+    });
+  }, [items]);
   const addFiles = useCallback(async (fileList: FileList | File[]) => { const files = Array.from(fileList).filter((file) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|tiff?|heic)$/i.test(file.name)); if (!files.length) { setError("没有找到可导入的图片文件。"); return; } setError(undefined); setImportProgress(null); const newItems = await Promise.all(files.map(async (file, index) => { const title = basename(file.name).trim() || `照片 ${index + 1}`; return { id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`, file, title, slug: makeSlug(title), previewUrl: URL.createObjectURL(file), exif: await readExif(file), status: "pending" as const }; })); setItems((current) => [...current, ...newItems]); }, []);
   const onFileInput = (event: React.ChangeEvent<HTMLInputElement>) => { if (event.target.files) void addFiles(event.target.files); event.target.value = ""; };
   const removeItem = (id: string) => { setItems((current) => { const item = current.find((candidate) => candidate.id === id); if (item) URL.revokeObjectURL(item.previewUrl); return current.filter((candidate) => candidate.id !== id); }); };
@@ -55,12 +113,15 @@ export function PhotoImportDashboard() {
   const ensurePlace = async () => { const title = placeTitle.trim(); if (!title) return undefined; const existing = places.find((place) => place.title === title); if (existing) return existing._id; const existingId = await client.fetch<string | null>(`*[_type == "place" && title == $title][0]._id`, { title }); if (existingId) return existingId; const created = await client.create({ _type: "place", title, slug: { _type: "slug", current: makeSlug(title) }, isVisible: true, sortOrder: 100 }); setPlaces((current) => [...current, { _id: created._id, title }].sort((a, b) => a.title.localeCompare(b.title, "zh-CN"))); return created._id; };
 
   const importPhotos = async () => {
-    if (!pendingItems.length) { setError("请先拖入或选择照片。"); return; }
-    setIsImporting(true); setError(undefined); setMessage(undefined); setImportProgress({ total: pendingItems.length, processed: 0, imported: 0, skipped: 0, failed: 0, currentPercent: 0, phase: "preparing" });
+    const importCandidates = itemsRef.current.filter((item) => item.status === "pending" || item.status === "uploading");
+    if (!importCandidates.length) { setError("请先拖入或选择照片。"); return; }
+    const initialProgress: ImportProgress = { total: importCandidates.length, processed: 0, imported: 0, skipped: 0, failed: 0, currentPercent: 0, phase: "preparing" };
+    writeImportSession(initialProgress, importCandidates.map((item) => item.id), true, { placeTitle: placeTitle.trim(), spot: spot.trim(), generateStory, storyPrompt: storyPrompt.trim() });
+    setIsImporting(true); setError(undefined); setMessage(undefined); setImportProgress(initialProgress);
     try {
-      const placeId = await ensurePlace(); const selectedNames = pendingItems.map((item) => item.file.name); const existingNames = await client.fetch<string[]>(`*[_type == "photo" && sourceFilename in $names].sourceFilename`, { names: selectedNames }); let nextSortOrder = (await client.fetch<number | null>(`*[_type == "photo"] | order(sortOrder desc)[0].sortOrder`)) ?? 0; let importedCount = 0; let skippedCount = 0; let failedCount = 0; const createdItems: Array<{ itemId: string; documentId: string; title: string }> = [];
+      const placeId = await ensurePlace(); const selectedNames = importCandidates.map((item) => item.file.name); const existingNames = await client.fetch<string[]>(`*[_type == "photo" && sourceFilename in $names].sourceFilename`, { names: selectedNames }); let nextSortOrder = (await client.fetch<number | null>(`*[_type == "photo"] | order(sortOrder desc)[0].sortOrder`)) ?? 0; let importedCount = 0; let skippedCount = 0; let failedCount = 0; const createdItems: Array<{ itemId: string; documentId: string; title: string }> = [];
       setImportProgress((current) => current ? { ...current, phase: "uploading" } : current);
-      for (const item of pendingItems) {
+      for (const item of importCandidates) {
         setImportProgress((current) => current ? { ...current, current: item.title, currentPercent: 0 } : current);
         if (existingNames.includes(item.file.name)) { skippedCount += 1; setItems((current) => current.map((candidate) => candidate.id === item.id ? { ...candidate, status: "skipped" } : candidate)); setImportProgress((current) => current ? { ...current, processed: current.processed + 1, skipped: current.skipped + 1 } : current); continue; }
         setItems((current) => current.map((candidate) => candidate.id === item.id ? { ...candidate, status: "uploading" } : candidate));
@@ -76,6 +137,17 @@ export function PhotoImportDashboard() {
       if (failedCount) setError(`${failedCount} 张照片上传或 AI 处理失败，请查看每张照片下方的错误并重试。`); if (importedCount || skippedCount) setMessage(`导入完成：${importedCount} 张成功${skippedCount ? `，${skippedCount} 张因文件名重复已跳过` : ""}。${generateStory ? "已提交手记生成任务。" : "已提交 AI 标签任务。"}`); setImportProgress((current) => current ? { ...current, current: undefined, currentPercent: 0, phase: "complete" } : current);
     } catch (reason) { setError(formatImportError(reason)); setImportProgress((current) => current ? { ...current, current: undefined, currentPercent: 0, phase: "complete" } : current); } finally { setIsImporting(false); }
   };
+  importPhotosRef.current = importPhotos;
+  useEffect(() => {
+    if (!draftHydratedRef.current || sessionResumedRef.current || isImporting) return;
+    const session = readImportSession();
+    if (!session?.active || session.phase === "complete" || !items.length) return;
+    const trackedIds = new Set(session.itemIds);
+    const shouldResumeUpload = items.some((item) => trackedIds.has(item.id) && (item.status === "pending" || item.status === "uploading"));
+    if (!shouldResumeUpload) return;
+    sessionResumedRef.current = true;
+    void importPhotosRef.current?.();
+  }, [items, isImporting]);
 
   return <main style={{ maxWidth: 980, padding: 24, color: "#1f2937" }}>
     <header style={{ marginBottom: 24 }}><p style={{ margin: "0 0 6px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>照片库</p><h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.2 }}>导入照片</h1><p style={{ margin: "10px 0 0", color: "#4b5563", lineHeight: 1.5 }}>导入后由模型自动识别主体、时间 / 天气、标题、替代文本和图片说明。你可以为整批照片提供地点和手记提示词。</p></header>
