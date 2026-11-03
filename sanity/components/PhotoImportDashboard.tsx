@@ -17,6 +17,7 @@ const importTaskStorageKey = "sanity-photo-import-task-ids";
 const importSessionStorageKey = "sanity-photo-import-session";
 const importDraftDbName = "sanity-photo-import-drafts";
 const importDraftStoreName = "items";
+let activeImportRun = false;
 const basename = (filename: string) => filename.replace(/\.[^.]+$/, "");
 function hashString(value: string) { let hash = 0; for (let index = 0; index < value.length; index += 1) hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0; return (hash >>> 0).toString(36); }
 function makeSlug(value: string) { const ascii = value.normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase(); return (ascii || `photo-${hashString(value)}`).slice(0, 88); }
@@ -65,13 +66,13 @@ export function PhotoImportDashboard() {
       let changed = false;
       const next = current.map((item) => {
         if (!item.documentId) return item;
-        const task = restoredTasks.find((candidate) => candidate.id === item.documentId);
+        const task = restoredTasks.find((candidate) => candidate.id === item.documentId || (!item.documentId && candidate.sourceFilename === item.file.name));
         if (!task) return item;
         const status: ImportStatus = task.status === "approved" ? "complete" : task.status === "processing" ? "processing" : task.status === "error" ? "error" : "imported";
         const error = task.status === "error" ? task.error : undefined;
-        if (item.status === status && item.error === error) return item;
+        if (item.status === status && item.error === error && item.documentId === task.id) return item;
         changed = true;
-        return { ...item, status, error };
+        return { ...item, status, documentId: task.id, error };
       });
       return changed ? next : current;
     });
@@ -113,8 +114,10 @@ export function PhotoImportDashboard() {
   const ensurePlace = async () => { const title = placeTitle.trim(); if (!title) return undefined; const existing = places.find((place) => place.title === title); if (existing) return existing._id; const existingId = await client.fetch<string | null>(`*[_type == "place" && title == $title][0]._id`, { title }); if (existingId) return existingId; const created = await client.create({ _type: "place", title, slug: { _type: "slug", current: makeSlug(title) }, isVisible: true, sortOrder: 100 }); setPlaces((current) => [...current, { _id: created._id, title }].sort((a, b) => a.title.localeCompare(b.title, "zh-CN"))); return created._id; };
 
   const importPhotos = async () => {
+    if (activeImportRun) return;
     const importCandidates = itemsRef.current.filter((item) => item.status === "pending" || item.status === "uploading");
     if (!importCandidates.length) { setError("请先拖入或选择照片。"); return; }
+    activeImportRun = true;
     const initialProgress: ImportProgress = { total: importCandidates.length, processed: 0, imported: 0, skipped: 0, failed: 0, currentPercent: 0, phase: "preparing" };
     writeImportSession(initialProgress, importCandidates.map((item) => item.id), true, { placeTitle: placeTitle.trim(), spot: spot.trim(), generateStory, storyPrompt: storyPrompt.trim() });
     setIsImporting(true); setError(undefined); setMessage(undefined); setImportProgress(initialProgress);
@@ -135,11 +138,11 @@ export function PhotoImportDashboard() {
       setImportProgress((current) => current ? { ...current, phase: "processing", processed: 0, currentPercent: 0 } : current);
       for (const created of createdItems) { try { for (let attempt = 0; attempt < 90; attempt += 1) { const state = await client.fetch<{ status?: string; error?: string } | null>(`*[_id == $id][0].aiClassification`, { id: created.documentId }); if (state?.status === "approved") { setItems((current) => current.map((candidate) => candidate.id === created.itemId ? { ...candidate, status: "complete" } : candidate)); break; } if (state?.status === "error") throw new Error(state.error || "AI 处理失败"); setItems((current) => current.map((candidate) => candidate.id === created.itemId ? { ...candidate, status: "processing" } : candidate)); await new Promise((resolve) => window.setTimeout(resolve, 2000)); if (attempt === 89) throw new Error("AI 处理超时，请稍后在照片库重试。"); } } catch (reason) { failedCount += 1; setItems((current) => current.map((candidate) => candidate.id === created.itemId ? { ...candidate, status: "error", error: formatImportError(reason) } : candidate)); } setImportProgress((current) => current ? { ...current, processed: current.processed + 1, failed: failedCount } : current); }
       if (failedCount) setError(`${failedCount} 张照片上传或 AI 处理失败，请查看每张照片下方的错误并重试。`); if (importedCount || skippedCount) setMessage(`导入完成：${importedCount} 张成功${skippedCount ? `，${skippedCount} 张因文件名重复已跳过` : ""}。${generateStory ? "已提交手记生成任务。" : "已提交 AI 标签任务。"}`); setImportProgress((current) => current ? { ...current, current: undefined, currentPercent: 0, phase: "complete" } : current);
-    } catch (reason) { setError(formatImportError(reason)); setImportProgress((current) => current ? { ...current, current: undefined, currentPercent: 0, phase: "complete" } : current); } finally { setIsImporting(false); }
+    } catch (reason) { setError(formatImportError(reason)); setImportProgress((current) => current ? { ...current, current: undefined, currentPercent: 0, phase: "complete" } : current); } finally { activeImportRun = false; setIsImporting(false); }
   };
   importPhotosRef.current = importPhotos;
   useEffect(() => {
-    if (!draftHydratedRef.current || sessionResumedRef.current || isImporting) return;
+    if (!draftHydratedRef.current || sessionResumedRef.current || isImporting || activeImportRun) return;
     const session = readImportSession();
     if (!session?.active || session.phase === "complete" || !items.length) return;
     const trackedIds = new Set(session.itemIds);
@@ -147,7 +150,7 @@ export function PhotoImportDashboard() {
     if (!shouldResumeUpload) return;
     sessionResumedRef.current = true;
     void importPhotosRef.current?.();
-  }, [items, isImporting]);
+  }, [items, isImporting, restoredTasks]);
 
   return <main style={{ maxWidth: 980, padding: 24, color: "#1f2937" }}>
     <header style={{ marginBottom: 24 }}><p style={{ margin: "0 0 6px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>照片库</p><h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.2 }}>导入照片</h1><p style={{ margin: "10px 0 0", color: "#4b5563", lineHeight: 1.5 }}>导入后由模型自动识别主体、时间 / 天气、标题、替代文本和图片说明。你可以为整批照片提供地点和手记提示词。</p></header>
