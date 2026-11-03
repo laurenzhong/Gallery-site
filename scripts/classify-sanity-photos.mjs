@@ -182,7 +182,14 @@ async function callVisionModel(photo, model) {
     : `${baseUrl}/v1/responses`;
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      // Some OpenAI-compatible gateways accept x-api-key instead of (or in
+      // addition to) the standard Bearer header. It is harmless for OpenAI's
+      // endpoint and keeps custom endpoints interoperable.
+      "x-api-key": process.env.OPENAI_API_KEY,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
       model,
       input: [
@@ -229,11 +236,11 @@ if (!process.env.OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 const proxyUrl = process.env.OPENAI_HTTPS_PROXY ?? process.env.HTTPS_PROXY ?? process.env.HTTP_PROXY ?? "http://127.0.0.1:7897";
 setGlobalDispatcher(new ProxyAgent({ uri: proxyUrl, requestTls: { rejectUnauthorized: true } }));
 
-const client = createClient({ projectId, dataset, token, apiVersion, useCdn: false, proxy: proxyUrl });
-const baseFilter = args.force ? "true" : "(!defined(aiClassification.status) || aiClassification.status == \"error\")";
+const client = createClient({ projectId, dataset, token, apiVersion, useCdn: false, perspective: "raw", proxy: proxyUrl });
+const baseFilter = args.force ? "true" : "(!defined(aiClassification.status) || aiClassification.status in [\"error\", \"processing\", \"queued\"])";
 const idFilter = args.ids?.length ? " && _id in $ids" : "";
 const query = `*[_type == "photo" && defined(image.asset->url) && (${baseFilter})${idFilter}] | order(_createdAt asc) {
-  _id, title, date, location, "imageUrl": image.asset->url
+  _id, title, date, location, subjects, conditions, primarySubject, altText, "place": place->title, spot, "imageUrl": image.asset->url
 }`;
 let photos;
 try {
@@ -251,9 +258,16 @@ await runPool(selected, args.concurrency, async (photo, index) => {
     if (!args.dryRun) await client.patch(photo._id).set({ aiClassification: { status: "processing", model } }).commit();
     const result = await callVisionModel(photo, model);
     if (!args.dryRun) {
+      const subjects = Array.from(new Set([...(photo.subjects ?? []), ...result.subjects.map((item) => item.value)])).slice(0, 5);
+      const conditions = Array.from(new Set([...(photo.conditions ?? []), ...result.conditions.map((item) => item.value)])).slice(0, 4);
       await client.patch(photo._id).set({
+        isHidden: false,
+        subjects,
+        conditions,
+        ...(result.primarySubject ? { primarySubject: result.primarySubject } : {}),
+        ...(!photo.altText && result.altText ? { altText: result.altText } : {}),
         aiClassification: {
-          status: "suggested",
+          status: "approved",
           model,
           subjects: result.subjects,
           conditions: result.conditions,
@@ -264,7 +278,7 @@ await runPool(selected, args.concurrency, async (photo, index) => {
         },
       }).commit();
     }
-    report.push({ id: photo._id, status: "suggested", ...result });
+    report.push({ id: photo._id, status: args.dryRun ? "suggested" : "approved", ...result });
     console.log(`${prefix} ok -> ${result.subjects.map((item) => item.value).join(", ") || "no subject"}`);
   } catch (error) {
     const message = errorMessage(error);

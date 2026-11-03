@@ -2,6 +2,7 @@ import { categoryType } from "./category";
 import { homepageLayoutType } from "./homepageLayout";
 import { pageLayoutType } from "./pageLayout";
 import { pageContentType } from "./pageContent";
+import { placeType } from "./place";
 import { photoType } from "./photo";
 import { photobalconyLayoutType } from "./photobalconyLayout";
 import { siteSettingsType } from "./siteSettings";
@@ -13,6 +14,7 @@ export const schemaTypes = [
   homepageLayoutType,
   pageLayoutType,
   pageContentType,
+  placeType,
   photobalconyLayoutType,
   photoType,
   storyType,

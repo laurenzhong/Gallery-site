@@ -66,6 +66,8 @@ npm run cms:sync -- --limit 2
 ```
 
 See `docs/sanity-migration.md` for the import workflow.
+See `docs/photo-ingestion.md` for the current photo import, AI tagging, location, and story visibility workflow.
+See `docs/ai-photo-processing.md` for the model input/output contract, task states, retries, and server-side secret handling.
 See `docs/sanity-content-control-plan.md` for the homepage and Photobalcony content model. After the first migration, edit `页面内容` in Studio; adding or reordering a section does not require a code change or GitHub push.
 See `docs/deployment.md` for the GitHub + Vercel deployment workflow.
 See `docs/auto-deploy.md` for wiring Sanity to Vercel auto-rebuilds on CMS changes.

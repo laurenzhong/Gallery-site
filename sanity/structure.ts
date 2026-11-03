@@ -8,16 +8,6 @@ const storyOrdering = [{ field: "orderRank", direction: "asc" as const }];
 
 const li = (S: Parameters<StructureResolver>[0], id: string) => S.listItem().id(id);
 
-const safeId = (value: string) => {
-  const ascii = value.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
-  if (ascii) return ascii;
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
-  }
-  return `c${(hash >>> 0).toString(36)}`;
-};
-
 const photoList = (
   S: Parameters<StructureResolver>[0],
   title: string,
@@ -29,12 +19,6 @@ const storyList = (
   title: string,
   filter = '_type == "story"',
 ) => S.documentTypeList("story").title(title).filter(filter).defaultOrdering(storyOrdering);
-
-const categoryPhotoItem = (S: Parameters<StructureResolver>[0], title: string) =>
-  li(S, `photos.category.${safeId(title)}`)
-    .title(title)
-    .schemaType("photo")
-    .child(photoList(S, title, '_type == "photo" && category->title == $category').params({ category: title }));
 
 const pageDocument = (
   S: Parameters<StructureResolver>[0],
@@ -145,28 +129,10 @@ export const structure: StructureResolver = (S, context) =>
                         .child(photoList(S, "手记使用的照片", storyUsedPhotoFilter)),
                     ]),
                 ),
-              li(S, "photos.categories")
-                .title("按分类浏览")
-                .child(
-                  S.list()
-                    .id("photos-categories-list")
-                    .title("按分类浏览")
-                    .items([
-                      li(S, "photos.categories.all")
-                        .title("全部分类")
-                        .schemaType("category")
-                        .child(S.documentTypeList("category").title("全部分类")),
-                      S.divider(),
-                      categoryPhotoItem(S, "山野"),
-                      categoryPhotoItem(S, "建筑"),
-                      categoryPhotoItem(S, "日出日落"),
-                      categoryPhotoItem(S, "森林"),
-                      categoryPhotoItem(S, "河流"),
-                      categoryPhotoItem(S, "海洋"),
-                      categoryPhotoItem(S, "石塘度假区"),
-                      categoryPhotoItem(S, "花朵"),
-                    ]),
-                ),
+              li(S, "photos.places")
+                .title("地点")
+                .schemaType("place")
+                .child(S.documentTypeList("place").title("地点")),
             ]),
         ),
       li(S, "journal")

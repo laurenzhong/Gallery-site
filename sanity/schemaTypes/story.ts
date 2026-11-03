@@ -26,6 +26,11 @@ export const storyType = defineType({
       title: "显示设置",
       options: { collapsible: true, collapsed: true },
     },
+    {
+      name: "ai",
+      title: "AI 生成信息",
+      options: { collapsible: true, collapsed: true },
+    },
   ],
   fields: [
     orderRankField({ type: "story", newItemPosition: "before" }),
@@ -136,6 +141,10 @@ export const storyType = defineType({
       initialValue: false,
       description: "在不删除文档的前提下，让此手记从 /journal、站点地图以及所有交叉引用中隐藏。",
     }),
+    defineField({ name: "aiGenerated", title: "AI 生成", type: "boolean", fieldset: "ai", readOnly: true }),
+    defineField({ name: "aiModel", title: "AI 模型", type: "string", fieldset: "ai", readOnly: true }),
+    defineField({ name: "aiPrompt", title: "生成提示词", type: "text", rows: 4, fieldset: "ai", readOnly: true }),
+    defineField({ name: "sourcePhoto", title: "来源照片", type: "reference", to: [{ type: "photo" }], fieldset: "ai", readOnly: true }),
   ],
   orderings: [
     orderRankOrdering,

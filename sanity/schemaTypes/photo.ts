@@ -101,7 +101,7 @@ export const photoType = defineType({
       fieldset: "identity",
       options: { hotspot: true, metadata: ["blurhash", "lqip", "palette"] },
       description:
-        "在此上传或替换照片资源。是否在首页中显示，由下方的「是否隐藏」「分类」「排序」共同控制。",
+        "在此上传或替换照片资源。是否出现在网站，由页面实际引用和下方的「是否隐藏」共同决定。",
     }),
     defineField({
       name: "altText",
@@ -156,12 +156,28 @@ export const photoType = defineType({
       validation: (Rule) => Rule.unique().max(4),
     }),
     defineField({
+      name: "place",
+      title: "地点标签",
+      type: "reference",
+      fieldset: "classification",
+      to: [{ type: "place" }],
+      description: "用于照片库筛选的宽泛地点，例如“麦理浩径”。",
+      options: { disableNew: true },
+    }),
+    defineField({
+      name: "spot",
+      title: "具体拍摄点",
+      type: "string",
+      fieldset: "classification",
+      description: "用于标题和手记的具体地点，例如“破边洲”。",
+    }),
+    defineField({
       name: "aiClassification",
       title: "AI 分类建议",
       type: "object",
       fieldset: "classification",
       readOnly: true,
-      description: "由服务端视觉模型生成的建议。请在照片库确认后，才会写入正式标签。",
+      description: "由服务端视觉模型生成的标签、标题、说明和手记任务记录。",
       fields: [
         defineField({
           name: "status",
@@ -169,6 +185,7 @@ export const photoType = defineType({
           type: "string",
           options: {
             list: [
+              { title: "等待处理", value: "queued" },
               { title: "处理中", value: "processing" },
               { title: "待确认", value: "suggested" },
               { title: "已应用", value: "approved" },
@@ -208,8 +225,12 @@ export const photoType = defineType({
           ],
         }),
         defineField({ name: "primarySubject", title: "主主体建议", type: "string" }),
+        defineField({ name: "title", title: "标题建议", type: "string" }),
         defineField({ name: "altText", title: "替代文本建议", type: "string" }),
         defineField({ name: "caption", title: "说明建议", type: "text", rows: 2 }),
+        defineField({ name: "storyId", title: "生成的手记", type: "string" }),
+        defineField({ name: "prompt", title: "手记提示词", type: "text", rows: 3 }),
+        defineField({ name: "generateStory", title: "生成手记", type: "boolean" }),
         defineField({ name: "processedAt", title: "处理时间", type: "datetime" }),
         defineField({ name: "error", title: "错误信息", type: "text", rows: 2 }),
       ],
@@ -221,7 +242,7 @@ export const photoType = defineType({
       fieldset: "placement",
       to: [{ type: "category" }],
       description:
-        "保留给旧页面和已有数据使用。新照片的主体请填写上面的「主体标签」，不要用地点或时间代替主体。",
+        "保留给旧页面和已有数据使用。新照片使用主体标签和地点标签，不要依赖旧栏目。",
     }),
     defineField({
       name: "sortOrder",

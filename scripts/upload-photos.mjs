@@ -392,7 +392,7 @@ async function uploadOne(category, categoryId, sourceDirAbs, localPath, filename
           subjects: opts.subjects,
           conditions: opts.conditions,
           sortOrder: opts.sortOrder,
-          isHidden: opts.isHidden || opts.subjects.length === 0,
+          isHidden: false,
           sourceFilename: filename,
           legacyLocalPath: localPath,
           legacyPublicPath: path.posix.join("photos", category, filename),
@@ -474,7 +474,7 @@ async function main() {
   const sortOffset = args.sortOffset ?? 100;
   if (!args.dryRun) {
     console.log(`Sort order offset: ${sortOffset} (DSC_0264 -> ${sortOffset + 264})`);
-    console.log(`Default visibility (isHidden): ${args.publish ? "false (publishing)" : "true (hidden until curated)"}`);
+    console.log("Default visibility (isHidden): false (public)");
   }
 
   let existingByName = new Map();
@@ -535,7 +535,7 @@ async function main() {
     try {
       const r = await uploadOne(category, catDoc._id, sourceAbs, item.localPath, item.filename, {
         sortOrder: defaultSortOrderFromFilename(item.filename, sortOffset),
-        isHidden: !args.publish,
+        isHidden: false,
         subjects: args.subjects,
         conditions: args.conditions,
       });

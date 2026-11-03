@@ -25,6 +25,7 @@
     "sync:photos": "node scripts/sync-photos.mjs",
     "deploy:trigger": "node scripts/trigger-vercel-deploy.mjs",
     "deploy:webhook": "node scripts/create-sanity-webhook.mjs",
+    "deploy:ai-webhook": "node scripts/create-ai-webhook.mjs",
     "verify:production": "node scripts/verify-production.mjs",
     "predev": "npm run sync:photos",
     "dev": "vite",

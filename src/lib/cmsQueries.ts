@@ -7,6 +7,8 @@ export type CmsPhoto = {
   category?: string;
   subjects?: string[];
   conditions?: string[];
+  place?: { id?: string; title?: string };
+  spot?: string;
   filename: string;
   width: number;
   height: number;
@@ -166,6 +168,8 @@ export type CmsStoryPhoto = {
   category?: string;
   subjects?: string[];
   conditions?: string[];
+  place?: { id?: string; title?: string };
+  spot?: string;
   width?: number;
   height?: number;
 };
@@ -180,12 +184,21 @@ const cmsReferencedPhotoFields = `
     "category": category->title,
     subjects,
     conditions,
+    "place": place->{"id": _id, title},
+    spot,
     "filename": sourceFilename,
     "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
     "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
 `;
 
-export const cmsPhotosQuery = `*[_type == "photo" && isHidden != true] | order(sortOrder asc, date desc) {
+export const cmsPhotosQuery = `*[
+  _type == "photo" &&
+  isHidden != true &&
+  count(*[
+    (_type == "pageContent" || _type == "homepageLayout" || _type == "photobalconyLayout" || _type == "siteSettings") &&
+    references(^._id)
+  ]) > 0
+] | order(sortOrder asc, date desc) {
   "id": _id,
   "src": image.asset->url,
   "legacyPublicPath": legacyPublicPath,
@@ -194,6 +207,8 @@ export const cmsPhotosQuery = `*[_type == "photo" && isHidden != true] | order(s
   "category": category->title,
   subjects,
   conditions,
+  "place": place->{"id": _id, title},
+  spot,
   "filename": sourceFilename,
   "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
   "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height),
@@ -219,7 +234,13 @@ export const cmsCategoriesQuery = `*[_type == "category" && isVisible != false] 
 export const cmsStoriesQuery = `*[
   _type == "story" &&
   isHidden != true &&
-  (!defined(publishedAt) || dateTime(publishedAt) <= dateTime(now()))
+  (!defined(publishedAt) || dateTime(publishedAt) <= dateTime(now())) &&
+  defined(coverPhoto._ref) &&
+  coverPhoto->isHidden != true &&
+  count(*[
+    (_type == "pageContent" || _type == "homepageLayout" || _type == "photobalconyLayout" || _type == "siteSettings") &&
+    references(^.coverPhoto._ref)
+  ]) > 0
 ] | order(coalesce(orderRank, "zzzzzz") asc, publishedAt desc) {
   "id": _id,
   title,
@@ -237,6 +258,8 @@ export const cmsStoriesQuery = `*[
     "src": image.asset->url,
     isHidden,
     "legacyPublicPath": legacyPublicPath,
+    "place": place->{"id": _id, title},
+    spot,
     "filename": sourceFilename,
     "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
     "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
@@ -247,6 +270,8 @@ export const cmsStoriesQuery = `*[
     "slug": slug.current,
     "src": image.asset->url,
     "legacyPublicPath": legacyPublicPath,
+    "place": place->{"id": _id, title},
+    spot,
     "filename": sourceFilename,
     "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
     "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
