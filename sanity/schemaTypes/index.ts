@@ -1,4 +1,5 @@
 import { categoryType } from "./category";
+import { albumType } from "./album";
 import { homepageLayoutType } from "./homepageLayout";
 import { pageLayoutType } from "./pageLayout";
 import { pageContentType } from "./pageContent";
@@ -10,6 +11,7 @@ import { storyType } from "./story";
 import { siteCopyType } from "./siteCopy";
 
 export const schemaTypes = [
+  albumType,
   categoryType,
   homepageLayoutType,
   pageLayoutType,

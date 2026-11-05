@@ -245,6 +245,15 @@ export const photoType = defineType({
         "保留给旧页面和已有数据使用。新照片使用主体标签和地点标签，不要依赖旧栏目。",
     }),
     defineField({
+      name: "album",
+      title: "相册（可选）",
+      type: "reference",
+      fieldset: "placement",
+      to: [{ type: "album" }],
+      description: "用于照片库归档。未选择时照片仍会显示在「全部照片」中。",
+      options: { disableNew: true },
+    }),
+    defineField({
       name: "sortOrder",
       title: "排序值",
       type: "number",

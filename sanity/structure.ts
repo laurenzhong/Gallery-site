@@ -104,6 +104,10 @@ export const structure: StructureResolver = (S, context) =>
                 .title("全部照片")
                 .schemaType("photo")
                 .child(S.component(PhotoLibraryDashboard).id("photos-all-dashboard").title("全部照片")),
+              li(S, "photos.albums")
+                .title("相册")
+                .schemaType("album")
+                .child(S.documentTypeList("album").title("相册").defaultOrdering([{ field: "sortOrder", direction: "asc" }])),
               li(S, "photos.needs-attention")
                 .title("需要补全")
                 .schemaType("photo")
