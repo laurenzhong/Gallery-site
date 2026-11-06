@@ -1,45 +1,102 @@
-import { useEffect, useState } from "react";
-import { useClient, type ArrayOfObjectsInputProps } from "sanity";
+import { useEffect, useMemo, useState } from "react";
+import { set, useClient, type ArrayOfObjectsInputProps } from "sanity";
 
 type ReferenceItem = { _key: string; _ref?: string; _type?: string };
 type TrackPointItem = { _key: string; latitude?: number; longitude?: number; elevationM?: number };
+type StopItem = {
+  _key: string;
+  _type?: string;
+  title?: string;
+  localTitle?: string;
+  trackIndex?: number;
+  coordinate?: { latitude?: number; longitude?: number };
+};
 type PhotoPreview = { _id: string; title?: string; imageUrl?: string; filename?: string };
+
+function keyFor(prefix: string, id = "item") {
+  const random = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+  return `${prefix}-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${random}`;
+}
 
 export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceItem>) {
   const client = useClient({ apiVersion: "2025-02-19" });
-  const ids = (props.value ?? []).map((item) => item._ref).filter((id): id is string => Boolean(id));
+  const selectedIds = useMemo(() => (props.value ?? []).map((item) => item._ref).filter((id): id is string => Boolean(id)), [props.value]);
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
+  const [search, setSearch] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
-    if (!ids.length) {
-      setPhotos([]);
-      return undefined;
-    }
-    void client.fetch<PhotoPreview[]>(`*[_type == "photo" && _id in $ids]{ _id, title, sourceFilename, "imageUrl": image.asset->url }`, { ids })
-      .then((result) => {
-        if (active) setPhotos(result);
-      })
-      .catch(() => {
-        if (active) setPhotos([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [client, ids.join("|")]);
+    setLoading(true);
+    const query = `*[_type == "photo" && (_id in $selectedIds || title match $search || sourceFilename match $search)] | order(_updatedAt desc)[0...160]{ _id, title, sourceFilename, "imageUrl": image.asset->url }`;
+    void client.fetch<PhotoPreview[]>(query, { selectedIds, search: search.trim() ? `${search.trim()}*` : "*" })
+      .then((result) => { if (active) setPhotos(result); })
+      .catch(() => { if (active) setPhotos([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [client, selectedIds.join("|"), search]);
+
+  const selected = selectedIds.map((id) => photos.find((photo) => photo._id === id)).filter((photo): photo is PhotoPreview => Boolean(photo));
+  const togglePhoto = (id: string) => {
+    const current = props.value ?? [];
+    const exists = current.some((item) => item._ref === id);
+    const next = exists
+      ? current.filter((item) => item._ref !== id)
+      : [...current, { _key: keyFor("photo", id), _type: "reference", _ref: id }];
+    props.onChange(set(next));
+  };
 
   return (
     <div>
-      {photos.length ? (
+      <div style={{ marginBottom: 10, padding: 10, border: "1px solid #dbeafe", borderRadius: 7, background: "#eff6ff", color: "#1e3a8a", fontSize: 12, lineHeight: 1.55 }}>
+        先在“照片 → 全部照片”上传或确认照片，再点击“添加照片”选择。选中后这里会直接显示缩略图；照片会跟随当前标注点显示在路线地图上。
+      </div>
+      {selected.length ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))", gap: 10, marginBottom: 12 }}>
-          {photos.map((photo) => (
-            <figure key={photo._id} style={{ margin: 0, overflow: "hidden", border: "1px solid #dfe3e8", borderRadius: 6, background: "#f7f8fa" }}>
+          {selected.map((photo) => (
+            <figure key={photo._id} style={{ position: "relative", margin: 0, overflow: "hidden", border: "1px solid #dfe3e8", borderRadius: 6, background: "#f7f8fa" }}>
               {photo.imageUrl ? <img src={`${photo.imageUrl}?w=320&q=75&auto=format`} alt="" style={{ display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover" }} /> : <div style={{ aspectRatio: "4 / 3" }} />}
               <figcaption style={{ padding: "6px 7px", overflow: "hidden", fontSize: 11, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{photo.title || photo.filename || "未命名照片"}</figcaption>
+              <button type="button" onClick={() => togglePhoto(photo._id)} style={{ position: "absolute", top: 5, right: 5, width: 24, height: 24, border: 0, borderRadius: 999, background: "rgba(17,24,39,.78)", color: "#fff", cursor: "pointer" }} aria-label="移除照片">×</button>
             </figure>
           ))}
         </div>
+      ) : <p style={{ margin: "0 0 10px", color: "#6b7280", fontSize: 12 }}>还没有关联照片。</p>}
+      <button type="button" onClick={() => setPickerOpen((value) => !value)} style={{ minHeight: 36, padding: "0 12px", border: "1px solid #2563eb", borderRadius: 5, background: pickerOpen ? "#dbeafe" : "#fff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}>{pickerOpen ? "收起照片选择" : "添加照片"}</button>
+      {pickerOpen ? (
+        <div style={{ marginTop: 10, padding: 10, border: "1px solid #dfe3e8", borderRadius: 7, background: "#fff" }}>
+          <input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索照片标题或文件名" style={{ boxSizing: "border-box", width: "100%", minHeight: 36, marginBottom: 10, padding: "0 9px", border: "1px solid #cbd5e1", borderRadius: 5 }} />
+          {loading ? <p style={{ color: "#6b7280", fontSize: 12 }}>正在读取照片…</p> : null}
+          {!loading && !photos.length ? <p style={{ color: "#6b7280", fontSize: 12 }}>没有找到照片。请先到“照片 → 全部照片”上传。</p> : null}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))", gap: 10, maxHeight: 420, overflow: "auto" }}>
+            {photos.map((photo) => {
+              const checked = selectedIds.includes(photo._id);
+              return <button type="button" key={photo._id} onClick={() => togglePhoto(photo._id)} style={{ position: "relative", padding: 0, overflow: "hidden", border: `2px solid ${checked ? "#2563eb" : "#e5e7eb"}`, borderRadius: 6, background: "#f7f8fa", textAlign: "left", cursor: "pointer" }} aria-pressed={checked}>
+                {photo.imageUrl ? <img src={`${photo.imageUrl}?w=320&q=70&auto=format`} alt="" style={{ display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover" }} /> : <div style={{ aspectRatio: "4 / 3" }} />}
+                <span style={{ display: "block", padding: "6px 7px", overflow: "hidden", fontSize: 11, textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#374151" }}>{photo.title || photo.filename || "未命名照片"}</span>
+                {checked ? <span style={{ position: "absolute", top: 5, right: 5, width: 22, height: 22, borderRadius: 999, background: "#2563eb", color: "#fff", textAlign: "center", lineHeight: "22px" }}>✓</span> : null}
+              </button>;
+            })}
+          </div>
+        </div>
       ) : null}
+    </div>
+  );
+}
+
+export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
+  const addStop = () => {
+    const next: StopItem = { _key: keyFor("stop"), _type: "object", title: "新标注点", localTitle: "", trackIndex: 0, coordinate: {} };
+    props.onChange(set([...(props.value ?? []), next]));
+  };
+
+  return (
+    <div>
+      <div style={{ marginBottom: 10, padding: 10, border: "1px solid #dcfce7", borderRadius: 7, background: "#f0fdf4", color: "#166534", fontSize: 12, lineHeight: 1.6 }}>
+        添加流程：点击“新增标注点” → 填名称 → 填“轨迹点索引”。轨迹点索引从 <strong>0</strong> 开始，系统会自动把标注和关联照片放到 GPX 路线对应位置；有精确经纬度时也可以直接填写坐标。
+      </div>
+      <button type="button" onClick={addStop} style={{ minHeight: 38, marginBottom: 10, padding: "0 13px", border: 0, borderRadius: 5, background: "#166534", color: "#fff", cursor: "pointer", fontWeight: 700 }}>＋ 新增标注点</button>
       {props.renderDefault(props)}
     </div>
   );

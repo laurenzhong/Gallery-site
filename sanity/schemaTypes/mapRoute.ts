@@ -1,5 +1,5 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
-import { CollapsedTrackPointsInput, MapRoutePhotosInput } from "../components/MapRouteInputs";
+import { CollapsedTrackPointsInput, MapRoutePhotosInput, MapRouteStopsInput } from "../components/MapRouteInputs";
 
 const coordinateFields = [
   defineField({ name: "latitude", title: "纬度", type: "number", validation: (Rule) => Rule.required().min(-90).max(90) }),
@@ -47,14 +47,15 @@ export const mapRouteType = defineType({
       name: "stops",
       title: "地图标注点",
       type: "array",
+      components: { input: MapRouteStopsInput },
       of: [
         defineArrayMember({
           type: "object",
           fields: [
             defineField({ name: "title", title: "标注名称", type: "string", validation: (Rule) => Rule.required() }),
             defineField({ name: "localTitle", title: "中文名称", type: "string" }),
-            defineField({ name: "coordinate", title: "坐标", type: "object", fields: coordinateFields, validation: (Rule) => Rule.required() }),
-            defineField({ name: "trackIndex", title: "轨迹点索引", type: "number", description: "可选；不填时按最近轨迹点计算。" }),
+            defineField({ name: "coordinate", title: "坐标（可选）", type: "object", fields: coordinateFields.map((field) => ({ ...field, validation: undefined })), description: "填入经纬度可精确定位；如果填写了轨迹点索引，也可以留空。" }),
+            defineField({ name: "trackIndex", title: "轨迹点索引（推荐）", type: "number", validation: (Rule) => Rule.integer().min(0), description: "沿 GPX 路线从 0 开始计数，例如起点填 0；填写后系统自动把标注和照片放到该轨迹点。" }),
             defineField({ name: "distanceKm", title: "距起点（km）", type: "number" }),
             defineField({ name: "time", title: "时间", type: "string" }),
             defineField({ name: "elevationM", title: "海拔（m）", type: "number" }),

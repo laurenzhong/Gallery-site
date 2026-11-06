@@ -56,10 +56,20 @@ function nearestTrackIndex(track: RouteCoordinate[], coordinate: RouteCoordinate
 
 async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
   const track = await routeTrack(route);
-  const rawStops = (route.stops ?? []).filter((stop) => stop.title && stop.coordinate?.length === 2);
+  const rawStops = (route.stops ?? []).filter((stop) => stop.title && (
+    (stop.coordinate?.length === 2 && validCoordinate(stop.coordinate[0], stop.coordinate[1])) ||
+    (Number.isInteger(stop.trackIndex) && track.length > 0)
+  ));
   if (track.length < 2 && rawStops.length < 2) return null;
-  const stops = rawStops.map((stop, index) => {
-    const coordinate = stop.coordinate as RouteCoordinate;
+  const stops = rawStops.flatMap((stop, index) => {
+    const explicitCoordinate = stop.coordinate?.length === 2 && validCoordinate(stop.coordinate[0], stop.coordinate[1])
+      ? stop.coordinate as RouteCoordinate
+      : undefined;
+    const indexedCoordinate = Number.isInteger(stop.trackIndex) && track.length > 0
+      ? track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)]
+      : undefined;
+    const coordinate = explicitCoordinate ?? indexedCoordinate;
+    if (!coordinate) return [];
     return {
       id: stop.id ?? `${route.id}-stop-${index + 1}`,
       title: stop.title as string,
@@ -83,7 +93,7 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
     stats: { distance: route.stats?.distance ?? "—", duration: route.stats?.duration ?? "—", ascent: route.stats?.ascent ?? "—" },
     track: safeTrack,
     stops,
-    bounds: boundsFor(safeTrack, rawStops),
+    bounds: boundsFor(safeTrack, stops),
     sourceLabel: route.sourceLabel ?? "CMS map route",
     color: route.color,
   };
