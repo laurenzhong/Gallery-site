@@ -75,7 +75,7 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
   });
   const safeTrack = track.length >= 2 ? track : stops.map((stop) => stop.coordinate);
   return {
-    id: `cms-${route.id}`,
+    id: route.sourceRouteId ?? `cms-${route.id}`,
     kicker: "CMS map route",
     title: route.title,
     subtitle: route.subtitle ?? "A route from the map archive.",

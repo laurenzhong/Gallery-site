@@ -28,6 +28,7 @@ export type CmsMapRoute = {
   id: string;
   title: string;
   slug?: string;
+  sourceRouteId?: string;
   subtitle?: string;
   sourceLabel?: string;
   color?: string;
@@ -259,6 +260,7 @@ export const cmsMapRoutesQuery = `*[_type == "mapRoute" && isVisible != false] |
   "id": _id,
   title,
   "slug": slug.current,
+  sourceRouteId,
   subtitle,
   sourceLabel,
   color,

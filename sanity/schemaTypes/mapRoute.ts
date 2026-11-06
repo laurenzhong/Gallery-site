@@ -12,6 +12,7 @@ export const mapRouteType = defineType({
   fields: [
     defineField({ name: "title", title: "路线名称", type: "string", validation: (Rule) => Rule.required() }),
     defineField({ name: "slug", title: "URL 标识", type: "slug", options: { source: "title", maxLength: 96 }, validation: (Rule) => Rule.required() }),
+    defineField({ name: "sourceRouteId", title: "原有路线 ID", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "subtitle", title: "路线简介", type: "text", rows: 3 }),
     defineField({ name: "sourceLabel", title: "来源说明", type: "string", description: "例如：个人 GPX · 2026-11-06。" }),
     defineField({ name: "color", title: "路线颜色", type: "string", description: "可选，例如 #a1493e。留空时由地图自动分配。" }),

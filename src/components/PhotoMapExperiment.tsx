@@ -30,7 +30,10 @@ export function PhotoMapExperiment({ photos, onOpen }: PhotoMapExperimentProps) 
   const [selectedArea, setSelectedArea] = useState("All places");
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const cmsRoutes = useCmsMapRoutes();
-  const routes = useMemo(() => [...storyRoutes, ...cmsRoutes], [cmsRoutes]);
+  const routes = useMemo(() => {
+    const cmsRouteIds = new Set(cmsRoutes.map((route) => route.id));
+    return [...storyRoutes.filter((route) => !cmsRouteIds.has(route.id)), ...cmsRoutes];
+  }, [cmsRoutes]);
   const routePhotoStops = useMemo(() => {
     const photoById = new Map<string, Photo>();
     photos.forEach((photo) => {
