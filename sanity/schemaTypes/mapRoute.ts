@@ -57,7 +57,7 @@ export const mapRouteType = defineType({
             defineField({ name: "time", title: "时间", type: "string" }),
             defineField({ name: "elevationM", title: "海拔（m）", type: "number" }),
             defineField({ name: "note", title: "标注说明", type: "text", rows: 3 }),
-            defineField({ name: "photos", title: "关联照片", type: "array", of: [defineArrayMember({ type: "reference", to: [{ type: "photo" }] })], options: { layout: "tags" }, description: "这些照片会定位到当前标注点。" }),
+            defineField({ name: "photos", title: "关联照片", type: "array", of: [defineArrayMember({ type: "reference", to: [{ type: "photo" }], options: { disableNew: true } })], options: { layout: "grid" }, description: "这些照片会定位到当前标注点，并以缩略图显示。" }),
           ],
           preview: {
             select: { title: "title", localTitle: "localTitle", photos: "photos" },
