@@ -1,4 +1,5 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
+import { CollapsedTrackPointsInput, MapRoutePhotosInput } from "../components/MapRouteInputs";
 
 const coordinateFields = [
   defineField({ name: "latitude", title: "纬度", type: "number", validation: (Rule) => Rule.required().min(-90).max(90) }),
@@ -39,7 +40,7 @@ export const mapRouteType = defineType({
       title: "手动轨迹点（可选）",
       type: "array",
       of: [defineArrayMember({ type: "object", fields: [...coordinateFields, defineField({ name: "elevationM", title: "海拔（m）", type: "number" })] })],
-      options: { collapsible: true, collapsed: true },
+      components: { input: CollapsedTrackPointsInput },
       description: "没有 GPX 时可少量手动填写；同时上传 GPX 时优先使用 GPX。",
     }),
     defineField({
@@ -58,7 +59,7 @@ export const mapRouteType = defineType({
             defineField({ name: "time", title: "时间", type: "string" }),
             defineField({ name: "elevationM", title: "海拔（m）", type: "number" }),
             defineField({ name: "note", title: "标注说明", type: "text", rows: 3 }),
-            defineField({ name: "photos", title: "关联照片", type: "array", of: [defineArrayMember({ type: "reference", to: [{ type: "photo" }], options: { disableNew: true } })], options: { layout: "grid" }, description: "这些照片会定位到当前标注点，并以缩略图显示。" }),
+            defineField({ name: "photos", title: "关联照片", type: "array", of: [defineArrayMember({ type: "reference", to: [{ type: "photo" }], options: { disableNew: true } })], options: { layout: "grid" }, components: { input: MapRoutePhotosInput }, description: "这些照片会定位到当前标注点，并以缩略图显示。" }),
           ],
           preview: {
             select: { title: "title", localTitle: "localTitle", photos: "photos" },
