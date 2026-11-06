@@ -234,7 +234,7 @@ export function LandscapeSection({
             srcSet={imageSrcSet(active.src, [900, 1400, 2000], 84)}
             sizes="100vw"
             alt={caption}
-            loading="lazy"
+            loading="eager"
             decoding="async"
           />
           <span className="landscape-caption">{caption}</span>

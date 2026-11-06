@@ -38,7 +38,7 @@ const photoNeedsAttentionFilter = `
     !defined(slug.current) ||
     (
       isHidden != true &&
-      count(*[_type in ["pageContent", "homepageLayout", "photobalconyLayout", "siteSettings", "story"] && references(^._id)]) == 0
+      count(*[_type in ["pageContent", "homepageLayout", "photobalconyLayout", "siteSettings", "story", "mapRoute"] && references(^._id)]) == 0
     )
   )
 `;
@@ -139,6 +139,19 @@ export const structure: StructureResolver = (S, context) =>
                 .child(S.documentTypeList("place").title("地点")),
             ]),
         ),
+      li(S, "map")
+        .title("地图")
+        .child(
+          S.list()
+            .id("map-list")
+            .title("地图")
+            .items([
+              li(S, "map.routes")
+                .title("地图路线")
+                .schemaType("mapRoute")
+                .child(S.documentTypeList("mapRoute").title("地图路线").defaultOrdering([{ field: "_updatedAt", direction: "desc" }])),
+            ]),
+        ),
       li(S, "journal")
         .title("手记")
         .child(
@@ -173,7 +186,7 @@ export const structure: StructureResolver = (S, context) =>
                   photoList(
                     S,
                     "已隐藏但仍被使用的照片",
-                    '_type == "photo" && isHidden == true && count(*[_type in ["pageContent", "homepageLayout", "photobalconyLayout", "siteSettings", "story"] && references(^._id)]) > 0',
+                    '_type == "photo" && isHidden == true && count(*[_type in ["pageContent", "homepageLayout", "photobalconyLayout", "siteSettings", "story", "mapRoute"] && references(^._id)]) > 0',
                   ),
                 ),
               li(S, "publishing.visible-stories-missing-cover")

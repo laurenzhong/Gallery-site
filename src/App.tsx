@@ -1,20 +1,36 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { About } from "./components/About";
 import { AdvancedPhotoLightbox } from "./components/AdvancedPhotoLightbox";
+import { AgarunAtlasExperiment } from "./components/AgarunAtlasExperiment";
 import { BalconyView } from "./components/BalconyView";
 import { CmsSourceBadge } from "./components/CmsSourceBadge";
 import { Footer } from "./components/Footer";
+import { GpxTrailDemoExperiment } from "./components/GpxTrailDemoExperiment";
 import { GallerySections } from "./components/GallerySections";
 import { Header } from "./components/Header";
+import { Home } from "./components/Home";
+import { ExperimentIndex } from "./components/ExperimentIndex";
+import { JourneyMapExperiment } from "./components/JourneyMapExperiment";
+import { LookButNoStoppingExperiment } from "./components/LookButNoStoppingExperiment";
 import { Journal } from "./components/Journal";
+import { MetroExperiment } from "./components/MetroExperiment";
+import { PhotoMapExperiment } from "./components/PhotoMapExperiment";
+import { PhotographyArchiveExperiment } from "./components/PhotographyArchiveExperiment";
+import { ReferenceArchiveExperiment } from "./components/ReferenceArchiveExperiment";
+import { SashaKurmazExperiment } from "./components/SashaKurmazExperiment";
 import { PhotoStory } from "./components/PhotoStory";
 import { StoryDetail } from "./components/StoryDetail";
+import { TrailRouteExperiment } from "./components/TrailRouteExperiment";
 import { VisualEditingBridge } from "./components/VisualEditingBridge";
 import type { Photo } from "./data/photos";
 import { useGalleryContent } from "./lib/galleryContent";
 import { imageSrcSet, sizedImageUrl } from "./lib/imageUrl";
 import { usePageContentPreview } from "./lib/pageContentPreview";
 import { matchesPhotoSlug, matchesStorySlug, photoPath } from "./lib/routes";
+
+const PhotoMapMapLibreExperiment = lazy(() =>
+  import("./components/PhotoMapMapLibreExperiment").then((module) => ({ default: module.PhotoMapMapLibreExperiment })),
+);
 
 const SITE_TITLE = "Queenstown.top | Photography";
 const DEFAULT_DESCRIPTION =
@@ -32,15 +48,30 @@ function setMeta(name: string, content: string, attribute: "name" | "property" =
 
 function App() {
   const [lightboxState, setLightboxState] = useState<{ photos: Photo[]; index: number } | null>(null);
+  const lightboxReturnPath = useRef<string | null>(null);
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/$/, "") || "/");
   const content = useGalleryContent();
   const { photos, photoMeta, photoStories, aboutData, homepageLayout, photobalconyLayout } = content;
   const pathname = currentPath;
   const isBalconyPage = pathname === "/photobalcony";
+  const isPhotographyPage = pathname === "/photography";
   const isStoryPage = pathname === "/photostory";
   const isAboutPage = pathname === "/about";
   const isJournalPage = pathname === "/journal";
   const isFooterPreviewPage = pathname === "/footer-preview";
+  const isExperimentsPage = pathname === "/experiments";
+  const isJourneyExperimentPage = pathname === "/experiments/journey-map";
+  const isLookButExperimentPage = pathname === "/experiments/look-but-no-stopping";
+  const isLookButFvmExperimentPage = pathname === "/experiments/look-but-no-stopping-fvm";
+  const isMetroExperimentPage = pathname === "/experiments/metro";
+  const isReferenceArchivePage = pathname === "/experiments/reference-archive";
+  const isPhotographyArchivePage = pathname === "/experiments/photography-archive";
+  const isSashaKurmazPage = pathname === "/experiments/sasha-kurmaz";
+  const isAgarunAtlasPage = pathname === "/experiments/agarun-atlas";
+  const isPhotoMapExperimentPage = pathname === "/experiments/photo-map";
+  const isPhotoMapMapLibrePage = pathname === "/experiments/photo-map-maplibre";
+  const isTrailRoutePage = pathname === "/experiments/trail-route";
+  const isGpxTrailDemoPage = pathname === "/experiments/trail-route-gpx-demo";
   const photoRouteSlug = pathname.startsWith("/photos/") ? decodeURIComponent(pathname.slice("/photos/".length)) : "";
   const storyRouteSlug = pathname.startsWith("/stories/") ? decodeURIComponent(pathname.slice("/stories/".length)) : "";
   const showPreview = new URLSearchParams(window.location.search).has("preview");
@@ -128,6 +159,7 @@ function App() {
     const lightboxIndex = lightboxPhotos.findIndex((item) => item.id === photo.id);
     if (lightboxIndex < 0) return;
 
+    lightboxReturnPath.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     setLightboxState({ photos: lightboxPhotos, index: lightboxIndex });
     setLightboxPath(photoPath(photo), "push");
   };
@@ -145,12 +177,17 @@ function App() {
     setLightboxState(null);
     const browserPath = window.location.pathname.replace(/\/$/, "") || "/";
     if (browserPath.startsWith("/photos/")) {
-      const returnPath = currentPath.startsWith("/photos/") ? "/" : currentPath;
-      window.history.replaceState({}, "", returnPath || "/");
-      if (currentPath.startsWith("/photos/")) {
-        setCurrentPath("/");
-      }
+      const rememberedPath = lightboxReturnPath.current;
+      const returnPath = rememberedPath && !rememberedPath.startsWith("/photos/")
+        ? rememberedPath
+        : currentPath.startsWith("/photos/")
+          ? "/"
+          : currentPath;
+      const returnUrl = returnPath || "/";
+      window.history.replaceState({}, "", returnUrl);
+      setCurrentPath(new URL(returnUrl, window.location.origin).pathname.replace(/\/$/, "") || "/");
     }
+    lightboxReturnPath.current = null;
   };
 
   useEffect(() => {
@@ -177,12 +214,64 @@ function App() {
       (activePhoto ? `${activePhoto.category} / ${activePhoto.filename}` : DEFAULT_DESCRIPTION);
     const image = activePhoto?.src ?? activeStory?.photo.src ?? heroPhoto?.src;
 
-    document.title = title ? `${title} | Queenstown.top` : SITE_TITLE;
+    const pageTitle = title
+      ? `${title} | Queenstown.top`
+      : isPhotographyPage
+        ? "Photography | Queenstown.top"
+        : isJourneyExperimentPage
+          ? "Journey map experiment | Queenstown.top"
+          : isLookButExperimentPage
+            ? "Look but no stopping experiment | Queenstown.top"
+          : isLookButFvmExperimentPage
+            ? "Look but no stopping / FreeVectorMaps study | Queenstown.top"
+          : isMetroExperimentPage
+            ? "Archive in motion experiment | Queenstown.top"
+            : isReferenceArchivePage
+              ? "Reference archive experiment | Queenstown.top"
+            : isPhotographyArchivePage
+              ? "Photography archive study | Queenstown.top"
+            : isSashaKurmazPage
+              ? "Sasha Kurmaz index study | Queenstown.top"
+            : isAgarunAtlasPage
+              ? "Atlas archive experiment | Queenstown.top"
+            : isPhotoMapExperimentPage
+              ? "Photo map experiment | Queenstown.top"
+            : isPhotoMapMapLibrePage
+              ? "Photo map / MapLibre experiment | Queenstown.top"
+            : isTrailRoutePage
+              ? "Trail route experiment | Queenstown.top"
+            : isGpxTrailDemoPage
+              ? "GPX trail route demo | Queenstown.top"
+            : isExperimentsPage
+              ? "Interaction lab | Queenstown.top"
+        : pathname === "/"
+          ? "Queenstown.top | Photography archive"
+          : SITE_TITLE;
+    document.title = pageTitle;
     setMeta("description", description);
-    setMeta("og:title", title ? `${title} | Queenstown.top` : SITE_TITLE, "property");
+    setMeta("og:title", pageTitle, "property");
     setMeta("og:description", description, "property");
     if (image) setMeta("og:image", image, "property");
-  }, [activePhoto, activeStory, heroPhoto]);
+  }, [
+    activePhoto,
+    activeStory,
+    heroPhoto,
+    isAgarunAtlasPage,
+    isExperimentsPage,
+    isJourneyExperimentPage,
+    isLookButExperimentPage,
+    isLookButFvmExperimentPage,
+    isMetroExperimentPage,
+    isPhotoMapExperimentPage,
+    isPhotoMapMapLibrePage,
+    isPhotographyPage,
+    isReferenceArchivePage,
+    isPhotographyArchivePage,
+    isSashaKurmazPage,
+    isTrailRoutePage,
+    isGpxTrailDemoPage,
+    pathname,
+  ]);
 
   return (
     <>
@@ -249,12 +338,7 @@ function App() {
           <About aboutData={aboutData} />
         ) : isJournalPage ? (
           <Journal photos={photos} photoStories={photoStories} />
-        ) : isFooterPreviewPage ? (
-          <section className="footer-preview-stage" aria-labelledby="footer-preview-title">
-            <p className="footer-preview-kicker">Design study</p>
-            <h1 id="footer-preview-title">Footer Background</h1>
-          </section>
-        ) : (
+        ) : isPhotographyPage ? (
           <>
             <section className="page-title-band" id="top" aria-labelledby="page-title">
               <h1 id="page-title">Photography</h1>
@@ -292,6 +376,52 @@ function App() {
               onOpen={openPhoto}
             />
           </>
+        ) : isExperimentsPage ? (
+          <ExperimentIndex />
+        ) : isJourneyExperimentPage ? (
+          <JourneyMapExperiment photos={photos} onOpen={openPhoto} />
+        ) : isLookButExperimentPage ? (
+          <LookButNoStoppingExperiment photos={photos} onOpen={openPhoto} />
+        ) : isLookButFvmExperimentPage ? (
+          <LookButNoStoppingExperiment
+            photos={photos}
+            onOpen={openPhoto}
+            mapSrc="/lookbut-map-fvm.svg"
+            mapCredit={{ label: "Map by FreeVectorMaps.com", href: "https://freevectormaps.com/hong-kong/HK-EPS-02-0003" }}
+          />
+        ) : isMetroExperimentPage ? (
+          <MetroExperiment photos={photos} onOpen={openPhoto} />
+        ) : isReferenceArchivePage ? (
+          <ReferenceArchiveExperiment photos={photos} photoStories={photoStories} onOpen={openPhoto} />
+        ) : isPhotographyArchivePage ? (
+          <PhotographyArchiveExperiment photos={photos} photoStories={photoStories} onOpen={openPhoto} />
+        ) : isSashaKurmazPage ? (
+          <SashaKurmazExperiment photos={photos} onOpen={openPhoto} />
+        ) : isAgarunAtlasPage ? (
+          <AgarunAtlasExperiment photos={photos} onOpen={openPhoto} />
+        ) : isPhotoMapExperimentPage ? (
+          <PhotoMapExperiment photos={photos} onOpen={openPhoto} />
+        ) : isPhotoMapMapLibrePage ? (
+          <Suspense fallback={<section className="photo-map-experiment-loading" aria-label="Loading MapLibre experiment">Loading MapLibre…</section>}>
+            <PhotoMapMapLibreExperiment photos={photos} onOpen={openPhoto} />
+          </Suspense>
+        ) : isTrailRoutePage ? (
+          <TrailRouteExperiment photos={photos} onOpen={openPhoto} />
+        ) : isGpxTrailDemoPage ? (
+          <GpxTrailDemoExperiment photos={photos} onOpen={openPhoto} />
+        ) : isFooterPreviewPage ? (
+          <section className="footer-preview-stage" aria-labelledby="footer-preview-title">
+            <p className="footer-preview-kicker">Design study</p>
+            <h1 id="footer-preview-title">Footer Background</h1>
+          </section>
+        ) : (
+          <Home
+            photos={photos}
+            heroPhoto={heroPhoto}
+            homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
+            photoStories={photoStories}
+            aboutData={aboutData}
+          />
         )}
       </main>
 

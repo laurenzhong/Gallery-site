@@ -20,6 +20,10 @@ const usageWarningQuery = `{
     _type == "story" &&
     isHidden != true &&
     (references($publishedId) || references($draftId))
+  ]),
+  "mapRouteCount": count(*[
+    _type == "mapRoute" &&
+    (references($publishedId) || references($draftId))
   ])
 }`;
 
@@ -279,12 +283,14 @@ export const photoType = defineType({
             siteHeroCount: number;
             photobalconyCount: number;
             visibleStoryCount: number;
+          mapRouteCount: number;
           }>(usageWarningQuery, documentIds(context.document?._id));
           const warnings = [];
           if (usage.siteHeroCount) warnings.push("站点设置主视觉");
           if (usage.homepageCount) warnings.push("首页布局");
           if (usage.photobalconyCount) warnings.push("影像阳台布局");
           if (usage.visibleStoryCount) warnings.push(`${usage.visibleStoryCount} 篇可见手记`);
+          if (usage.mapRouteCount) warnings.push(`${usage.mapRouteCount} 条地图路线`);
           if (!warnings.length) return true;
 
           return `此照片仍被 ${warnings.join("、")} 引用。继续隐藏可能会让它从线上页面消失或触发兜底图片。`;
@@ -340,6 +346,7 @@ export const photoType = defineType({
       title: "拍摄地点",
       type: "string",
       fieldset: "identity",
+      description: "导入照片时会自动写入 GPS 坐标，格式为“纬度, 经度”；没有 GPS 时可手动补充。",
     }),
     defineField({
       name: "camera",

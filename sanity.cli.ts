@@ -11,4 +11,5 @@ export default defineCliConfig({
     projectId,
     dataset,
   },
+  studioHost: "queenstown-cms",
 });

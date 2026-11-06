@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2040" height="1530" viewBox="0 0 2040 1530">
+  <image href="/lookbut-fvm-hong-kong-districts.png" x="0" y="0" width="2040" height="1530" preserveAspectRatio="none" />
+  <g id="camera-path" display="none" fill="none"><path d="M 820,970 C 910,940 990,865 1050,820 C 1065,803 1080,780 1090,760 C 1100,725 1115,680 1130,650 C 1180,650 1230,650 1280,650 C 1240,610 1170,560 1130,520 C 1020,550 900,600 780,650"/></g>
+  <g id="trail-path" display="none" fill="none"><path d="M 820,970 C 910,940 990,865 1050,820 C 1065,803 1080,780 1090,760 C 1100,725 1115,680 1130,650 C 1180,650 1230,650 1280,650 C 1240,610 1170,560 1130,520 C 1020,550 900,600 780,650"/></g>
+  <g id="points" fill="#b6424b" stroke="#fff" stroke-width="5">
+    <circle id="Lantau" cx="820" cy="970" r="9" />
+    <circle id="Central" cx="1050" cy="820" r="9" />
+    <circle id="Kowloon" cx="1090" cy="760" r="9" />
+    <circle id="Sha_Tin" cx="1130" cy="650" r="9" />
+    <circle id="Sai_Kung" cx="1280" cy="650" r="9" />
+    <circle id="Tai_Po" cx="1130" cy="520" r="9" />
+    <circle id="Tuen_Mun" cx="780" cy="650" r="9" />
+  </g>
+  <g id="labels" fill="#384c4d" font-family="Arial, sans-serif" font-size="22" letter-spacing="1">
+    <text x="835" y="958">Lantau</text><text x="1065" y="808">Central</text><text x="1105" y="748">Kowloon</text><text x="1145" y="638">Sha Tin</text><text x="1295" y="638">Sai Kung</text><text x="1145" y="508">Tai Po</text><text x="795" y="638">Tuen Mun</text>
+  </g>
+  <text x="72" y="1460" fill="#3f5556" font-family="Arial, sans-serif" font-size="18" letter-spacing="2">HONG KONG / FVM MAP STUDY</text>
+</svg>

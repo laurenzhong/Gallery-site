@@ -287,32 +287,45 @@ function formatCamera(make, model) {
   return modelLabel.toLowerCase().includes(makeLabel.toLowerCase()) ? modelLabel : `${makeLabel} ${modelLabel}`;
 }
 
+function formatLocation(gps) {
+  const latitude = Number(gps?.latitude);
+  const longitude = Number(gps?.longitude);
+  return Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180
+    ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+    : undefined;
+}
+
 async function readPhotoExif(localPath) {
   try {
-    const exif = await exifr.parse(localPath, [
-      "Make",
-      "Model",
-      "LensModel",
-      "Lens",
-      "FNumber",
-      "ExposureTime",
-      "ISO",
-      "FocalLength",
-      "DateTimeOriginal",
-      "CreateDate",
-      "ModifyDate",
+    const [exif, gps] = await Promise.all([
+      exifr.parse(localPath, [
+        "Make",
+        "Model",
+        "LensModel",
+        "Lens",
+        "FNumber",
+        "ExposureTime",
+        "ISO",
+        "FocalLength",
+        "DateTimeOriginal",
+        "CreateDate",
+        "ModifyDate",
+      ]),
+      exifr.gps(localPath).catch(() => undefined),
     ]);
 
-    if (!exif) return {};
+    if (!exif && !gps) return {};
+    const exifTags = exif ?? {};
 
     const metadata = {
-      date: formatDate(exif.DateTimeOriginal ?? exif.CreateDate ?? exif.ModifyDate),
-      camera: formatCamera(exif.Make, exif.Model),
-      lens: cleanExifString(exif.LensModel) ?? cleanExifString(exif.Lens),
-      aperture: formatAperture(exif.FNumber),
-      shutter: formatShutter(exif.ExposureTime),
-      iso: typeof exif.ISO === "number" && Number.isFinite(exif.ISO) ? exif.ISO : undefined,
-      focalLength: formatFocalLength(exif.FocalLength),
+      date: formatDate(exifTags.DateTimeOriginal ?? exifTags.CreateDate ?? exifTags.ModifyDate),
+      camera: formatCamera(exifTags.Make, exifTags.Model),
+      lens: cleanExifString(exifTags.LensModel) ?? cleanExifString(exifTags.Lens),
+      aperture: formatAperture(exifTags.FNumber),
+      shutter: formatShutter(exifTags.ExposureTime),
+      iso: typeof exifTags.ISO === "number" && Number.isFinite(exifTags.ISO) ? exifTags.ISO : undefined,
+      focalLength: formatFocalLength(exifTags.FocalLength),
+      location: formatLocation(gps),
     };
 
     return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== undefined));
@@ -325,6 +338,7 @@ async function readPhotoExif(localPath) {
 function summarizeExif(metadata) {
   const parts = [
     metadata.date,
+    metadata.location ? `GPS ${metadata.location}` : undefined,
     metadata.camera,
     metadata.lens,
     metadata.focalLength,

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 const menuItems = [
-  { label: "Home", href: "/#top" },
-  { label: "Photography", href: "/#photography" },
+  { label: "Home", href: "/" },
+  { label: "Photography", href: "/photography" },
   { label: "Balcony View", href: "/photobalcony" },
   { label: "Journal", href: "/journal" },
   { label: "About", href: "/about" },

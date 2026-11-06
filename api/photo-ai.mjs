@@ -134,6 +134,22 @@ async function sanityQuery(query, params = {}) {
   return payload.result;
 }
 
+async function deleteFailedPhoto(photo, dataset) {
+  await sanityRequest(`/data/mutate/${dataset}`, {
+    method: "POST",
+    body: JSON.stringify({ mutations: [{ delete: { id: photo._id } }] }),
+  });
+  const assetId = photo.assetId;
+  if (!assetId) return;
+  const remainingReferences = await sanityQuery(`count(*[references($assetId)])`, { assetId });
+  if (!remainingReferences) {
+    await sanityRequest(`/data/mutate/${dataset}`, {
+      method: "POST",
+      body: JSON.stringify({ mutations: [{ delete: { id: assetId } }] }),
+    });
+  }
+}
+
 async function callModel(photo, prompt, styleExamples, model) {
   const endpoint = env("OPENAI_API_ENDPOINT") || `${env("OPENAI_BASE_URL", "https://api.openai.com").replace(/\/$/, "")}/v1/responses`;
   const locationText = [photo.place, photo.spot].filter(Boolean).join(" / ") || "未知";
@@ -185,7 +201,12 @@ async function processPhoto(photo, options) {
     return { id: photo._id, status: "approved" };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await sanityRequest(`/data/mutate/${options.dataset}`, { method: "POST", body: JSON.stringify({ mutations: [{ patch: { id: photo._id, set: { aiClassification: { status: "error", model, generateStory: options.generateStory, prompt: options.prompt || "", error: message.slice(0, 1000), processedAt: new Date().toISOString() } } } }] }) }).catch(() => undefined);
+    try {
+      await deleteFailedPhoto(photo, options.dataset);
+    } catch (cleanupError) {
+      const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+      await sanityRequest(`/data/mutate/${options.dataset}`, { method: "POST", body: JSON.stringify({ mutations: [{ patch: { id: photo._id, set: { aiClassification: { status: "error", model, generateStory: options.generateStory, prompt: options.prompt || "", error: `${message.slice(0, 700)}; cleanup failed: ${cleanupMessage.slice(0, 250)}`, processedAt: new Date().toISOString() } } } }] }) }).catch(() => undefined);
+    }
     return { id: photo._id, status: "error", error: message };
   }
 }
@@ -201,8 +222,8 @@ export default async function handler(req, res) {
     const dataset = env("SANITY_STUDIO_DATASET", env("VITE_SANITY_DATASET", "production"));
     const photoId = payload.photoId || payload._id || payload.documentId;
     const query = photoId
-      ? `*[_type == "photo" && _id == $id && aiClassification.status == "queued"][0]{_id,title,sourceFilename,subjects,conditions,altText,date,location,camera,lens,aperture,shutter,iso,focalLength,"imageUrl": image.asset->url,"place": place->title,spot,aiClassification}`
-      : `*[_type == "photo" && aiClassification.status == "queued"] | order(_createdAt asc)[0]{_id,title,sourceFilename,subjects,conditions,altText,date,location,camera,lens,aperture,shutter,iso,focalLength,"imageUrl": image.asset->url,"place": place->title,spot,aiClassification}`;
+      ? `*[_type == "photo" && _id == $id && aiClassification.status == "queued"][0]{_id,title,sourceFilename,subjects,conditions,altText,date,location,camera,lens,aperture,shutter,iso,focalLength,"imageUrl": image.asset->url,"assetId": image.asset._ref,"place": place->title,spot,aiClassification}`
+      : `*[_type == "photo" && aiClassification.status == "queued"] | order(_createdAt asc)[0]{_id,title,sourceFilename,subjects,conditions,altText,date,location,camera,lens,aperture,shutter,iso,focalLength,"imageUrl": image.asset->url,"assetId": image.asset._ref,"place": place->title,spot,aiClassification}`;
     const photo = await sanityQuery(query, photoId ? { id: photoId } : {});
     if (!photo) return json(res, 200, { status: "empty" });
     const styleExamples = await sanityQuery(`*[_type == "story" && defined(body)] | order(publishedAt desc)[0...3]{title,excerpt,body}`) || [];

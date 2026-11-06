@@ -1,5 +1,6 @@
 export type CmsPhoto = {
   id: string;
+  legacyId?: string;
   src: string;
   legacyPublicPath?: string;
   title: string;
@@ -21,6 +22,31 @@ export type CmsPhoto = {
   shutter?: string;
   iso?: number;
   focalLength?: string;
+};
+
+export type CmsMapRoute = {
+  id: string;
+  title: string;
+  slug?: string;
+  subtitle?: string;
+  sourceLabel?: string;
+  color?: string;
+  isVisible?: boolean;
+  trackUrl?: string;
+  trackPoints?: { latitude?: number; longitude?: number; elevationM?: number }[];
+  stats?: { distance?: string; duration?: string; ascent?: string };
+  stops?: {
+    id?: string;
+    title?: string;
+    localTitle?: string;
+    coordinate?: [number, number];
+    trackIndex?: number;
+    distanceKm?: number;
+    time?: string;
+    elevationM?: number;
+    note?: string;
+    photoIds?: string[];
+  }[];
 };
 
 export type CmsStory = {
@@ -176,6 +202,7 @@ export type CmsStoryPhoto = {
 
 const cmsReferencedPhotoFields = `
     "id": _id,
+    "legacyId": legacyId,
     title,
     "slug": slug.current,
     "src": image.asset->url,
@@ -194,12 +221,17 @@ const cmsReferencedPhotoFields = `
 export const cmsPhotosQuery = `*[
   _type == "photo" &&
   isHidden != true &&
-  count(*[
-    (_type == "pageContent" || _type == "homepageLayout" || _type == "photobalconyLayout" || _type == "siteSettings") &&
-    references(^._id)
-  ]) > 0
+  (
+    count(*[
+      (_type == "pageContent" || _type == "homepageLayout" || _type == "photobalconyLayout" || _type == "siteSettings" || _type == "mapRoute") &&
+      references(^._id)
+    ]) > 0 ||
+    defined(location) ||
+    defined(place)
+  )
 ] | order(sortOrder asc, date desc) {
   "id": _id,
+  "legacyId": legacyId,
   "src": image.asset->url,
   "legacyPublicPath": legacyPublicPath,
   title,
@@ -221,6 +253,31 @@ export const cmsPhotosQuery = `*[
   shutter,
   iso,
   focalLength
+}`;
+
+export const cmsMapRoutesQuery = `*[_type == "mapRoute" && isVisible != false] | order(_updatedAt desc) {
+  "id": _id,
+  title,
+  "slug": slug.current,
+  subtitle,
+  sourceLabel,
+  color,
+  isVisible,
+  "trackUrl": trackFile.asset->url,
+  "trackPoints": trackPoints[]{ latitude, longitude, elevationM },
+  stats,
+  "stops": stops[]{
+    "id": coalesce(_key, title),
+    title,
+    localTitle,
+    "coordinate": [coordinate.latitude, coordinate.longitude],
+    trackIndex,
+    distanceKm,
+    time,
+    elevationM,
+    note,
+    "photoIds": photos[]._ref
+  }
 }`;
 
 export const cmsCategoriesQuery = `*[_type == "category" && isVisible != false] | order(sortOrder asc, title asc) {

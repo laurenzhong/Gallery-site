@@ -9,6 +9,7 @@ import { photobalconyLayoutType } from "./photobalconyLayout";
 import { siteSettingsType } from "./siteSettings";
 import { storyType } from "./story";
 import { siteCopyType } from "./siteCopy";
+import { mapRouteType } from "./mapRoute";
 
 export const schemaTypes = [
   albumType,
@@ -22,4 +23,5 @@ export const schemaTypes = [
   storyType,
   siteSettingsType,
   siteCopyType,
+  mapRouteType,
 ];

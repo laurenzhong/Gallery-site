@@ -81,6 +81,25 @@ function blocksToLines(blocks: PortableTextBlock[] | undefined) {
   return blocks?.map(blockToText).filter(Boolean) ?? [];
 }
 
+function coordinatesFromLocation(value: string | undefined) {
+  const match = value?.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)$/);
+  if (!match) return undefined;
+  const first = Number(match[1]);
+  const second = Number(match[2]);
+  if (!Number.isFinite(first) || !Number.isFinite(second)) return undefined;
+
+  // Accept both common notations: latitude,longitude and longitude,latitude.
+  // Values above 90 degrees can only be longitudes, so this also repairs old
+  // CMS records that were entered in the reverse order.
+  if (Math.abs(first) <= 90 && Math.abs(second) <= 180) {
+    return { latitude: first, longitude: second };
+  }
+  if (Math.abs(second) <= 90 && Math.abs(first) <= 180) {
+    return { latitude: second, longitude: first };
+  }
+  return undefined;
+}
+
 function hasMeta(photo: CmsPhoto) {
   return Boolean(
     photo.date ||
@@ -95,13 +114,22 @@ function hasMeta(photo: CmsPhoto) {
 }
 
 function toPhoto(photo: CmsPhoto): Photo | null {
-  const src = resolvePhotoSrc(photo.src, photo.legacyPublicPath);
+  const src = resolvePhotoSrc(photo.src, photo.legacyPublicPath, photo.filename);
   if (!src || !photo.title || !photo.filename) {
     return null;
   }
 
+  const staticMatch = staticPhotos.find((item) => item.filename === photo.filename);
+  const staticLatitude = staticMatch?.latitude;
+  const staticLongitude = staticMatch?.longitude;
+  const coordinates = coordinatesFromLocation(photo.location) ?? (
+    Number.isFinite(staticLatitude) && Number.isFinite(staticLongitude)
+      ? { latitude: staticLatitude as number, longitude: staticLongitude as number }
+      : undefined
+  );
   return {
     id: photo.id,
+    ...(photo.legacyId ? { legacyId: photo.legacyId } : {}),
     src,
     title: photo.title,
     slug: photo.slug,
@@ -109,15 +137,30 @@ function toPhoto(photo: CmsPhoto): Photo | null {
     filename: photo.filename,
     width: photo.width || 1,
     height: photo.height || 1,
+    ...(!shouldUseRemoteImages() && staticMatch?.mapSrc ? { mapSrc: staticMatch.mapSrc } : {}),
+    ...coordinates,
     isHero: photo.isHero,
   };
 }
 
 const IMAGE_CDN_PARAMS = "?w=2560&q=90&auto=format&fit=max";
 
-function resolvePhotoSrc(sanityUrl: string | undefined, legacyPublicPath: string | undefined): string | undefined {
-  if (!shouldUseRemoteImages() && import.meta.env.DEV && legacyPublicPath) {
-    return legacyPublicPath;
+function resolvePhotoSrc(
+  sanityUrl: string | undefined,
+  legacyPublicPath: string | undefined,
+  filename?: string,
+): string | undefined {
+  if (!shouldUseRemoteImages() && import.meta.env.DEV && filename) {
+    const localPhoto = staticPhotos.find((photo) => photo.filename === filename);
+    if (localPhoto) {
+      return localPhoto.src;
+    }
+
+    // A CMS record with no asset and no matching local file cannot produce a
+    // usable image in the local app. Skip it instead of rendering a dead path.
+    if (!sanityUrl) {
+      return undefined;
+    }
   }
   if (sanityUrl) {
     return `${sanityUrl}${IMAGE_CDN_PARAMS}`;
@@ -145,7 +188,7 @@ function toPhotoMeta(photos: CmsPhoto[]) {
 }
 
 function toReferencedPhoto(photo: CmsSiteSettings["heroPhoto"], options: { allowHidden?: boolean } = {}): Photo | undefined {
-  const src = resolvePhotoSrc(photo?.src, photo?.legacyPublicPath);
+  const src = resolvePhotoSrc(photo?.src, photo?.legacyPublicPath, photo?.filename);
   if ((!options.allowHidden && photo?.isHidden) || !photo?.id || !src || !photo.title || !photo.filename) {
     return undefined;
   }
@@ -408,6 +451,14 @@ async function loadCmsContent(): Promise<GalleryContent> {
 
 function readCachedCmsContent(): GalleryContent | undefined {
   if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  // Development should always read the current CMS response. The cache can
+  // contain a snapshot from an earlier content model, which makes local work
+  // look like the old site while production already shows newer photos.
+  if (import.meta.env.DEV) {
+    window.localStorage.removeItem(CMS_CONTENT_CACHE_KEY);
     return undefined;
   }
 

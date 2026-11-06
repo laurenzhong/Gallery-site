@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { imageSizeFromFile } from "image-size/fromFile";
+import exifr from "exifr";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -167,6 +168,135 @@ async function copyIfChanged(source, target) {
   await copyFile(source, target);
 }
 
+async function createMapThumbnail(source, target) {
+  try {
+    const sourceStats = await stat(source);
+    const targetStats = await stat(target);
+    if (Math.floor(targetStats.mtimeMs) >= Math.floor(sourceStats.mtimeMs)) {
+      return true;
+    }
+  } catch {
+    // Missing thumbnail: generate it below.
+  }
+
+  await mkdir(path.dirname(target), { recursive: true });
+  try {
+    await new Promise((resolve, reject) => {
+      execFile(
+        "ffmpeg",
+        [
+          "-y",
+          "-loglevel",
+          "error",
+          "-i",
+          source,
+          "-vf",
+          "scale=240:240:force_original_aspect_ratio=decrease",
+          "-frames:v",
+          "1",
+          "-c:v",
+          "libwebp",
+          "-q:v",
+          "72",
+          target,
+        ],
+        { windowsHide: true },
+        (error) => (error ? reject(error) : resolve()),
+      );
+    });
+    return true;
+  } catch (error) {
+    console.warn(`Could not create map thumbnail for ${path.basename(source)}: ${error instanceof Error ? error.message : "unknown error"}`);
+    return false;
+  }
+}
+
+async function createPreviewThumbnail(source, target) {
+  try {
+    const sourceStats = await stat(source);
+    const targetStats = await stat(target);
+    if (Math.floor(targetStats.mtimeMs) >= Math.floor(sourceStats.mtimeMs)) {
+      return true;
+    }
+  } catch {
+    // Missing thumbnail: generate it below.
+  }
+
+  await mkdir(path.dirname(target), { recursive: true });
+  try {
+    await new Promise((resolve, reject) => {
+      execFile(
+        "ffmpeg",
+        [
+          "-y",
+          "-loglevel",
+          "error",
+          "-i",
+          source,
+          "-vf",
+          "scale=1200:-1",
+          "-frames:v",
+          "1",
+          "-c:v",
+          "libwebp",
+          "-q:v",
+          "80",
+          target,
+        ],
+        { windowsHide: true },
+        (error) => (error ? reject(error) : resolve()),
+      );
+    });
+    return true;
+  } catch (error) {
+    console.warn(`Could not create preview thumbnail for ${path.basename(source)}: ${error instanceof Error ? error.message : "unknown error"}`);
+    return false;
+  }
+}
+
+async function createFooterThumbnail(source, target) {
+  try {
+    const sourceStats = await stat(source);
+    const targetStats = await stat(target);
+    if (Math.floor(targetStats.mtimeMs) >= Math.floor(sourceStats.mtimeMs)) {
+      return true;
+    }
+  } catch {
+    // Missing thumbnail: generate it below.
+  }
+
+  await mkdir(path.dirname(target), { recursive: true });
+  try {
+    await new Promise((resolve, reject) => {
+      execFile(
+        "ffmpeg",
+        [
+          "-y",
+          "-loglevel",
+          "error",
+          "-i",
+          source,
+          "-vf",
+          "scale=1200:1200:force_original_aspect_ratio=decrease",
+          "-frames:v",
+          "1",
+          "-c:v",
+          "libwebp",
+          "-q:v",
+          "78",
+          target,
+        ],
+        { windowsHide: true },
+        (error) => (error ? reject(error) : resolve()),
+      );
+    });
+    return true;
+  } catch (error) {
+    console.warn(`Could not create footer thumbnail: ${error instanceof Error ? error.message : "unknown error"}`);
+    return false;
+  }
+}
+
 async function removeStaleFiles(root, expected) {
   let entries = [];
 
@@ -218,28 +348,51 @@ async function collectPhotos(heroFilename) {
     for (const filename of files) {
       const sourcePath = path.join(sourceCategoryDir, filename);
       const targetPath = path.join(targetCategoryDir, filename);
+      const mapTargetPath = path.join(publicPhotoRoot, ".map", category, `${path.basename(filename, path.extname(filename))}.webp`);
+      const previewTargetPath = path.join(publicPhotoRoot, ".preview", category, `${path.basename(filename, path.extname(filename))}.webp`);
       expectedFiles.add(path.resolve(targetPath));
 
       await copyIfChanged(sourcePath, targetPath);
+      const hasMapThumbnail = await createMapThumbnail(sourcePath, mapTargetPath);
+      if (hasMapThumbnail) expectedFiles.add(path.resolve(mapTargetPath));
+      const hasPreviewThumbnail = await createPreviewThumbnail(sourcePath, previewTargetPath);
+      if (hasPreviewThumbnail) expectedFiles.add(path.resolve(previewTargetPath));
 
       const dimensions = await imageSizeFromFile(sourcePath);
+      const gps = await exifr.gps(sourcePath).catch(() => undefined);
       const rawWidth = dimensions.width ?? 1;
       const rawHeight = dimensions.height ?? 1;
       const shouldSwap = dimensions.orientation && dimensions.orientation >= 5 && dimensions.orientation <= 8;
+      const latitude = Number(gps?.latitude);
+      const longitude = Number(gps?.longitude);
 
       photos.push({
         id: `photo-${String(photos.length + 1).padStart(3, "0")}`,
         src: `/${toPosix(path.relative(path.join(projectRoot, "public"), targetPath))}`,
+        ...(hasMapThumbnail ? { mapSrc: `/${toPosix(path.relative(path.join(projectRoot, "public"), mapTargetPath))}` } : {}),
+        ...(hasPreviewThumbnail ? { previewSrc: `/${toPosix(path.relative(path.join(projectRoot, "public"), previewTargetPath))}` } : {}),
         title: titleFromFilename(filename),
         slug: slugify(titleFromFilename(filename)) || `photo-${String(photos.length + 1).padStart(3, "0")}`,
         category,
         filename,
         width: shouldSwap ? rawHeight : rawWidth,
         height: shouldSwap ? rawWidth : rawHeight,
+        ...(Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : {}),
         isHero: filename === heroFilename,
       });
     }
   }
+
+  const footerSourcePath = path.join(projectRoot, "石塘度假区", "DSC_0257.JPG");
+  const footerTargetPath = path.join(publicPhotoRoot, ".footer", "DSC_0257.webp");
+  let hasFooterThumbnail = false;
+  try {
+    await stat(footerSourcePath);
+    hasFooterThumbnail = await createFooterThumbnail(footerSourcePath, footerTargetPath);
+  } catch {
+    // Local source photos are optional in remote CMS builds.
+  }
+  if (hasFooterThumbnail) expectedFiles.add(path.resolve(footerTargetPath));
 
   if (foundSourceCategory) {
     await removeStaleFiles(publicPhotoRoot, expectedFiles);
@@ -270,6 +423,7 @@ function toInitialHeroPhoto(cmsHeroPhoto, photos) {
 function serializeData(photos, initialHeroPhoto) {
   return `export type Photo = {
   id: string;
+  legacyId?: string;
   src: string;
   title: string;
   slug?: string;
@@ -277,6 +431,10 @@ function serializeData(photos, initialHeroPhoto) {
   filename: string;
   width: number;
   height: number;
+  mapSrc?: string;
+  previewSrc?: string;
+  latitude?: number;
+  longitude?: number;
   isHero?: boolean;
   altText?: string;
   caption?: string;

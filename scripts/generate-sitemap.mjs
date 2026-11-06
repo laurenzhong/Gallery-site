@@ -198,6 +198,7 @@ if (!entries) {
 }
 const routes = [
   route("/", undefined, "1.0"),
+  route("/photography", undefined, "0.9"),
   route("/journal", undefined, "0.7"),
   route("/about", undefined, "0.6"),
   route("/photobalcony", undefined, "0.6"),

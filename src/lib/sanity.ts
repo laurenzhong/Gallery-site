@@ -17,9 +17,9 @@ export function getSanityClient(): SanityClient | null {
     projectId,
     dataset,
     apiVersion,
-    // Public browser reads use Sanity's read CDN. It is resilient to transient
-    // project API outages while still serving published documents and assets.
-    useCdn: import.meta.env.PROD,
+    // Public browser reads use Sanity's read CDN in every environment. This
+    // keeps local development on the same published content as production.
+    useCdn: true,
   });
 }
 
@@ -33,16 +33,25 @@ export async function fetchCms<T>(query: string): Promise<T> {
     return client.fetch<T>(query);
   }
 
-  // The Vite server forwards this same-origin request to the project API.
-  // This keeps local development independent from Sanity's browser CORS list.
+  // Prefer the same-origin Vite proxy in development so local reads do not
+  // depend on Sanity's browser CORS list. If that proxy is temporarily down,
+  // retry through Sanity's read CDN instead of leaving the app on old static
+  // content.
   const url = new URL(`/sanity/v${apiVersion}/data/query/${dataset}`, window.location.origin);
   url.searchParams.set("query", query);
-  const response = await window.fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Sanity request failed with ${response.status}`);
+  try {
+    const response = await window.fetch(url);
+    if (response.ok) {
+      const payload = (await response.json()) as { result: T };
+      return payload.result;
+    }
+  } catch {
+    // Fall through to the CDN client below.
   }
 
-  const payload = (await response.json()) as { result: T };
-  return payload.result;
+  try {
+    return await client.fetch<T>(query);
+  } catch (error) {
+    throw new Error(`Sanity request failed: ${error instanceof Error ? error.message : "unknown error"}`);
+  }
 }
