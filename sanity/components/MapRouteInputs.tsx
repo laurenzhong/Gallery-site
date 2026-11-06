@@ -11,7 +11,8 @@ type StopItem = {
   trackIndex?: number;
   coordinate?: { latitude?: number; longitude?: number };
 };
-type PhotoPreview = { _id: string; title?: string; imageUrl?: string; filename?: string };
+type PhotoPreview = { _id: string; title?: string; imageUrl?: string; filename?: string; album?: { _id: string; title: string } };
+type AlbumPreview = { _id: string; title: string; isVisible?: boolean };
 
 function keyFor(prefix: string, id = "item") {
   const random = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -23,6 +24,8 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
   const readOnly = Boolean(props.readOnly);
   const selectedIds = useMemo(() => (props.value ?? []).map((item) => item._ref).filter((id): id is string => Boolean(id)), [props.value]);
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
+  const [albums, setAlbums] = useState<AlbumPreview[]>([]);
+  const [selectedAlbumId, setSelectedAlbumId] = useState("");
   const [search, setSearch] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -30,13 +33,16 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
   useEffect(() => {
     let active = true;
     setLoading(true);
-    const query = `*[_type == "photo" && (_id in $selectedIds || title match $search || sourceFilename match $search)] | order(_updatedAt desc)[0...160]{ _id, title, sourceFilename, "imageUrl": image.asset->url }`;
-    void client.fetch<PhotoPreview[]>(query, { selectedIds, search: search.trim() ? `${search.trim()}*` : "*" })
-      .then((result) => { if (active) setPhotos(result); })
+    const query = `*[_type == "photo" && (_id in $selectedIds || (($albumId == "" || album._ref == $albumId) && (title match $search || sourceFilename match $search)))] | order(_updatedAt desc)[0...240]{ _id, title, sourceFilename, album->{_id, title}, "imageUrl": image.asset->url }`;
+    void Promise.all([
+      client.fetch<PhotoPreview[]>(query, { selectedIds, albumId: selectedAlbumId, search: search.trim() ? `${search.trim()}*` : "*" }),
+      client.fetch<AlbumPreview[]>(`*[_type == "album" && isVisible != false] | order(sortOrder asc, title asc){ _id, title, isVisible }`),
+    ])
+      .then(([result, albumResult]) => { if (active) { setPhotos(result); setAlbums(albumResult); } })
       .catch(() => { if (active) setPhotos([]); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [client, selectedIds.join("|"), search]);
+  }, [client, selectedIds.join("|"), search, selectedAlbumId]);
 
   const selected = selectedIds.map((id) => photos.find((photo) => photo._id === id)).filter((photo): photo is PhotoPreview => Boolean(photo));
   const togglePhoto = (id: string) => {
@@ -68,6 +74,12 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
       {!readOnly ? <button type="button" onClick={() => setPickerOpen((value) => !value)} style={{ minHeight: 36, padding: "0 12px", border: "1px solid #2563eb", borderRadius: 5, background: pickerOpen ? "#dbeafe" : "#fff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}>{pickerOpen ? "收起照片选择" : "添加照片"}</button> : null}
       {pickerOpen && !readOnly ? (
         <div style={{ marginTop: 10, padding: 10, border: "1px solid #dfe3e8", borderRadius: 7, background: "#fff" }}>
+          <label style={{ display: "block", marginBottom: 6, color: "#374151", fontSize: 12, fontWeight: 700 }}>第一步：选择相册</label>
+          <select value={selectedAlbumId} onChange={(event) => setSelectedAlbumId(event.currentTarget.value)} style={{ boxSizing: "border-box", width: "100%", minHeight: 38, marginBottom: 10, padding: "0 9px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff" }}>
+            <option value="">全部相册</option>
+            {albums.map((album) => <option key={album._id} value={album._id}>{album.title}</option>)}
+          </select>
+          <label style={{ display: "block", marginBottom: 6, color: "#374151", fontSize: 12, fontWeight: 700 }}>第二步：选择相册里的图片</label>
           <input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索照片标题或文件名" style={{ boxSizing: "border-box", width: "100%", minHeight: 36, marginBottom: 10, padding: "0 9px", border: "1px solid #cbd5e1", borderRadius: 5 }} />
           {loading ? <p style={{ color: "#6b7280", fontSize: 12 }}>正在读取照片…</p> : null}
           {!loading && !photos.length ? <p style={{ color: "#6b7280", fontSize: 12 }}>没有找到照片。请先到“照片 → 全部照片”上传。</p> : null}
