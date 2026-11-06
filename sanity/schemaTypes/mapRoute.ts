@@ -63,8 +63,8 @@ export const mapRouteType = defineType({
             defineField({ name: "photos", title: "关联照片", type: "array", of: [defineArrayMember({ type: "reference", to: [{ type: "photo" }], options: { disableNew: true } })], options: { layout: "grid" }, components: { input: MapRoutePhotosInput }, description: "这些照片会定位到当前标注点，并以缩略图显示。" }),
           ],
           preview: {
-            select: { title: "title", localTitle: "localTitle", photos: "photos" },
-            prepare: ({ title, localTitle, photos }) => ({ title: localTitle ? `${title} / ${localTitle}` : title, subtitle: `${photos?.length ?? 0} 张照片` }),
+            select: { title: "title", localTitle: "localTitle", photos: "photos", media: "photos.0.image" },
+            prepare: ({ title, localTitle, photos, media }) => ({ title: localTitle ? `${title} / ${localTitle}` : title, subtitle: `${photos?.length ?? 0} 张照片`, media }),
           },
         }),
       ],

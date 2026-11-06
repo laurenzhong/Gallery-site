@@ -20,6 +20,7 @@ function keyFor(prefix: string, id = "item") {
 
 export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceItem>) {
   const client = useClient({ apiVersion: "2025-02-19" });
+  const readOnly = Boolean(props.readOnly);
   const selectedIds = useMemo(() => (props.value ?? []).map((item) => item._ref).filter((id): id is string => Boolean(id)), [props.value]);
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
   const [search, setSearch] = useState("");
@@ -58,13 +59,14 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
             <figure key={photo._id} style={{ position: "relative", margin: 0, overflow: "hidden", border: "1px solid #dfe3e8", borderRadius: 6, background: "#f7f8fa" }}>
               {photo.imageUrl ? <img src={`${photo.imageUrl}?w=320&q=75&auto=format`} alt="" style={{ display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover" }} /> : <div style={{ aspectRatio: "4 / 3" }} />}
               <figcaption style={{ padding: "6px 7px", overflow: "hidden", fontSize: 11, textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{photo.title || photo.filename || "未命名照片"}</figcaption>
-              <button type="button" onClick={() => togglePhoto(photo._id)} style={{ position: "absolute", top: 5, right: 5, width: 24, height: 24, border: 0, borderRadius: 999, background: "rgba(17,24,39,.78)", color: "#fff", cursor: "pointer" }} aria-label="移除照片">×</button>
+              {!readOnly ? <button type="button" onClick={() => togglePhoto(photo._id)} style={{ position: "absolute", top: 5, right: 5, width: 24, height: 24, border: 0, borderRadius: 999, background: "rgba(17,24,39,.78)", color: "#fff", cursor: "pointer" }} aria-label="移除照片">×</button> : null}
             </figure>
           ))}
         </div>
       ) : <p style={{ margin: "0 0 10px", color: "#6b7280", fontSize: 12 }}>还没有关联照片。</p>}
-      <button type="button" onClick={() => setPickerOpen((value) => !value)} style={{ minHeight: 36, padding: "0 12px", border: "1px solid #2563eb", borderRadius: 5, background: pickerOpen ? "#dbeafe" : "#fff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}>{pickerOpen ? "收起照片选择" : "添加照片"}</button>
-      {pickerOpen ? (
+      {readOnly ? <p style={{ margin: "10px 0 0", color: "#92400e", fontSize: 12 }}>当前是已发布只读视图，不能添加或移除照片。请打开不带 <code>?perspective=published</code> 的 Studio 地址进行编辑。</p> : null}
+      {!readOnly ? <button type="button" onClick={() => setPickerOpen((value) => !value)} style={{ minHeight: 36, padding: "0 12px", border: "1px solid #2563eb", borderRadius: 5, background: pickerOpen ? "#dbeafe" : "#fff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}>{pickerOpen ? "收起照片选择" : "添加照片"}</button> : null}
+      {pickerOpen && !readOnly ? (
         <div style={{ marginTop: 10, padding: 10, border: "1px solid #dfe3e8", borderRadius: 7, background: "#fff" }}>
           <input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索照片标题或文件名" style={{ boxSizing: "border-box", width: "100%", minHeight: 36, marginBottom: 10, padding: "0 9px", border: "1px solid #cbd5e1", borderRadius: 5 }} />
           {loading ? <p style={{ color: "#6b7280", fontSize: 12 }}>正在读取照片…</p> : null}
@@ -86,6 +88,7 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
 }
 
 export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
+  const readOnly = Boolean(props.readOnly);
   const addStop = () => {
     const next: StopItem = { _key: keyFor("stop"), _type: "object", title: "新标注点", localTitle: "", trackIndex: 0, coordinate: {} };
     props.onChange(set([...(props.value ?? []), next]));
@@ -96,7 +99,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
       <div style={{ marginBottom: 10, padding: 10, border: "1px solid #dcfce7", borderRadius: 7, background: "#f0fdf4", color: "#166534", fontSize: 12, lineHeight: 1.6 }}>
         添加流程：点击“新增标注点” → 填名称 → 填“轨迹点索引”。轨迹点索引从 <strong>0</strong> 开始，系统会自动把标注和关联照片放到 GPX 路线对应位置；有精确经纬度时也可以直接填写坐标。
       </div>
-      <button type="button" onClick={addStop} style={{ minHeight: 38, marginBottom: 10, padding: "0 13px", border: 0, borderRadius: 5, background: "#166534", color: "#fff", cursor: "pointer", fontWeight: 700 }}>＋ 新增标注点</button>
+      {readOnly ? <p style={{ margin: "0 0 10px", color: "#92400e", fontSize: 12 }}>当前是已发布只读视图，不能新增标注点。请打开不带 <code>?perspective=published</code> 的 Studio 地址进行编辑。</p> : <button type="button" onClick={addStop} style={{ minHeight: 38, marginBottom: 10, padding: "0 13px", border: 0, borderRadius: 5, background: "#166534", color: "#fff", cursor: "pointer", fontWeight: 700 }}>＋ 新增标注点</button>}
       {props.renderDefault(props)}
     </div>
   );
