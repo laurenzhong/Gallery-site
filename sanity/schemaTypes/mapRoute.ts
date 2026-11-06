@@ -39,6 +39,7 @@ export const mapRouteType = defineType({
       title: "手动轨迹点（可选）",
       type: "array",
       of: [defineArrayMember({ type: "object", fields: [...coordinateFields, defineField({ name: "elevationM", title: "海拔（m）", type: "number" })] })],
+      options: { collapsible: true, collapsed: true },
       description: "没有 GPX 时可少量手动填写；同时上传 GPX 时优先使用 GPX。",
     }),
     defineField({
