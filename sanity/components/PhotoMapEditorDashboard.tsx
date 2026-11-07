@@ -69,7 +69,10 @@ export function PhotoMapEditorDashboard() {
     const element = mapElementRef.current;
     if (!element || mapRef.current) return undefined;
     const map = L.map(element, { zoomControl: true, attributionControl: true });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap contributors", maxZoom: 19 }).addTo(map);
+    const openStreetMap = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap contributors", maxZoom: 19 }).addTo(map);
+    let fallbackLoaded = false;
+    const fallbackTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap © CARTO", maxZoom: 19 });
+    openStreetMap.on("tileerror", () => { if (!fallbackLoaded) { fallbackLoaded = true; fallbackTiles.addTo(map); } });
     map.setView([22.35, 114.17], 10);
     map.on("click", (event: L.LeafletMouseEvent) => {
       setCoordinate([event.latlng.lat, event.latlng.lng]);
@@ -78,7 +81,11 @@ export function PhotoMapEditorDashboard() {
     });
     mapRef.current = map;
     markersRef.current = L.layerGroup().addTo(map);
-    return () => { map.remove(); mapRef.current = null; markersRef.current = null; };
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => map.invalidateSize({ animate: false })) : undefined;
+    resizeObserver?.observe(element);
+    requestAnimationFrame(() => map.invalidateSize({ animate: false }));
+    const delayedResize = window.setTimeout(() => map.invalidateSize({ animate: false }), 400);
+    return () => { resizeObserver?.disconnect(); window.clearTimeout(delayedResize); map.remove(); mapRef.current = null; markersRef.current = null; };
   }, []);
 
   useEffect(() => {
@@ -151,7 +158,7 @@ export function PhotoMapEditorDashboard() {
     {error ? <p style={{ margin: 0, padding: 10, borderRadius: 6, background: "#fef2f2", color: "#b42318" }}>{error}</p> : null}
     {message ? <p style={{ margin: 0, padding: 10, borderRadius: 6, background: "#f0fdf4", color: "#166534" }}>{message}</p> : null}
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 16, alignItems: "start" }}>
-      <div ref={mapElementRef} style={{ minHeight: 620, border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden", background: "#e5eef5" }} />
+      <div ref={mapElementRef} style={{ height: 620, minHeight: 420, border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden", background: "#e5eef5" }} />
       <aside style={{ display: "grid", gap: 12 }}>
         <section style={{ padding: 14, border: "1px solid #bfdbfe", borderRadius: 8, background: "#eff6ff" }}>
           <strong style={{ display: "block", marginBottom: 8, color: "#1e3a8a" }}>在地图位置添加照片</strong>
