@@ -17,6 +17,7 @@ export const mapRouteType = defineType({
     defineField({ name: "subtitle", title: "路线简介", type: "text", rows: 3 }),
     defineField({ name: "sourceLabel", title: "来源说明", type: "string", description: "例如：个人 GPX · 2026-11-06。" }),
     defineField({ name: "color", title: "路线颜色", type: "string", description: "可选，例如 #a1493e。留空时由地图自动分配。" }),
+    defineField({ name: "photoSelection", title: "路线照片来源", type: "string", options: { list: [{ title: "按 EXIF GPS 自动匹配", value: "gps" }, { title: "按标注点手动关联", value: "manual" }], layout: "radio" }, initialValue: "manual", description: "GPS 模式只显示带 GPS 坐标且靠近路线点的照片，不会把未定位的参考图放到路线点。" }),
     defineField({ name: "isVisible", title: "显示在地图上", type: "boolean", initialValue: true }),
     defineField({
       name: "stats",

@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import type { Photo } from "../data/photos";
 import type { ResolvedStoryRouteStop, RouteCoordinate, StoryRoute } from "../data/storyRoutes";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
+import { resolveRouteStopPhotos } from "../lib/routePhotos";
 
 type StoryRoutePageProps = {
   route: StoryRoute;
@@ -18,11 +19,8 @@ function resolvePhotos(photoIds: string[] | undefined, photos: Photo[]) {
 }
 
 function resolveStops(route: StoryRoute, photos: Photo[]): ResolvedStoryRouteStop[] {
-  return route.stops.map((stop, index) => {
-    const selected = resolvePhotos(stop.photoIds, photos);
-    const fallback = selected.length ? selected : photos[index] ? [photos[index]] : [];
-    return { ...stop, photos: fallback };
-  });
+  const resolvedPhotos = resolveRouteStopPhotos(route, photos);
+  return route.stops.map((stop, index) => ({ ...stop, photos: resolvedPhotos[index] ?? [] }));
 }
 
 function getVisitedTrack(
@@ -309,6 +307,9 @@ export function StoryRoutePage({ route, photos, onOpen }: StoryRoutePageProps) {
                 <p className="trail-route-chapter__place">{stop.title}</p>
                 <p className="trail-route-chapter__note">{stop.note ?? "A recorded point along this route."}</p>
                 <p className="trail-route-chapter__meta">Elevation {stop.elevationM ?? "—"} m{primaryPhoto ? ` · ${primaryPhoto.title}` : ""}</p>
+                {!primaryPhoto && route.photoSelection === "gps" ? (
+                  <p className="trail-route-chapter__photo-note">No EXIF GPS photograph is assigned to this stop yet.</p>
+                ) : null}
                 {primaryPhoto ? (
                   <figure>
                     <button type="button" onClick={() => onOpen(photos.indexOf(primaryPhoto), stop.photos)}>

@@ -106,6 +106,7 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
     bounds: boundsFor(safeTrack, stops),
     sourceLabel: route.sourceLabel ?? "CMS map route",
     color: route.color,
+    photoSelection: route.photoSelection ?? (route.sourceRouteId === "gpx-trail-demo" ? "gps" : "manual"),
   };
 }
 

@@ -45,6 +45,9 @@ export type StoryRoute = {
   focusZoom?: number;
   sourceLabel?: string;
   color?: string;
+  /** Use EXIF GPS to place photos at the nearest route stop. */
+  photoSelection?: "manual" | "gps";
+  photoRadiusKm?: number;
 };
 
 export type ResolvedStoryRouteStop = StoryRouteStop & {

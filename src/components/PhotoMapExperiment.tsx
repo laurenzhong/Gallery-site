@@ -45,6 +45,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
     });
     const attached = new Map<string, { lat: number; lng: number; note: string }>();
     routes.forEach((route) => route.stops.forEach((stop) => {
+      if (route.photoSelection === "gps") return;
       stop.photoIds?.forEach((photoId) => {
         if (attached.has(photoId)) return;
         const photo = photoById.get(photoId);

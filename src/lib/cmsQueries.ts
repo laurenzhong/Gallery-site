@@ -32,6 +32,7 @@ export type CmsMapRoute = {
   subtitle?: string;
   sourceLabel?: string;
   color?: string;
+  photoSelection?: "manual" | "gps";
   isVisible?: boolean;
   trackUrl?: string;
   trackPoints?: { latitude?: number; longitude?: number; elevationM?: number }[];
@@ -258,6 +259,7 @@ export const cmsMapRoutesQuery = `*[_type == "mapRoute" && isVisible != false] |
   subtitle,
   sourceLabel,
   color,
+  photoSelection,
   isVisible,
   "trackUrl": trackFile.asset->url,
   "trackPoints": trackPoints[]{ latitude, longitude, elevationM },

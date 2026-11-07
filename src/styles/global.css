@@ -5934,6 +5934,7 @@ main {
 .trail-route-chapter__place { margin: 12px 0 0; color: #75827d; font: 10px "JetBrains Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
 .trail-route-chapter__note { max-width: 510px; margin: 28px 0 0; font-size: clamp(16px, 1.7vw, 22px); line-height: 1.5; }
 .trail-route-chapter__meta { margin: 19px 0 0; color: #a16b67; font-size: 10px; }
+.trail-route-chapter__photo-note { max-width: 510px; margin: 20px 0 0; color: #7b837e; font: 11px "JetBrains Mono", monospace; letter-spacing: .03em; }
 .trail-route-chapter figure { max-width: 640px; margin: 34px 0 0; }
 .trail-route-chapter figure button { position: relative; display: block; width: 100%; padding: 0; border: 0; background: #d6d9d8; cursor: zoom-in; overflow: hidden; }
 .trail-route-chapter figure img { display: block; width: 100%; height: auto; max-height: 62vh; object-fit: cover; transition: transform 550ms ease; }
