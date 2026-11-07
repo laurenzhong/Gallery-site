@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import exifr from "exifr";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { set, useClient, useFormValue, type ArrayOfObjectsInputProps } from "sanity";
@@ -12,6 +13,7 @@ type StopItem = {
   localTitle?: string;
   trackIndex?: number;
   coordinate?: { latitude?: number; longitude?: number };
+  photos?: ReferenceItem[];
 };
 type PhotoPreview = { _id: string; title?: string; imageUrl?: string; filename?: string; album?: { _id: string; title: string } };
 type AlbumPreview = { _id: string; title: string; isVisible?: boolean };
@@ -159,7 +161,14 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
   const trackPoints = useFormValue(["trackPoints"]) as TrackPointItem[] | undefined;
   const [track, setTrack] = useState<RouteCoordinate[]>([]);
   const [trackLoading, setTrackLoading] = useState(false);
+  const [activeStopKey, setActiveStopKey] = useState<string>();
+  const [albums, setAlbums] = useState<AlbumPreview[]>([]);
+  const [albumId, setAlbumId] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string>();
+  const [uploadError, setUploadError] = useState<string>();
   const mapElementRef = useRef<HTMLDivElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const routeLayerRef = useRef<L.Polyline | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -188,10 +197,72 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
 
   const addStopAt = useCallback((trackIndex: number) => {
     if (readOnly) return;
-    const next: StopItem = { _key: keyFor("stop"), _type: "object", title: "新标注点", localTitle: "", trackIndex, coordinate: {} };
+    const next: StopItem = { _key: keyFor("stop"), _type: "object", title: "新标注点", localTitle: "", trackIndex, coordinate: track[trackIndex] ? { latitude: track[trackIndex][0], longitude: track[trackIndex][1] } : {} };
     onChangeRef.current(set([...(valueRef.current ?? []), next]));
-  }, [readOnly]);
+    setActiveStopKey(next._key);
+  }, [readOnly, track]);
   const addStop = useCallback(() => addStopAt(0), [addStopAt]);
+
+  useEffect(() => {
+    if (!activeStopKey) return undefined;
+    let active = true;
+    void client.fetch<AlbumPreview[]>(`*[_type == "album" && isVisible != false] | order(sortOrder asc, title asc){ _id, title, isVisible }`)
+      .then((result) => { if (active) setAlbums(result); })
+      .catch(() => { if (active) setAlbums([]); });
+    return () => { active = false; };
+  }, [activeStopKey, client]);
+
+  const uploadPhotoAtActiveStop = useCallback(async (file: File) => {
+    if (readOnly || !activeStopKey) return;
+    const stop = (valueRef.current ?? []).find((item) => item._key === activeStopKey);
+    if (!stop) return;
+    setUploading(true);
+    setUploadMessage(undefined);
+    setUploadError(undefined);
+    try {
+      const gps = await exifr.gps(file).catch(() => undefined) as { latitude?: number; longitude?: number } | undefined;
+      const gpsCoordinate = validCoordinate(gps?.latitude, gps?.longitude) ? [gps.latitude, gps.longitude] as RouteCoordinate : undefined;
+      const clickedCoordinate = validCoordinate(stop.coordinate?.latitude, stop.coordinate?.longitude)
+        ? [stop.coordinate.latitude, stop.coordinate.longitude] as RouteCoordinate
+        : Number.isInteger(stop.trackIndex) && track.length ? track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)] : undefined;
+      const coordinate = gpsCoordinate ?? clickedCoordinate;
+      if (!coordinate) throw new Error("当前标注点没有有效地图位置，请先点击路线设置位置。");
+      const asset = await client.assets.upload("image", file, { filename: file.name, contentType: file.type || "image/jpeg" });
+      const sourceFilename = file.name.trim() || "map-photo.jpg";
+      const baseSlug = sourceFilename.replace(/\.[^.]+$/, "").normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "map-photo";
+      const duplicateSlug = await client.fetch<number>(`count(*[_type == "photo" && slug.current == $slug])`, { slug: baseSlug });
+      const slug = duplicateSlug ? `${baseSlug}-${Date.now().toString(36)}` : baseSlug;
+      const created = await client.create<{ _id: string }>({
+        _type: "photo",
+        title: sourceFilename.replace(/\.[^.]+$/, "") || "地图照片",
+        slug: { _type: "slug", current: slug },
+        image: { _type: "image", asset: { _type: "reference", _ref: asset._id } },
+        altText: sourceFilename,
+        sourceFilename,
+        location: `${coordinate[0].toFixed(6)}, ${coordinate[1].toFixed(6)}`,
+        isHidden: false,
+        isHero: false,
+        isFeatured: false,
+        ...(albumId ? { album: { _type: "reference", _ref: albumId } } : {}),
+      });
+      const nextStops = (valueRef.current ?? []).map((item) => {
+        if (item._key !== activeStopKey) return item;
+        const nextPhoto = { _key: keyFor("photo", created._id), _type: "reference", _ref: created._id };
+        const nextItem = { ...item, photos: [...(item.photos ?? []), nextPhoto] };
+        if (gpsCoordinate) {
+          const { trackIndex: _trackIndex, ...withoutTrackIndex } = nextItem;
+          return { ...withoutTrackIndex, coordinate: { latitude: coordinate[0], longitude: coordinate[1] } };
+        }
+        return { ...nextItem, coordinate: { latitude: coordinate[0], longitude: coordinate[1] } };
+      });
+      onChangeRef.current(set(nextStops));
+      setUploadMessage(gpsCoordinate ? "照片已上传；已读取照片 GPS，并将标注移动到照片位置。" : "照片已上传，并已放到你点击的路线位置。");
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "照片上传失败，请重试。");
+    } finally {
+      setUploading(false);
+    }
+  }, [activeStopKey, albumId, client, readOnly, track]);
 
   useEffect(() => {
     const element = mapElementRef.current;
@@ -223,7 +294,9 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
       if (!Number.isInteger(stop.trackIndex)) return;
       const point = track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)];
       if (!point) return;
-      L.circleMarker(point, { radius: 8, color: "#fff", weight: 2, fillColor: "#b42318", fillOpacity: 1 }).bindTooltip(`${index + 1}. ${stop.title || "未命名标注点"}`).addTo(markers);
+      const marker = L.circleMarker(point, { radius: 8, color: "#fff", weight: 2, fillColor: "#b42318", fillOpacity: 1 }).bindTooltip(`${index + 1}. ${stop.title || "未命名标注点"}`);
+      marker.on("click", () => setActiveStopKey(stop._key));
+      marker.addTo(markers);
     });
   }, [props.value, track]);
 
@@ -237,6 +310,20 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
         <div ref={mapElementRef} style={{ width: "100%", height: 320, background: "#e5eef5" }} />
         <div style={{ position: "absolute", left: 10, bottom: 10, zIndex: 500, padding: "5px 8px", borderRadius: 5, background: "rgba(255,255,255,.94)", color: "#334155", fontSize: 12, boxShadow: "0 1px 4px rgba(15,23,42,.18)" }}>点击蓝色路线添加标注点 · 已有标注点为红色</div>
       </div> : <p style={{ margin: "0 0 10px", padding: 10, border: "1px dashed #cbd5e1", borderRadius: 7, color: "#6b7280", fontSize: 12 }}>请先上传 GPX 文件，或在“手动轨迹点”中填写至少两个坐标，地图预览会显示在这里。</p>}
+      {activeStopKey ? <div style={{ marginBottom: 12, padding: 12, border: "1px solid #bfdbfe", borderRadius: 8, background: "#eff6ff" }}>
+        <strong style={{ display: "block", marginBottom: 6, color: "#1e3a8a", fontSize: 13 }}>给当前标注点上传照片</strong>
+        <p style={{ margin: "0 0 10px", color: "#475569", fontSize: 12, lineHeight: 1.5 }}>照片有 GPS 时优先使用照片 GPS；没有 GPS 时使用你刚才点击的路线位置。</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select value={albumId} onChange={(event) => setAlbumId(event.currentTarget.value)} disabled={uploading || readOnly} style={{ minHeight: 36, minWidth: 180, padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff" }}>
+            <option value="">不指定相册</option>
+            {albums.map((album) => <option key={album._id} value={album._id}>{album.title}</option>)}
+          </select>
+          <button type="button" onClick={() => uploadInputRef.current?.click()} disabled={uploading || readOnly} style={{ minHeight: 36, padding: "0 12px", border: 0, borderRadius: 5, background: uploading || readOnly ? "#94a3b8" : "#2563eb", color: "#fff", cursor: uploading || readOnly ? "not-allowed" : "pointer", fontWeight: 700 }}>{uploading ? "正在上传…" : "选择图片并上传到此点"}</button>
+          <input ref={uploadInputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void uploadPhotoAtActiveStop(file); }} />
+        </div>
+        {uploadMessage ? <p style={{ margin: "8px 0 0", color: "#166534", fontSize: 12 }}>{uploadMessage}</p> : null}
+        {uploadError ? <p style={{ margin: "8px 0 0", color: "#b42318", fontSize: 12 }}>{uploadError}</p> : null}
+      </div> : null}
       {readOnly ? <p style={{ margin: "0 0 10px", color: "#92400e", fontSize: 12 }}>当前是已发布只读视图，不能新增标注点。请打开不带 <code>?perspective=published</code> 的 Studio 地址进行编辑。</p> : <button type="button" onClick={addStop} style={{ minHeight: 38, marginBottom: 10, padding: "0 13px", border: 0, borderRadius: 5, background: "#166534", color: "#fff", cursor: "pointer", fontWeight: 700 }}>＋ 新增标注点</button>}
       {props.renderDefault(props)}
     </div>
