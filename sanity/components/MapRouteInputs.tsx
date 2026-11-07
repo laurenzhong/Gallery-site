@@ -165,6 +165,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
     const next: StopItem = { _key: keyFor("stop"), _type: "object", title: "新标注点", localTitle: "", trackIndex, coordinate: {} };
     onChangeRef.current(set([...(valueRef.current ?? []), next]));
   }, [readOnly]);
+  const addStop = useCallback(() => addStopAt(0), [addStopAt]);
 
   useEffect(() => {
     const element = mapElementRef.current;
