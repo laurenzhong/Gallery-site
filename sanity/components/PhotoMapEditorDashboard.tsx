@@ -52,10 +52,13 @@ export function PhotoMapEditorDashboard() {
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasAutoFitRef = useRef(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedPhotoId, setSelectedPhotoId] = useState("");
   const [coordinate, setCoordinate] = useState<Coordinate>();
+  const [latitudeInput, setLatitudeInput] = useState("");
+  const [longitudeInput, setLongitudeInput] = useState("");
   const [albumId, setAlbumId] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -89,6 +92,8 @@ export function PhotoMapEditorDashboard() {
     map.setView([22.35, 114.17], 10);
     map.on("click", (event: L.LeafletMouseEvent) => {
       setCoordinate([event.latlng.lat, event.latlng.lng]);
+      setLatitudeInput(event.latlng.lat.toFixed(6));
+      setLongitudeInput(event.latlng.lng.toFixed(6));
       setMessage("已选择地图位置。现在可以上传新照片，或把右侧选中的照片移动到这里。");
       setError(undefined);
     });
@@ -143,16 +148,29 @@ export function PhotoMapEditorDashboard() {
         element?.querySelector<HTMLButtonElement>("[data-photo-map-remove]")?.addEventListener("click", () => { void removeMarkerById(photo._id); map.closePopup(); });
         element?.querySelector<HTMLButtonElement>("[data-photo-map-delete]")?.addEventListener("click", () => { void deletePhotoById(photo._id); map.closePopup(); });
       });
-      marker.on("click", () => { setSelectedPhotoId(photo._id); setCoordinate(point); });
+      marker.on("click", () => { setSelectedPhotoId(photo._id); setCoordinate(point); setLatitudeInput(point[0].toFixed(6)); setLongitudeInput(point[1].toFixed(6)); });
       marker.addTo(markers);
     });
-    if (located.length && !coordinate) map.fitBounds(L.latLngBounds(located.map(({ point }) => point)), { padding: [24, 24], maxZoom: 13 });
+    if (located.length && !coordinate && !hasAutoFitRef.current) { map.fitBounds(L.latLngBounds(located.map(({ point }) => point)), { padding: [24, 24], maxZoom: 13 }); hasAutoFitRef.current = true; }
   }, [coordinate, deletePhotoById, photos, removeMarkerById, selectedPhotoId]);
 
   const filteredPhotos = useMemo(() => {
     const query = search.trim().toLowerCase();
     return photos.filter((photo) => !query || [photo.title, photo.sourceFilename, photo.album?.title, photo.location].some((value) => value?.toLowerCase().includes(query)));
   }, [photos, search]);
+
+  const locatedPhotoCount = useMemo(() => photos.filter((photo) => Boolean(parseLocation(photo.location))).length, [photos]);
+  const goToInputCoordinate = () => {
+    const latitude = Number(latitudeInput);
+    const longitude = Number(longitudeInput);
+    if (!validCoordinate(latitude, longitude)) { setError("请输入有效的纬度和经度，例如 22.3193、114.1694。"); return; }
+    const next: Coordinate = [latitude, longitude];
+    setCoordinate(next);
+    mapRef.current?.setView(next, 14);
+    setMessage("已定位到输入的坐标，可以上传照片或移动已有照片。");
+    setError(undefined);
+  };
+  const showWorld = () => { setCoordinate(undefined); mapRef.current?.setView([20, 0], 2); setMessage("已显示全球地图，请缩放或拖动到目标位置。"); };
 
   const updateSelectedPhoto = async () => {
     if (!selectedPhotoId || !coordinate) return;
@@ -232,11 +250,12 @@ export function PhotoMapEditorDashboard() {
     {error ? <p style={{ margin: 0, padding: 10, borderRadius: 6, background: "#fef2f2", color: "#b42318" }}>{error}</p> : null}
     {message ? <p style={{ margin: 0, padding: 10, borderRadius: 6, background: "#f0fdf4", color: "#166534" }}>{message}</p> : null}
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 16, alignItems: "start" }}>
-      <div ref={mapElementRef} style={{ height: 620, minHeight: 420, border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden", background: "#e5eef5" }} />
+      <div style={{ display: "grid", gap: 8 }}><div ref={mapElementRef} style={{ height: 620, minHeight: 420, border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden", background: "#e5eef5" }} /><div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", color: "#64748b", fontSize: 12 }}><span>已定位照片：{locatedPhotoCount} / {photos.length}</span><button type="button" onClick={showWorld} style={{ minHeight: 32, padding: "0 10px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#475569", cursor: "pointer" }}>显示全球地图</button></div></div>
       <aside style={{ display: "grid", gap: 12 }}>
         <section style={{ padding: 14, border: "1px solid #bfdbfe", borderRadius: 8, background: "#eff6ff" }}>
           <strong style={{ display: "block", marginBottom: 8, color: "#1e3a8a" }}>在地图位置添加照片</strong>
           <p style={{ margin: "0 0 10px", color: "#475569", fontSize: 12, lineHeight: 1.5 }}>{coordinate ? `当前坐标：${formatLocation(coordinate)}` : "请先点击地图选择位置。"}</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6, marginBottom: 8 }}><input value={latitudeInput} onChange={(event) => setLatitudeInput(event.currentTarget.value)} placeholder="纬度" aria-label="纬度" style={{ minHeight: 36, width: "100%", boxSizing: "border-box", padding: "0 7px", border: "1px solid #cbd5e1", borderRadius: 5 }} /><input value={longitudeInput} onChange={(event) => setLongitudeInput(event.currentTarget.value)} placeholder="经度" aria-label="经度" style={{ minHeight: 36, width: "100%", boxSizing: "border-box", padding: "0 7px", border: "1px solid #cbd5e1", borderRadius: 5 }} /><button type="button" onClick={goToInputCoordinate} style={{ minHeight: 36, padding: "0 8px", border: "1px solid #2563eb", borderRadius: 5, background: "#fff", color: "#1d4ed8", cursor: "pointer" }}>定位</button></div>
           <select value={albumId} onChange={(event) => setAlbumId(event.currentTarget.value)} disabled={busy} style={{ boxSizing: "border-box", width: "100%", minHeight: 38, marginBottom: 8, padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff" }}><option value="">不指定相册</option>{albums.map((album) => <option key={album._id} value={album._id}>{album.title}</option>)}</select>
           <button type="button" onClick={() => fileInputRef.current?.click()} disabled={!coordinate || busy} style={{ width: "100%", minHeight: 40, border: 0, borderRadius: 5, background: !coordinate || busy ? "#94a3b8" : "#2563eb", color: "#fff", cursor: !coordinate || busy ? "not-allowed" : "pointer", fontWeight: 700 }}>{busy ? "处理中…" : "上传照片到此位置"}</button>
           <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void uploadAtSelectedLocation(file); }} />
