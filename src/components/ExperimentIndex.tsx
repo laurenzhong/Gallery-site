@@ -118,6 +118,15 @@ export function ExperimentIndex() {
           </div>
           <span className="experiment-index__arrow" aria-hidden="true">↗</span>
         </a>
+        <a className="experiment-index__card experiment-index__card--year" href="/experiments/year-archive">
+          <span className="experiment-index__number">11</span>
+          <div>
+            <p className="experiment-kicker">Photography / timeline study</p>
+            <h2>Year archive</h2>
+            <p>A date-led photo index with year filters, featured frames, and the existing lightbox.</p>
+          </div>
+          <span className="experiment-index__arrow" aria-hidden="true">↗</span>
+        </a>
       </div>
     </article>
   );

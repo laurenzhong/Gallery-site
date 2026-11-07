@@ -14,13 +14,14 @@ import { photoMapMarkerMarkup } from "../lib/photoMapMarker";
 type PhotoMapExperimentProps = {
   photos: Photo[];
   onOpen: (index: number, photos?: Photo[]) => void;
+  compact?: boolean;
 };
 
 function routeLabel(route: StoryRoute) {
   return `${route.title}${route.titleEmphasis ? ` ${route.titleEmphasis}` : ""}`;
 }
 
-export function PhotoMapExperiment({ photos, onOpen }: PhotoMapExperimentProps) {
+export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMapExperimentProps) {
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerLayerRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -245,8 +246,8 @@ export function PhotoMapExperiment({ photos, onOpen }: PhotoMapExperimentProps) 
   };
 
   return (
-    <article className="photo-map-experiment">
-      <header className="photo-map-experiment__intro">
+    <article className={`photo-map-experiment${compact ? " photo-map-experiment--compact" : ""}`}>
+      {!compact ? <header className="photo-map-experiment__intro">
         <div>
           <p className="experiment-kicker">Interaction lab / 06</p>
           <h1>Photographs in place.</h1>
@@ -259,7 +260,7 @@ export function PhotoMapExperiment({ photos, onOpen }: PhotoMapExperimentProps) 
           <strong>{stops.length.toString().padStart(2, "0")} field notes</strong>
           <small>{gpsCount} GPS points from EXIF · {stops.length - gpsCount} fallback points · {routes.length} walking routes</small>
         </div>
-      </header>
+      </header> : null}
 
       <section className="photo-map-experiment__stage" aria-label="Photo map prototype">
         <div className="photo-map-experiment__map-wrap">
@@ -273,7 +274,7 @@ export function PhotoMapExperiment({ photos, onOpen }: PhotoMapExperimentProps) 
           </div>
         </div>
 
-        <aside className="photo-map-experiment__panel" aria-label="Photo map index">
+        {!compact ? <aside className="photo-map-experiment__panel" aria-label="Photo map index">
           <div className="photo-map-experiment__panel-head">
             <div>
               <p className="experiment-kicker">Map index</p>
@@ -340,7 +341,7 @@ export function PhotoMapExperiment({ photos, onOpen }: PhotoMapExperimentProps) 
           </div>
 
           <p className="photo-map-experiment__note">同一位置的照片会聚合显示数量，点击聚合点可展开。GPS markers come from the original image EXIF or a curated CMS location. Photos without GPS are grouped at a known land anchor until their location is curated.</p>
-        </aside>
+        </aside> : null}
       </section>
     </article>
   );

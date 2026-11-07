@@ -3,6 +3,7 @@ import type { AboutData } from "../data/stories";
 
 const baseNavLinks = [
   { label: "Photography", href: "/photography" },
+  { label: "Map", href: "/map" },
   { label: "Balcony View", href: "/photobalcony" },
   { label: "Journal", href: "/journal" },
   { label: "About", href: "/about" },
@@ -80,7 +81,7 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
 
   return (
     <footer className={`site-footer ${variant === "photo" ? "site-footer--photo" : ""}`}>
-      {variant === "photo" ? <img className="site-footer__photo" src="/photos/.footer/DSC_0257.webp" alt="" aria-hidden="true" loading="lazy" decoding="async" /> : null}
+      {variant === "photo" ? <img className="site-footer__photo" src="/footer/DSC_0257.webp" alt="" aria-hidden="true" loading="lazy" decoding="async" /> : null}
       <div className="site-footer__inner">
         <div className="footer-brand-row">
           <p className="footer-brand">Queenstown.top</p>

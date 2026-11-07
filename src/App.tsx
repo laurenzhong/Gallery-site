@@ -14,10 +14,12 @@ import { JourneyMapExperiment } from "./components/JourneyMapExperiment";
 import { LookButNoStoppingExperiment } from "./components/LookButNoStoppingExperiment";
 import { Journal } from "./components/Journal";
 import { MetroExperiment } from "./components/MetroExperiment";
+import { MapHubDemo } from "./components/MapHubDemo";
 import { PhotoMapExperiment } from "./components/PhotoMapExperiment";
 import { PhotographyArchiveExperiment } from "./components/PhotographyArchiveExperiment";
 import { ReferenceArchiveExperiment } from "./components/ReferenceArchiveExperiment";
 import { SashaKurmazExperiment } from "./components/SashaKurmazExperiment";
+import { YearArchiveExperiment } from "./components/YearArchiveExperiment";
 import { PhotoStory } from "./components/PhotoStory";
 import { StoryDetail } from "./components/StoryDetail";
 import { TrailRouteExperiment } from "./components/TrailRouteExperiment";
@@ -58,6 +60,7 @@ function App() {
   const isStoryPage = pathname === "/photostory";
   const isAboutPage = pathname === "/about";
   const isJournalPage = pathname === "/journal";
+  const isMapPage = pathname === "/map";
   const isFooterPreviewPage = pathname === "/footer-preview";
   const isExperimentsPage = pathname === "/experiments";
   const isJourneyExperimentPage = pathname === "/experiments/journey-map";
@@ -67,6 +70,7 @@ function App() {
   const isReferenceArchivePage = pathname === "/experiments/reference-archive";
   const isPhotographyArchivePage = pathname === "/experiments/photography-archive";
   const isSashaKurmazPage = pathname === "/experiments/sasha-kurmaz";
+  const isYearArchivePage = pathname === "/experiments/year-archive";
   const isAgarunAtlasPage = pathname === "/experiments/agarun-atlas";
   const isPhotoMapExperimentPage = pathname === "/experiments/photo-map";
   const isPhotoMapMapLibrePage = pathname === "/experiments/photo-map-maplibre";
@@ -218,6 +222,8 @@ function App() {
       ? `${title} | Queenstown.top`
       : isPhotographyPage
         ? "Photography | Queenstown.top"
+        : isMapPage
+          ? "Map demo | Queenstown.top"
         : isJourneyExperimentPage
           ? "Journey map experiment | Queenstown.top"
           : isLookButExperimentPage
@@ -232,6 +238,8 @@ function App() {
               ? "Photography archive study | Queenstown.top"
             : isSashaKurmazPage
               ? "Sasha Kurmaz index study | Queenstown.top"
+            : isYearArchivePage
+              ? "Year archive study | Queenstown.top"
             : isAgarunAtlasPage
               ? "Atlas archive experiment | Queenstown.top"
             : isPhotoMapExperimentPage
@@ -259,6 +267,7 @@ function App() {
     isAgarunAtlasPage,
     isExperimentsPage,
     isJourneyExperimentPage,
+    isMapPage,
     isLookButExperimentPage,
     isLookButFvmExperimentPage,
     isMetroExperimentPage,
@@ -268,6 +277,7 @@ function App() {
     isReferenceArchivePage,
     isPhotographyArchivePage,
     isSashaKurmazPage,
+    isYearArchivePage,
     isTrailRoutePage,
     isGpxTrailDemoPage,
     pathname,
@@ -338,6 +348,8 @@ function App() {
           <About aboutData={aboutData} />
         ) : isJournalPage ? (
           <Journal photos={photos} photoStories={photoStories} />
+        ) : isMapPage ? (
+          <MapHubDemo photos={photos} onOpen={openPhoto} />
         ) : isPhotographyPage ? (
           <>
             <section className="page-title-band" id="top" aria-labelledby="page-title">
@@ -397,6 +409,8 @@ function App() {
           <PhotographyArchiveExperiment photos={photos} photoStories={photoStories} onOpen={openPhoto} />
         ) : isSashaKurmazPage ? (
           <SashaKurmazExperiment photos={photos} onOpen={openPhoto} />
+        ) : isYearArchivePage ? (
+          <YearArchiveExperiment photos={photos} photoMeta={photoMeta} onOpen={openPhoto} />
         ) : isAgarunAtlasPage ? (
           <AgarunAtlasExperiment photos={photos} onOpen={openPhoto} />
         ) : isPhotoMapExperimentPage ? (
@@ -421,6 +435,7 @@ function App() {
             homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
             photoStories={photoStories}
             aboutData={aboutData}
+            onOpen={openPhoto}
           />
         )}
       </main>

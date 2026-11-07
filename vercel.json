@@ -19,7 +19,7 @@
       "destination": "/index.html"
     },
     {
-      "source": "/((?!api/|assets/|hero/|studio/|icons.svg|brand-mark.svg|favicon.svg|minimax-logo.png|archive-image.avif).*)",
+      "source": "/((?!api/|assets/|hero/|footer/|studio/|icons.svg|brand-mark.svg|favicon.svg|minimax-logo.png|archive-image.avif).*)",
       "destination": "/index.html"
     }
   ]

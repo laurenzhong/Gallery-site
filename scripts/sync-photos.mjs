@@ -384,7 +384,7 @@ async function collectPhotos(heroFilename) {
   }
 
   const footerSourcePath = path.join(projectRoot, "石塘度假区", "DSC_0257.JPG");
-  const footerTargetPath = path.join(publicPhotoRoot, ".footer", "DSC_0257.webp");
+  const footerTargetPath = path.join(projectRoot, "public", "footer", "DSC_0257.webp");
   let hasFooterThumbnail = false;
   try {
     await stat(footerSourcePath);

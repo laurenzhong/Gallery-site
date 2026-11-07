@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 const menuItems = [
   { label: "Home", href: "/" },
   { label: "Photography", href: "/photography" },
+  { label: "Map", href: "/map" },
   { label: "Balcony View", href: "/photobalcony" },
   { label: "Journal", href: "/journal" },
   { label: "About", href: "/about" },
@@ -10,6 +11,7 @@ const menuItems = [
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     document.body.classList.toggle("menu-is-open", menuOpen);
@@ -30,9 +32,16 @@ export function Header() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [menuOpen]);
 
+  useEffect(() => {
+    const updateScrolled = () => setScrolled(window.scrollY > 24);
+    updateScrolled();
+    window.addEventListener("scroll", updateScrolled, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrolled);
+  }, []);
+
   return (
     <>
-      <header className="site-header" aria-label="Site header">
+      <header className={`site-header${scrolled ? " site-header--scrolled" : ""}`} aria-label="Site header">
         <a className="brand-lockup" href="/" aria-label="Queenstown home">
           <span className="brand-mark" aria-hidden="true">
             <svg className="brand-mark-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
