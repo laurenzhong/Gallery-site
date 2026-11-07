@@ -83,8 +83,8 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
       maxBoundsViscosity: 0.75,
     });
 
-    L.tileLayer("https://tile.openstreetmap.de/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "© Esri",
       maxZoom: 19,
       updateWhenZooming: false,
       updateWhenIdle: true,
