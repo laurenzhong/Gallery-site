@@ -222,14 +222,8 @@ const cmsReferencedPhotoFields = `
 export const cmsPhotosQuery = `*[
   _type == "photo" &&
   isHidden != true &&
-  (
-    count(*[
-      (_type == "pageContent" || _type == "homepageLayout" || _type == "photobalconyLayout" || _type == "siteSettings" || _type == "mapRoute") &&
-      references(^._id)
-    ]) > 0 ||
-    defined(location) ||
-    defined(place)
-  )
+  defined(image.asset) &&
+  category->isVisible != false
 ] | order(sortOrder asc, date desc) {
   "id": _id,
   "legacyId": legacyId,
