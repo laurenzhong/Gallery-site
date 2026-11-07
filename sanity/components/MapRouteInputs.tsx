@@ -60,17 +60,25 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
 
   useEffect(() => {
     let active = true;
+    if (!pickerOpen && !selectedIds.length) {
+      setPhotos([]);
+      setAlbums([]);
+      setLoading(false);
+      return undefined;
+    }
     setLoading(true);
-    const query = `*[_type == "photo" && (_id in $selectedIds || (($albumId == "" || album._ref == $albumId) && (title match $search || sourceFilename match $search)))] | order(_updatedAt desc)[0...240]{ _id, title, sourceFilename, album->{_id, title}, "imageUrl": image.asset->url }`;
+    const query = pickerOpen
+      ? `*[_type == "photo" && (_id in $selectedIds || (($albumId == "" || album._ref == $albumId) && (title match $search || sourceFilename match $search)))] | order(_updatedAt desc)[0...240]{ _id, title, sourceFilename, album->{_id, title}, "imageUrl": image.asset->url }`
+      : `*[_type == "photo" && _id in $selectedIds]{ _id, title, sourceFilename, album->{_id, title}, "imageUrl": image.asset->url }`;
     void Promise.all([
       client.fetch<PhotoPreview[]>(query, { selectedIds, albumId: selectedAlbumId, search: search.trim() ? `${search.trim()}*` : "*" }),
-      client.fetch<AlbumPreview[]>(`*[_type == "album" && isVisible != false] | order(sortOrder asc, title asc){ _id, title, isVisible }`),
+      pickerOpen ? client.fetch<AlbumPreview[]>(`*[_type == "album" && isVisible != false] | order(sortOrder asc, title asc){ _id, title, isVisible }`) : Promise.resolve<AlbumPreview[]>([]),
     ])
       .then(([result, albumResult]) => { if (active) { setPhotos(result); setAlbums(albumResult); } })
       .catch(() => { if (active) setPhotos([]); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [client, selectedIds.join("|"), search, selectedAlbumId]);
+  }, [client, selectedIds.join("|"), search, selectedAlbumId, pickerOpen]);
 
   const selected = selectedIds.map((id) => photos.find((photo) => photo._id === id)).filter((photo): photo is PhotoPreview => Boolean(photo));
   const togglePhoto = (id: string) => {
