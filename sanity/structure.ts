@@ -2,6 +2,7 @@ import type { StructureResolver } from "sanity/structure";
 import { orderableDocumentListDeskItem } from "@sanity/orderable-document-list";
 import { PhotoImportDashboard } from "./components/PhotoImportDashboard";
 import { PhotoLibraryDashboard } from "./components/PhotoLibraryDashboard";
+import { PhotoMapEditorDashboard } from "./components/PhotoMapEditorDashboard";
 
 const photoOrdering = [{ field: "sortOrder", direction: "asc" as const }];
 const storyOrdering = [{ field: "orderRank", direction: "asc" as const }];
@@ -146,6 +147,9 @@ export const structure: StructureResolver = (S, context) =>
             .id("map-list")
             .title("地图")
             .items([
+              li(S, "map.photo-map")
+                .title("照片地图")
+                .child(S.component(PhotoMapEditorDashboard).id("photo-map-editor").title("照片地图")),
               li(S, "map.routes")
                 .title("地图路线")
                 .schemaType("mapRoute")
