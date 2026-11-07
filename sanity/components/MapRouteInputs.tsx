@@ -56,6 +56,7 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
   const [search, setSearch] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [albumAdding, setAlbumAdding] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -80,6 +81,22 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
       : [...current, { _key: keyFor("photo", id), _type: "reference", _ref: id }];
     props.onChange(set(next));
   };
+  const addWholeAlbum = async () => {
+    if (readOnly || !selectedAlbumId) return;
+    setAlbumAdding(true);
+    try {
+      const albumPhotos = await client.fetch<PhotoPreview[]>(`*[_type == "photo" && album._ref == $albumId] | order(_updatedAt desc){ _id, title, sourceFilename, album->{_id, title}, "imageUrl": image.asset->url }`, { albumId: selectedAlbumId });
+      const current = props.value ?? [];
+      const existing = new Set(current.map((item) => item._ref).filter((id): id is string => Boolean(id)));
+      const additions = albumPhotos.filter((photo) => !existing.has(photo._id)).map((photo) => ({ _key: keyFor("photo", photo._id), _type: "reference", _ref: photo._id }));
+      if (additions.length) props.onChange(set([...current, ...additions]));
+      setPhotos((currentPhotos) => [...albumPhotos, ...currentPhotos.filter((photo) => !albumPhotos.some((item) => item._id === photo._id))]);
+    } catch {
+      // Keep the picker open so the user can retry without losing the current selection.
+    } finally {
+      setAlbumAdding(false);
+    }
+  };
 
   return (
     <div>
@@ -102,10 +119,11 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
       {pickerOpen && !readOnly ? (
         <div style={{ marginTop: 10, padding: 10, border: "1px solid #dfe3e8", borderRadius: 7, background: "#fff" }}>
           <label style={{ display: "block", marginBottom: 6, color: "#374151", fontSize: 12, fontWeight: 700 }}>第一步：选择相册</label>
-          <select value={selectedAlbumId} onChange={(event) => setSelectedAlbumId(event.currentTarget.value)} style={{ boxSizing: "border-box", width: "100%", minHeight: 38, marginBottom: 10, padding: "0 9px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff" }}>
+          <select value={selectedAlbumId} onChange={(event) => { setSelectedAlbumId(event.currentTarget.value); setSearch(""); }} style={{ boxSizing: "border-box", width: "100%", minHeight: 38, marginBottom: 10, padding: "0 9px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff" }}>
             <option value="">全部相册</option>
             {albums.map((album) => <option key={album._id} value={album._id}>{album.title}</option>)}
           </select>
+          <button type="button" onClick={() => void addWholeAlbum()} disabled={!selectedAlbumId || albumAdding} style={{ minHeight: 36, marginBottom: 12, padding: "0 12px", border: "1px solid #0f766e", borderRadius: 5, background: !selectedAlbumId || albumAdding ? "#f1f5f9" : "#ccfbf1", color: !selectedAlbumId || albumAdding ? "#94a3b8" : "#0f766e", cursor: !selectedAlbumId || albumAdding ? "not-allowed" : "pointer", fontWeight: 700 }}>{albumAdding ? "正在添加相册…" : "添加整个相册"}</button>
           <label style={{ display: "block", marginBottom: 6, color: "#374151", fontSize: 12, fontWeight: 700 }}>第二步：选择相册里的图片</label>
           <input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索照片标题或文件名" style={{ boxSizing: "border-box", width: "100%", minHeight: 36, marginBottom: 10, padding: "0 9px", border: "1px solid #cbd5e1", borderRadius: 5 }} />
           {loading ? <p style={{ color: "#6b7280", fontSize: 12 }}>正在读取照片…</p> : null}
