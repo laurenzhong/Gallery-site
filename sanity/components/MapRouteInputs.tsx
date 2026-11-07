@@ -186,7 +186,10 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
     void client.fetch<string | null>(`*[_id == $assetId][0].url`, { assetId })
       .then(async (url) => {
         if (!url) return manualTrack;
-        const response = await fetch(url);
+        const requestUrl = typeof window !== "undefined" && new URL(url).origin !== window.location.origin
+          ? `/api/gpx?url=${encodeURIComponent(url)}`
+          : url;
+        const response = await fetch(requestUrl);
         return response.ok ? parseGpx(await response.text()) : manualTrack;
       })
       .then((nextTrack) => { if (active) setTrack(nextTrack.length >= 2 ? nextTrack : manualTrack); })

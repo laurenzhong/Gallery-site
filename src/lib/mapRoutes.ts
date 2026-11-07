@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { storyRoutes } from "../data/routes";
 import type { RouteCoordinate, StoryRoute } from "../data/storyRoutes";
 import { cmsMapRoutesQuery, type CmsMapRoute } from "./cmsQueries";
 import { fetchCms, isSanityConfigured } from "./sanity";
@@ -20,7 +21,10 @@ function parseGpx(xml: string): RouteCoordinate[] {
 async function routeTrack(route: CmsMapRoute): Promise<RouteCoordinate[]> {
   if (route.trackUrl) {
     try {
-      const response = await fetch(route.trackUrl);
+      const trackUrl = typeof window !== "undefined" && new URL(route.trackUrl).origin !== window.location.origin
+        ? `/api/gpx?url=${encodeURIComponent(route.trackUrl)}`
+        : route.trackUrl;
+      const response = await fetch(trackUrl);
       if (response.ok) {
         const track = parseGpx(await response.text());
         if (track.length >= 2) return track;
@@ -29,7 +33,13 @@ async function routeTrack(route: CmsMapRoute): Promise<RouteCoordinate[]> {
       // Fall back to manually entered track points below.
     }
   }
-  return (route.trackPoints ?? []).flatMap((point) => validCoordinate(point.latitude, point.longitude) ? [[point.latitude, point.longitude] as RouteCoordinate] : []);
+  const manualTrack = (route.trackPoints ?? []).flatMap((point) => validCoordinate(point.latitude, point.longitude) ? [[point.latitude, point.longitude] as RouteCoordinate] : []);
+  if (manualTrack.length >= 2) return manualTrack;
+
+  // Sanity's file CDN does not expose every GPX asset with browser CORS
+  // headers. Keep the public map identical to the editorial route when the
+  // GPX proxy is unavailable instead of reducing it to a few stop points.
+  return storyRoutes.find((candidate) => candidate.id === route.sourceRouteId || candidate.id === route.id)?.track ?? manualTrack;
 }
 
 function boundsFor(track: RouteCoordinate[], stops: NonNullable<CmsMapRoute["stops"]>): [[number, number], [number, number]] {
