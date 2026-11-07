@@ -91,8 +91,8 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
       maxBoundsViscosity: 0.75,
     });
 
-    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
-      attribution: "© Esri",
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
       updateWhenZooming: false,
       updateWhenIdle: true,
@@ -274,7 +274,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
         <div className="photo-map-experiment__map-wrap">
           <div className="photo-map-experiment__map" ref={mapElement} />
           <div className="photo-map-experiment__map-label photo-map-experiment__map-label--top">Archive / field map</div>
-          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--bottom">Esri · archive + walking routes</div>
+          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--bottom">OpenStreetMap · archive + walking routes</div>
           <div className="photo-map-experiment__controls" aria-label="Map controls">
             <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom in">+</button>
             <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label="Zoom out">−</button>
