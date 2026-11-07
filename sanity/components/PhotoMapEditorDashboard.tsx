@@ -30,6 +30,16 @@ function slugFor(value: string) {
   return value.normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase().slice(0, 80) || `map-photo-${Date.now().toString(36)}`;
 }
 
+function escapeHtml(value: string) {
+  return value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] ?? character);
+}
+
+function photoTooltip(photo: Photo) {
+  const title = escapeHtml(photo.title || photo.sourceFilename || "未命名照片");
+  const image = photo.imageUrl ? `<img src="${escapeHtml(`${photo.imageUrl}?w=260&q=78&auto=format`)}" alt="" style="display:block;width:180px;height:120px;object-fit:cover;border-radius:5px;margin-bottom:6px" />` : "";
+  return `<div style="min-width:180px;font-size:12px;font-weight:600;color:#1f2937">${image}<span>${title}</span></div>`;
+}
+
 export function PhotoMapEditorDashboard() {
   const client = useClient({ apiVersion: "2025-02-19" });
   const mapElementRef = useRef<HTMLDivElement>(null);
@@ -96,7 +106,7 @@ export function PhotoMapEditorDashboard() {
     const located = photos.flatMap((photo) => { const point = parseLocation(photo.location); return point ? [{ photo, point }] : []; });
     located.forEach(({ photo, point }) => {
       const marker = L.circleMarker(point, { radius: photo._id === selectedPhotoId ? 10 : 7, color: "#fff", weight: 2, fillColor: photo._id === selectedPhotoId ? "#2563eb" : "#b42318", fillOpacity: 0.95 });
-      marker.bindTooltip(photo.title || photo.sourceFilename || "未命名照片");
+      marker.bindTooltip(photoTooltip(photo), { direction: "top", sticky: true, opacity: 1, className: "photo-map-thumbnail-tooltip" });
       marker.on("click", () => { setSelectedPhotoId(photo._id); setCoordinate(point); });
       marker.addTo(markers);
     });
@@ -117,6 +127,34 @@ export function PhotoMapEditorDashboard() {
       setMessage("已更新选中照片的位置。");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "照片位置更新失败，请重试。");
+    } finally { setBusy(false); }
+  };
+
+  const removeSelectedMarker = async () => {
+    if (!selectedPhotoId) return;
+    setBusy(true); setMessage(undefined); setError(undefined);
+    try {
+      await client.patch(selectedPhotoId).unset(["location"]).commit();
+      setPhotos((current) => current.map((photo) => photo._id === selectedPhotoId ? { ...photo, location: undefined } : photo));
+      setCoordinate(undefined);
+      setMessage("已删除地图标记，照片仍保留在照片库中。");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "删除地图标记失败，请重试。");
+    } finally { setBusy(false); }
+  };
+
+  const deleteSelectedPhoto = async () => {
+    const selected = photos.find((photo) => photo._id === selectedPhotoId);
+    if (!selected || !window.confirm(`确定删除照片“${selected.title || selected.sourceFilename || "未命名照片"}”吗？此操作不可撤销。`)) return;
+    setBusy(true); setMessage(undefined); setError(undefined);
+    try {
+      await client.delete(selected._id);
+      setPhotos((current) => current.filter((photo) => photo._id !== selected._id));
+      setSelectedPhotoId("");
+      setCoordinate(undefined);
+      setMessage("照片已删除；对应地图标记也已移除。");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "删除照片失败，请重试。");
     } finally { setBusy(false); }
   };
 
@@ -173,6 +211,10 @@ export function PhotoMapEditorDashboard() {
           <input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索照片或相册" style={{ boxSizing: "border-box", width: "100%", minHeight: 36, marginBottom: 8, padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: 5 }} />
           <div style={{ maxHeight: 300, overflow: "auto", display: "grid", gap: 6 }}>{filteredPhotos.map((photo) => <button type="button" key={photo._id} onClick={() => { setSelectedPhotoId(photo._id); const point = parseLocation(photo.location); if (point) setCoordinate(point); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: 6, border: `1px solid ${selectedPhotoId === photo._id ? "#2563eb" : "#e2e8f0"}`, borderRadius: 5, background: selectedPhotoId === photo._id ? "#eff6ff" : "#fff", textAlign: "left", cursor: "pointer" }}><div style={{ width: 46, height: 38, flex: "0 0 auto", borderRadius: 3, overflow: "hidden", background: "#f1f5f9" }}>{photo.imageUrl ? <img src={`${photo.imageUrl}?w=120&q=70&auto=format`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}</div><span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#334155", fontSize: 12 }}>{photo.title || photo.sourceFilename || "未命名照片"}</span></button>)}</div>
           <button type="button" onClick={() => void updateSelectedPhoto()} disabled={!selectedPhotoId || !coordinate || busy} style={{ width: "100%", minHeight: 38, marginTop: 10, border: "1px solid #2563eb", borderRadius: 5, background: !selectedPhotoId || !coordinate || busy ? "#f1f5f9" : "#fff", color: !selectedPhotoId || !coordinate || busy ? "#94a3b8" : "#1d4ed8", cursor: !selectedPhotoId || !coordinate || busy ? "not-allowed" : "pointer", fontWeight: 700 }}>把选中照片移动到地图位置</button>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+            <button type="button" onClick={() => void removeSelectedMarker()} disabled={!selectedPhotoId || busy} style={{ minHeight: 36, border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#475569", cursor: !selectedPhotoId || busy ? "not-allowed" : "pointer", fontSize: 12 }}>删除地图标记</button>
+            <button type="button" onClick={() => void deleteSelectedPhoto()} disabled={!selectedPhotoId || busy} style={{ minHeight: 36, border: "1px solid #fecaca", borderRadius: 5, background: "#fff1f2", color: "#b42318", cursor: !selectedPhotoId || busy ? "not-allowed" : "pointer", fontSize: 12 }}>删除照片</button>
+          </div>
         </section>
       </aside>
     </div>
