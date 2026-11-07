@@ -12,9 +12,8 @@ export type PhotoStop = {
 
 export const HONG_KONG_VIEW: [number, number] = [22.31, 114.17];
 export const HONG_KONG_BOUNDS: [[number, number], [number, number]] = [[22.12, 113.82], [22.57, 114.51]];
-// A known land position in the Shitang archive area. Photos without a GPS
-// value are grouped here until their location is curated; they are never
-// scattered around an average point that may fall offshore.
+// Kept for backwards-compatible bounds and route editing. Photos without a
+// location are no longer rendered at this coordinate as if it were real GPS.
 export const PHOTO_MAP_FALLBACK_ANCHOR: [number, number] = [28.282375, 121.62319];
 export const DEMO_COORDINATES: Array<Pick<PhotoStop, "lat" | "lng" | "area" | "note">> = [
   { lat: 22.276, lng: 114.145, area: "The Peak", note: "Above the harbour" },
@@ -32,10 +31,11 @@ export const DEMO_COORDINATES: Array<Pick<PhotoStop, "lat" | "lng" | "area" | "n
 ];
 
 export function getPhotoMapBounds(stops: PhotoStop[]): [[number, number], [number, number]] {
-  if (!stops.length) return HONG_KONG_BOUNDS;
+  const locatedStops = stops.filter((stop) => stop.coordinateSource !== "fallback");
+  if (!locatedStops.length) return HONG_KONG_BOUNDS;
 
-  const latitudes = stops.map((stop) => stop.lat);
-  const longitudes = stops.map((stop) => stop.lng);
+  const latitudes = locatedStops.map((stop) => stop.lat);
+  const longitudes = locatedStops.map((stop) => stop.lng);
   const minLat = Math.min(...latitudes);
   const maxLat = Math.max(...latitudes);
   const minLng = Math.min(...longitudes);
@@ -103,7 +103,7 @@ export function buildPhotoStops(photos: Photo[]): PhotoStop[] {
     return {
       photo,
       area: photo.category,
-      note: "Fallback coordinate · no GPS in EXIF",
+      note: "未设置地图位置 · 请在 CMS 照片地图中定位",
       lat: PHOTO_MAP_FALLBACK_ANCHOR[0],
       lng: PHOTO_MAP_FALLBACK_ANCHOR[1],
       coordinateSource: "fallback",

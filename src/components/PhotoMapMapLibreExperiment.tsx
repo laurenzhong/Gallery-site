@@ -130,7 +130,7 @@ export function PhotoMapMapLibreExperiment({ photos, onOpen }: PhotoMapMapLibreE
     markersRef.current.forEach((marker) => marker.remove());
     markersByIdRef.current.clear();
     const groupedStops = Array.from(
-      filteredStops.reduce<Map<string, PhotoStop[]>>((groups, stop) => {
+      filteredStops.filter((stop) => stop.coordinateSource !== "fallback").reduce<Map<string, PhotoStop[]>>((groups, stop) => {
         const key = `${stop.lat.toFixed(5)}:${stop.lng.toFixed(5)}`;
         const group = groups.get(key) ?? [];
         group.push(stop);
@@ -180,7 +180,7 @@ export function PhotoMapMapLibreExperiment({ photos, onOpen }: PhotoMapMapLibreE
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapReady || !activeStop) return;
+    if (!map || !mapReady || !activeStop || activeStop.coordinateSource === "fallback") return;
     const dataChanged = previousStopsRef.current !== stops;
     previousStopsRef.current = stops;
     if (dataChanged) {
@@ -209,7 +209,7 @@ export function PhotoMapMapLibreExperiment({ photos, onOpen }: PhotoMapMapLibreE
         <div className="photo-map-experiment__meta">
           <span>MapLibre comparison</span>
           <strong>{stops.length.toString().padStart(2, "0")} field notes</strong>
-          <small>{gpsCount} GPS points from EXIF · {stops.length - gpsCount} fallback points</small>
+          <small>{gpsCount} located points · {stops.length - gpsCount} photos without a location</small>
         </div>
       </header>
 
@@ -272,7 +272,7 @@ export function PhotoMapMapLibreExperiment({ photos, onOpen }: PhotoMapMapLibreE
             })}
           </div>
 
-          <p className="photo-map-experiment__note">同一位置的照片会聚合显示数量，点击数量点可聚焦该位置。GPS markers come from the original image EXIF or a curated CMS location. Photos without GPS are grouped at a known land anchor until their location is curated.</p>
+          <p className="photo-map-experiment__note">已有 EXIF 或 CMS 坐标的照片保留自己的位置；没有位置的照片不会被放到地图上的虚假地点。</p>
         </aside>
       </section>
     </article>

@@ -35,8 +35,10 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
     const cmsRouteIds = new Set(cmsRoutes.map((route) => route.id));
     return [...storyRoutes.filter((route) => !cmsRouteIds.has(route.id)), ...cmsRoutes];
   }, [cmsRoutes]);
+  const baseStops = useMemo(() => buildPhotoStops(photos), [photos]);
   const routePhotoStops = useMemo(() => {
     const photoById = new Map<string, Photo>();
+    const baseStopById = new Map(baseStops.map((stop) => [stop.photo.id, stop]));
     photos.forEach((photo) => {
       photoById.set(photo.id, photo);
       if (photo.legacyId) photoById.set(photo.legacyId, photo);
@@ -45,6 +47,11 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
     routes.forEach((route) => route.stops.forEach((stop) => {
       stop.photoIds?.forEach((photoId) => {
         if (attached.has(photoId)) return;
+        const photo = photoById.get(photoId);
+        // A route attachment must not move a photo that already has EXIF or
+        // CMS coordinates. Route stops only provide a position for otherwise
+        // unlocated photos.
+        if (!photo || baseStopById.get(photo.id)?.coordinateSource === "gps") return;
         attached.set(photoId, { lat: stop.coordinate[0], lng: stop.coordinate[1], note: `${routeLabel(route)} · ${stop.title}` });
       });
     }));
@@ -52,8 +59,8 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
       const photo = photoById.get(photoId);
       return photo ? [[photo.id, { photo, ...position, area: photo.category, coordinateSource: "route" as const }]] : [];
     }));
-  }, [photos, routes]);
-  const stops = useMemo(() => buildPhotoStops(photos).map((stop) => routePhotoStops.get(stop.photo.id) ?? stop), [photos, routePhotoStops]);
+  }, [baseStops, photos, routes]);
+  const stops = useMemo(() => baseStops.map((stop) => routePhotoStops.get(stop.photo.id) ?? stop), [baseStops, routePhotoStops]);
   const photoBounds = useMemo(() => getPhotoMapBounds(stops), [stops]);
   const routeBounds = useMemo(() => getPhotoMapRouteBounds(routes), [routes]);
   const allBounds = useMemo(() => mergePhotoMapBounds(photoBounds, routeBounds), [photoBounds, routeBounds]);
@@ -67,6 +74,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
   const previousActiveIdRef = useRef<string | undefined>(activeStop?.photo.id);
   const previousStopsRef = useRef(stops);
   const gpsCount = useMemo(() => stops.filter((stop) => stop.coordinateSource === "gps").length, [stops]);
+  const unlocatedCount = useMemo(() => stops.filter((stop) => stop.coordinateSource === "fallback").length, [stops]);
 
   useEffect(() => {
     const mapNode = mapElement.current;
@@ -184,7 +192,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
     markerLayer.clearLayers();
     markersRef.current.clear();
     const nextMarkers: Marker[] = [];
-    filteredStops.forEach((stop) => {
+    filteredStops.filter((stop) => stop.coordinateSource !== "fallback").forEach((stop) => {
       const index = stops.findIndex((item) => item.photo.id === stop.photo.id);
       const isLandscape = stop.photo.width > stop.photo.height * 1.15;
       const iconWidth = isLandscape ? 78 : 52;
@@ -229,7 +237,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !activeStop) return;
+    if (!map || !activeStop || activeStop.coordinateSource === "fallback") return;
     const dataChanged = previousStopsRef.current !== stops;
     previousStopsRef.current = stops;
     if (dataChanged) {
@@ -258,7 +266,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
         <div className="photo-map-experiment__meta">
           <span>Prototype</span>
           <strong>{stops.length.toString().padStart(2, "0")} field notes</strong>
-          <small>{gpsCount} GPS points from EXIF · {stops.length - gpsCount} fallback points · {routes.length} walking routes</small>
+          <small>{gpsCount} located points · {unlocatedCount} photos without a location · {routes.length} walking routes</small>
         </div>
       </header> : null}
 
@@ -266,7 +274,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
         <div className="photo-map-experiment__map-wrap">
           <div className="photo-map-experiment__map" ref={mapElement} />
           <div className="photo-map-experiment__map-label photo-map-experiment__map-label--top">Archive / field map</div>
-          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--bottom">OpenStreetMap · archive + walking routes</div>
+          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--bottom">Esri · archive + walking routes</div>
           <div className="photo-map-experiment__controls" aria-label="Map controls">
             <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom in">+</button>
             <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label="Zoom out">−</button>
@@ -340,7 +348,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
             })}
           </div>
 
-          <p className="photo-map-experiment__note">同一位置的照片会聚合显示数量，点击聚合点可展开。GPS markers come from the original image EXIF or a curated CMS location. Photos without GPS are grouped at a known land anchor until their location is curated.</p>
+          <p className="photo-map-experiment__note">同一位置的照片会聚合显示数量，点击聚合点可展开。已有 EXIF 或 CMS 坐标的照片保留自己的位置；路线点只为没有位置的路线照片提供坐标。没有位置的照片不会被放到地图上的虚假地点。</p>
         </aside> : null}
       </section>
     </article>
