@@ -291,8 +291,9 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
     if (!markers || !track.length) return;
     markers.clearLayers();
     (props.value ?? []).forEach((stop, index) => {
-      if (!Number.isInteger(stop.trackIndex)) return;
-      const point = track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)];
+      const point = Number.isInteger(stop.trackIndex)
+        ? track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)]
+        : validCoordinate(stop.coordinate?.latitude, stop.coordinate?.longitude) ? [stop.coordinate.latitude, stop.coordinate.longitude] as RouteCoordinate : undefined;
       if (!point) return;
       const marker = L.circleMarker(point, { radius: 8, color: "#fff", weight: 2, fillColor: "#b42318", fillOpacity: 1 }).bindTooltip(`${index + 1}. ${stop.title || "未命名标注点"}`);
       marker.on("click", () => setActiveStopKey(stop._key));
