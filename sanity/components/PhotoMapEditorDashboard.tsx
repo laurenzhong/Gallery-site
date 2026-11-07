@@ -71,7 +71,7 @@ export function PhotoMapEditorDashboard() {
     const map = L.map(element, { zoomControl: true, attributionControl: true });
     const openStreetMap = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap contributors", maxZoom: 19 }).addTo(map);
     let fallbackLoaded = false;
-    const fallbackTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { attribution: "© OpenStreetMap © CARTO", maxZoom: 19 });
+    const fallbackTiles = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", { attribution: "© Esri", maxZoom: 19 });
     openStreetMap.on("tileerror", () => { if (!fallbackLoaded) { fallbackLoaded = true; fallbackTiles.addTo(map); } });
     map.setView([22.35, 114.17], 10);
     map.on("click", (event: L.LeafletMouseEvent) => {
