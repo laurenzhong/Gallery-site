@@ -68,7 +68,7 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
     const indexedCoordinate = Number.isInteger(stop.trackIndex) && track.length > 0
       ? track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)]
       : undefined;
-    const coordinate = explicitCoordinate ?? indexedCoordinate;
+    const coordinate = indexedCoordinate ?? explicitCoordinate;
     if (!coordinate) return [];
     return {
       id: stop.id ?? `${route.id}-stop-${index + 1}`,

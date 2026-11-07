@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { set, useClient, type ArrayOfObjectsInputProps } from "sanity";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { set, useClient, useFormValue, type ArrayOfObjectsInputProps } from "sanity";
 
 type ReferenceItem = { _key: string; _ref?: string; _type?: string };
 type TrackPointItem = { _key: string; latitude?: number; longitude?: number; elevationM?: number };
@@ -13,10 +15,35 @@ type StopItem = {
 };
 type PhotoPreview = { _id: string; title?: string; imageUrl?: string; filename?: string; album?: { _id: string; title: string } };
 type AlbumPreview = { _id: string; title: string; isVisible?: boolean };
+type RouteCoordinate = [number, number];
 
 function keyFor(prefix: string, id = "item") {
   const random = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
   return `${prefix}-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${random}`;
+}
+
+function validCoordinate(latitude: unknown, longitude: unknown): latitude is number {
+  return typeof latitude === "number" && Number.isFinite(latitude) && Math.abs(latitude) <= 90 && typeof longitude === "number" && Number.isFinite(longitude) && Math.abs(longitude) <= 180;
+}
+
+function parseGpx(xml: string): RouteCoordinate[] {
+  if (typeof DOMParser === "undefined") return [];
+  const document = new DOMParser().parseFromString(xml, "application/xml");
+  return Array.from(document.querySelectorAll("trkpt")).flatMap((point) => {
+    const latitude = Number(point.getAttribute("lat"));
+    const longitude = Number(point.getAttribute("lon"));
+    return validCoordinate(latitude, longitude) ? [[latitude, longitude] as RouteCoordinate] : [];
+  });
+}
+
+function nearestTrackIndex(track: RouteCoordinate[], coordinate: RouteCoordinate) {
+  let nearest = 0;
+  let distance = Number.POSITIVE_INFINITY;
+  track.forEach(([latitude, longitude], index) => {
+    const next = (latitude - coordinate[0]) ** 2 + (longitude - coordinate[1]) ** 2;
+    if (next < distance) { nearest = index; distance = next; }
+  });
+  return nearest;
 }
 
 export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceItem>) {
@@ -100,17 +127,89 @@ export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceIte
 }
 
 export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
+  const client = useClient({ apiVersion: "2025-02-19" });
   const readOnly = Boolean(props.readOnly);
-  const addStop = () => {
-    const next: StopItem = { _key: keyFor("stop"), _type: "object", title: "新标注点", localTitle: "", trackIndex: 0, coordinate: {} };
-    props.onChange(set([...(props.value ?? []), next]));
-  };
+  const trackFile = useFormValue(["trackFile"]) as { asset?: { _ref?: string } } | undefined;
+  const trackPoints = useFormValue(["trackPoints"]) as TrackPointItem[] | undefined;
+  const [track, setTrack] = useState<RouteCoordinate[]>([]);
+  const [trackLoading, setTrackLoading] = useState(false);
+  const mapElementRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const routeLayerRef = useRef<L.Polyline | null>(null);
+  const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const valueRef = useRef(props.value);
+  const onChangeRef = useRef(props.onChange);
+  valueRef.current = props.value;
+  onChangeRef.current = props.onChange;
+
+  useEffect(() => {
+    const manualTrack = (trackPoints ?? []).flatMap((point) => validCoordinate(point.latitude, point.longitude) ? [[point.latitude, point.longitude] as RouteCoordinate] : []);
+    const assetId = trackFile?.asset?._ref;
+    if (!assetId) { setTrack(manualTrack); return undefined; }
+    let active = true;
+    setTrackLoading(true);
+    void client.fetch<string | null>(`*[_id == $assetId][0].url`, { assetId })
+      .then(async (url) => {
+        if (!url) return manualTrack;
+        const response = await fetch(url);
+        return response.ok ? parseGpx(await response.text()) : manualTrack;
+      })
+      .then((nextTrack) => { if (active) setTrack(nextTrack.length >= 2 ? nextTrack : manualTrack); })
+      .catch(() => { if (active) setTrack(manualTrack); })
+      .finally(() => { if (active) setTrackLoading(false); });
+    return () => { active = false; };
+  }, [client, trackFile?.asset?._ref, JSON.stringify(trackPoints)]);
+
+  const addStopAt = useCallback((trackIndex: number) => {
+    if (readOnly) return;
+    const next: StopItem = { _key: keyFor("stop"), _type: "object", title: "新标注点", localTitle: "", trackIndex, coordinate: {} };
+    onChangeRef.current(set([...(valueRef.current ?? []), next]));
+  }, [readOnly]);
+
+  useEffect(() => {
+    const element = mapElementRef.current;
+    if (!element || track.length < 2 || mapRef.current) return undefined;
+    const map = L.map(element, { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap contributors", maxZoom: 19 }).addTo(map);
+    const routeLayer = L.polyline(track, { color: "#2563eb", weight: 5, opacity: 0.85 }).addTo(map);
+    map.fitBounds(routeLayer.getBounds(), { padding: [24, 24] });
+    routeLayer.on("click", (event: L.LeafletMouseEvent) => {
+      L.DomEvent.stopPropagation(event);
+      addStopAt(nearestTrackIndex(track, [event.latlng.lat, event.latlng.lng]));
+    });
+    mapRef.current = map;
+    routeLayerRef.current = routeLayer;
+    markersLayerRef.current = L.layerGroup().addTo(map);
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      routeLayerRef.current = null;
+      markersLayerRef.current = null;
+    };
+  }, [addStopAt, track]);
+
+  useEffect(() => {
+    const markers = markersLayerRef.current;
+    if (!markers || !track.length) return;
+    markers.clearLayers();
+    (props.value ?? []).forEach((stop, index) => {
+      if (!Number.isInteger(stop.trackIndex)) return;
+      const point = track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)];
+      if (!point) return;
+      L.circleMarker(point, { radius: 8, color: "#fff", weight: 2, fillColor: "#b42318", fillOpacity: 1 }).bindTooltip(`${index + 1}. ${stop.title || "未命名标注点"}`).addTo(markers);
+    });
+  }, [props.value, track]);
 
   return (
     <div>
       <div style={{ marginBottom: 10, padding: 10, border: "1px solid #dcfce7", borderRadius: 7, background: "#f0fdf4", color: "#166534", fontSize: 12, lineHeight: 1.6 }}>
-        添加流程：点击“新增标注点” → 填名称 → 填“轨迹点索引”。轨迹点索引从 <strong>0</strong> 开始，系统会自动把标注和关联照片放到 GPX 路线对应位置；有精确经纬度时也可以直接填写坐标。
+        点击下面地图上的路线即可新增标注点，系统会自动计算轨迹点索引。新增后展开标注点，填写名称并点击“添加照片”；照片会显示在刚才点击的位置。也可以手动填写轨迹点索引或经纬度。
       </div>
+      {trackLoading ? <p style={{ margin: "0 0 10px", color: "#6b7280", fontSize: 12 }}>正在读取 GPX 路线…</p> : null}
+      {track.length >= 2 ? <div style={{ position: "relative", marginBottom: 12, overflow: "hidden", border: "1px solid #cbd5e1", borderRadius: 8 }}>
+        <div ref={mapElementRef} style={{ width: "100%", height: 320, background: "#e5eef5" }} />
+        <div style={{ position: "absolute", left: 10, bottom: 10, zIndex: 500, padding: "5px 8px", borderRadius: 5, background: "rgba(255,255,255,.94)", color: "#334155", fontSize: 12, boxShadow: "0 1px 4px rgba(15,23,42,.18)" }}>点击蓝色路线添加标注点 · 已有标注点为红色</div>
+      </div> : <p style={{ margin: "0 0 10px", padding: 10, border: "1px dashed #cbd5e1", borderRadius: 7, color: "#6b7280", fontSize: 12 }}>请先上传 GPX 文件，或在“手动轨迹点”中填写至少两个坐标，地图预览会显示在这里。</p>}
       {readOnly ? <p style={{ margin: "0 0 10px", color: "#92400e", fontSize: 12 }}>当前是已发布只读视图，不能新增标注点。请打开不带 <code>?perspective=published</code> 的 Studio 地址进行编辑。</p> : <button type="button" onClick={addStop} style={{ minHeight: 38, marginBottom: 10, padding: "0 13px", border: 0, borderRadius: 5, background: "#166534", color: "#fff", cursor: "pointer", fontWeight: 700 }}>＋ 新增标注点</button>}
       {props.renderDefault(props)}
     </div>
