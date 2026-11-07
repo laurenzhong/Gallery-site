@@ -268,7 +268,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
     const element = mapElementRef.current;
     if (!element || track.length < 2 || mapRef.current) return undefined;
     const map = L.map(element, { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap contributors", maxZoom: 19 }).addTo(map);
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", { attribution: "© Esri", maxZoom: 19 }).addTo(map);
     const routeLayer = L.polyline(track, { color: "#2563eb", weight: 5, opacity: 0.85 }).addTo(map);
     map.fitBounds(routeLayer.getBounds(), { padding: [24, 24] });
     routeLayer.on("click", (event: L.LeafletMouseEvent) => {
