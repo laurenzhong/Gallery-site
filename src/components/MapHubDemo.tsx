@@ -75,7 +75,7 @@ export function MapHubDemo({ photos, onOpen }: MapHubDemoProps) {
         <div className="map-hub-demo__map-column">
           <div className="map-hub-demo__map-label">
             <span>{mode === "photos" ? "Archive / field map" : "Routes / field records"}</span>
-            <small>OpenStreetMap · local data</small>
+            <small>Esri · CMS archive + walking routes</small>
           </div>
           <div className="map-hub-demo__map-frame">
             <PhotoMapExperiment photos={photos} onOpen={onOpen} compact />
