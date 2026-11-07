@@ -40,6 +40,12 @@ function photoTooltip(photo: Photo) {
   return `<div style="min-width:180px;font-size:12px;font-weight:600;color:#1f2937">${image}<span>${title}</span></div>`;
 }
 
+function photoPopup(photo: Photo) {
+  const title = escapeHtml(photo.title || photo.sourceFilename || "未命名照片");
+  const image = photo.imageUrl ? `<img src="${escapeHtml(`${photo.imageUrl}?w=320&q=80&auto=format`)}" alt="" style="display:block;width:210px;height:140px;object-fit:cover;border-radius:5px;margin-bottom:7px" />` : "";
+  return `<div style="min-width:210px;color:#1f2937">${image}<strong style="display:block;margin-bottom:8px;font-size:12px">${title}</strong><div style="display:flex;gap:6px"><button type="button" data-photo-map-remove="true" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;color:#475569;cursor:pointer;font-size:11px">删除地图标记</button><button type="button" data-photo-map-delete="true" style="padding:6px 8px;border:1px solid #fecaca;border-radius:4px;background:#fff1f2;color:#b42318;cursor:pointer;font-size:11px">删除照片</button></div></div>`;
+}
+
 export function PhotoMapEditorDashboard() {
   const client = useClient({ apiVersion: "2025-02-19" });
   const mapElementRef = useRef<HTMLDivElement>(null);
@@ -98,6 +104,32 @@ export function PhotoMapEditorDashboard() {
     return () => { resizeObserver?.disconnect(); window.clearTimeout(delayedResize); map.remove(); mapRef.current = null; markersRef.current = null; };
   }, []);
 
+  const removeMarkerById = useCallback(async (photoId: string) => {
+    setBusy(true); setMessage(undefined); setError(undefined);
+    try {
+      await client.patch(photoId).unset(["location"]).commit();
+      setPhotos((current) => current.map((photo) => photo._id === photoId ? { ...photo, location: undefined } : photo));
+      if (selectedPhotoId === photoId) setCoordinate(undefined);
+      setMessage("已删除地图标记，照片仍保留在照片库中。");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "删除地图标记失败，请重试。");
+    } finally { setBusy(false); }
+  }, [client, selectedPhotoId]);
+
+  const deletePhotoById = useCallback(async (photoId: string) => {
+    const selected = photos.find((photo) => photo._id === photoId);
+    if (!selected || !window.confirm(`确定删除照片“${selected.title || selected.sourceFilename || "未命名照片"}”吗？此操作不可撤销。`)) return;
+    setBusy(true); setMessage(undefined); setError(undefined);
+    try {
+      await client.delete(photoId);
+      setPhotos((current) => current.filter((photo) => photo._id !== photoId));
+      if (selectedPhotoId === photoId) { setSelectedPhotoId(""); setCoordinate(undefined); }
+      setMessage("照片已删除；对应地图标记也已移除。");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "删除照片失败，请重试。");
+    } finally { setBusy(false); }
+  }, [client, photos, selectedPhotoId]);
+
   useEffect(() => {
     const markers = markersRef.current;
     const map = mapRef.current;
@@ -107,11 +139,18 @@ export function PhotoMapEditorDashboard() {
     located.forEach(({ photo, point }) => {
       const marker = L.circleMarker(point, { radius: photo._id === selectedPhotoId ? 10 : 7, color: "#fff", weight: 2, fillColor: photo._id === selectedPhotoId ? "#2563eb" : "#b42318", fillOpacity: 0.95 });
       marker.bindTooltip(photoTooltip(photo), { direction: "top", sticky: true, opacity: 1, className: "photo-map-thumbnail-tooltip" });
+      const popup = L.popup({ maxWidth: 240 }).setContent(photoPopup(photo));
+      marker.bindPopup(popup);
+      marker.on("popupopen", () => {
+        const element = popup.getElement();
+        element?.querySelector<HTMLButtonElement>("[data-photo-map-remove]")?.addEventListener("click", () => { void removeMarkerById(photo._id); map.closePopup(); });
+        element?.querySelector<HTMLButtonElement>("[data-photo-map-delete]")?.addEventListener("click", () => { void deletePhotoById(photo._id); map.closePopup(); });
+      });
       marker.on("click", () => { setSelectedPhotoId(photo._id); setCoordinate(point); });
       marker.addTo(markers);
     });
     if (located.length && !coordinate) map.fitBounds(L.latLngBounds(located.map(({ point }) => point)), { padding: [24, 24], maxZoom: 13 });
-  }, [coordinate, photos, selectedPhotoId]);
+  }, [coordinate, deletePhotoById, photos, removeMarkerById, selectedPhotoId]);
 
   const filteredPhotos = useMemo(() => {
     const query = search.trim().toLowerCase();
