@@ -8,7 +8,7 @@ import { storyRoutes } from "../data/routes";
 import type { StoryRoute } from "../data/storyRoutes";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { useCmsMapRoutes } from "../lib/mapRoutes";
-import { buildPhotoStops, getPhotoMapBounds, getPhotoMapInteractionBoundsFromBounds, getPhotoMapRouteBounds, mergePhotoMapBounds } from "../lib/photoMapData";
+import { buildPhotoStops, getPhotoMapBounds, getPhotoMapRouteBounds, mergePhotoMapBounds } from "../lib/photoMapData";
 import { photoMapMarkerMarkup } from "../lib/photoMapMarker";
 
 type PhotoMapExperimentProps = {
@@ -64,7 +64,6 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
   const photoBounds = useMemo(() => getPhotoMapBounds(stops), [stops]);
   const routeBounds = useMemo(() => getPhotoMapRouteBounds(routes), [routes]);
   const allBounds = useMemo(() => mergePhotoMapBounds(photoBounds, routeBounds), [photoBounds, routeBounds]);
-  const interactionBounds = useMemo(() => getPhotoMapInteractionBoundsFromBounds(allBounds), [allBounds]);
   const areas = useMemo(() => ["All places", ...Array.from(new Set(stops.map((stop) => stop.area)))], [stops]);
   const filteredStops = useMemo(
     () => stops.filter((stop) => selectedArea === "All places" || stop.area === selectedArea),
@@ -88,7 +87,6 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
       minZoom: 3,
       maxZoom: 16,
       zoomSnap: 0.5,
-      maxBoundsViscosity: 0.75,
     });
 
     L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
@@ -136,9 +134,8 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
     const map = mapRef.current;
     if (!map) return;
     map.invalidateSize({ pan: false });
-    map.setMaxBounds(interactionBounds);
     map.fitBounds(allBounds, { padding: [40, 40], maxZoom: 11, animate: false });
-  }, [allBounds, interactionBounds]);
+  }, [allBounds]);
 
   useEffect(() => {
     const routeLayer = routeLayerRef.current;
