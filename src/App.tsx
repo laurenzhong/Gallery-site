@@ -435,6 +435,7 @@ function App() {
             homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
             photoStories={photoStories}
             aboutData={aboutData}
+            onOpen={openPhoto}
           />
         )}
       </main>

@@ -3,6 +3,7 @@ import type { AboutData, PhotoStory } from "../data/stories";
 import type { HomepageLayout } from "../lib/homepageLayout";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { storyPath } from "../lib/routes";
+import { PhotoMapExperiment } from "./PhotoMapExperiment";
 
 type HomeProps = {
   photos: Photo[];
@@ -10,6 +11,7 @@ type HomeProps = {
   homepageLayout?: HomepageLayout;
   photoStories?: Record<string, PhotoStory[]>;
   aboutData?: AboutData;
+  onOpen: (index: number, photos?: Photo[]) => void;
 };
 
 type HomeProject = {
@@ -75,7 +77,7 @@ function ProjectCard({ project }: { project: HomeProject }) {
   );
 }
 
-export function Home({ photos, heroPhoto, homepageLayout, photoStories = {}, aboutData }: HomeProps) {
+export function Home({ photos, heroPhoto, homepageLayout, photoStories = {}, aboutData, onOpen }: HomeProps) {
   const fallbackPhoto = heroPhoto ?? photos[0];
   const configuredCards = homepageLayout?.featureCards ?? [];
   const projects = [
@@ -160,6 +162,20 @@ export function Home({ photos, heroPhoto, homepageLayout, photoStories = {}, abo
 
       <section className="home-projects" aria-label="Selected photography projects">
         {projects.map((project) => <ProjectCard key={project.title} project={project} />)}
+      </section>
+
+      <section className="home-map" aria-labelledby="home-map-title">
+        <div className="home-map__heading">
+          <div>
+            <p className="home-kicker home-kicker--dark">Archive / field map</p>
+            <h2 id="home-map-title">Find the photographs by place.</h2>
+          </div>
+          <div className="home-map__aside">
+            <p>Each pin is a photograph. Each line is a recorded walk.</p>
+            <a className="text-link" href="/map">Open the full map <span aria-hidden="true">→</span></a>
+          </div>
+        </div>
+        <PhotoMapExperiment photos={photos} onOpen={onOpen} compact />
       </section>
 
       {storyEntry ? (
