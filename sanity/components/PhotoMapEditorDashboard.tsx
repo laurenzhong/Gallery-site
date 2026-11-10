@@ -7,6 +7,35 @@ import { useClient } from "sanity";
 type Coordinate = [number, number];
 type Album = { _id: string; title: string };
 type Photo = { _id: string; title?: string; sourceFilename?: string; imageUrl?: string; location?: string; album?: { _id?: string; title?: string } };
+type MapRoute = { _id: string; title: string; color?: string; trackUrl?: string; trackPoints?: { latitude?: number; longitude?: number }[] };
+type LocatedRoute = MapRoute & { track: Coordinate[] };
+
+async function loadRoute(route: MapRoute, signal: AbortSignal): Promise<LocatedRoute> {
+  const manualTrack = (route.trackPoints ?? []).flatMap((point) => validCoordinate(point.latitude, point.longitude) ? [[point.latitude, point.longitude] as Coordinate] : []);
+  if (route.trackUrl) {
+    try {
+      const url = new URL(route.trackUrl, window.location.origin);
+      const requestUrl = url.origin === window.location.origin ? url.href : `/api/gpx?url=${encodeURIComponent(url.href)}`;
+      const response = await fetch(requestUrl, { signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) });
+      if (!response.ok) throw new Error("无法读取 GPX");
+      const document = new DOMParser().parseFromString(await response.text(), "application/xml");
+      const track = Array.from(document.getElementsByTagNameNS("*", "trkpt")).flatMap((point) => {
+        const latitude = point.getAttribute("lat");
+        const longitude = point.getAttribute("lon");
+        return latitude !== null && longitude !== null && validCoordinate(Number(latitude), Number(longitude)) ? [[Number(latitude), Number(longitude)] as Coordinate] : [];
+      });
+      if (track.length >= 2) return { ...route, track };
+    } catch (reason) {
+      if (signal.aborted || manualTrack.length < 2) throw reason;
+    }
+  }
+  if (manualTrack.length < 2) throw new Error("路线缺少有效轨迹");
+  return { ...route, track: manualTrack };
+}
+
+function routeColor(route: MapRoute, index: number) {
+  return route.color || ["#2563eb", "#0f766e", "#9333ea", "#c2410c"][index % 4];
+}
 
 function validCoordinate(latitude: unknown, longitude: unknown): latitude is number {
   return typeof latitude === "number" && Number.isFinite(latitude) && Math.abs(latitude) <= 90 && typeof longitude === "number" && Number.isFinite(longitude) && Math.abs(longitude) <= 180;
@@ -51,10 +80,14 @@ export function PhotoMapEditorDashboard() {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
+  const routesLayerRef = useRef<L.LayerGroup | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasAutoFitRef = useRef(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [routes, setRoutes] = useState<LocatedRoute[]>([]);
+  const [routesLoading, setRoutesLoading] = useState(true);
+  const [routesError, setRoutesError] = useState<string>();
   const [selectedPhotoId, setSelectedPhotoId] = useState("");
   const [coordinate, setCoordinate] = useState<Coordinate>();
   const [latitudeInput, setLatitudeInput] = useState("");
@@ -85,6 +118,23 @@ export function PhotoMapEditorDashboard() {
   useEffect(() => { void loadContent(); }, [loadContent]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setRoutesLoading(true);
+    setRoutesError(undefined);
+    void client.fetch<MapRoute[]>(`*[_type == "mapRoute" && isVisible != false] | order(_updatedAt desc){ _id, title, color, "trackUrl": trackFile.asset->url, trackPoints[]{ latitude, longitude } }`)
+      .then(async (records) => {
+        const results = await Promise.allSettled(records.map((route) => loadRoute(route, controller.signal)));
+        if (controller.signal.aborted) return;
+        setRoutes(results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []));
+        const failed = results.filter((result) => result.status === "rejected").length;
+        if (failed) setRoutesError(`${failed} 条路线未能加载，请刷新重试。`);
+      })
+      .catch(() => { if (!controller.signal.aborted) setRoutesError("无法读取地图路线，请刷新重试。"); })
+      .finally(() => { if (!controller.signal.aborted) setRoutesLoading(false); });
+    return () => controller.abort();
+  }, [client]);
+
+  useEffect(() => {
     const element = mapElementRef.current;
     if (!element || mapRef.current) return undefined;
     const map = L.map(element, { zoomControl: true, attributionControl: true });
@@ -103,13 +153,35 @@ export function PhotoMapEditorDashboard() {
       setError(undefined);
     });
     mapRef.current = map;
+    routesLayerRef.current = L.layerGroup().addTo(map);
     markersRef.current = L.layerGroup().addTo(map);
     const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => map.invalidateSize({ animate: false })) : undefined;
     resizeObserver?.observe(element);
     requestAnimationFrame(() => map.invalidateSize({ animate: false }));
     const delayedResize = window.setTimeout(() => map.invalidateSize({ animate: false }), 400);
-    return () => { resizeObserver?.disconnect(); window.clearTimeout(delayedResize); map.remove(); mapRef.current = null; markersRef.current = null; };
+    return () => { resizeObserver?.disconnect(); window.clearTimeout(delayedResize); map.remove(); mapRef.current = null; markersRef.current = null; routesLayerRef.current = null; };
   }, []);
+
+  useEffect(() => {
+    const layer = routesLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    routes.forEach((route, index) => {
+      L.polyline(route.track, { color: routeColor(route, index), weight: 4, opacity: 0.9 })
+        .bindTooltip(escapeHtml(route.title), { sticky: true })
+        .addTo(layer);
+    });
+  }, [routes]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || loading || routesLoading || coordinate || hasAutoFitRef.current) return;
+    const points = [...photos.flatMap((photo) => { const point = parseLocation(photo.location); return point ? [point] : []; }), ...routes.flatMap((route) => route.track)];
+    if (points.length) {
+      map.fitBounds(L.latLngBounds(points), { padding: [24, 24], maxZoom: 13 });
+      hasAutoFitRef.current = true;
+    }
+  }, [coordinate, loading, photos, routes, routesLoading]);
 
   const removeMarkerById = useCallback(async (photoId: string) => {
     setBusy(true); setMessage(undefined); setError(undefined);
@@ -156,8 +228,7 @@ export function PhotoMapEditorDashboard() {
       marker.on("click", () => { setSelectedPhotoId(photo._id); setCoordinate(point); setLatitudeInput(point[0].toFixed(6)); setLongitudeInput(point[1].toFixed(6)); });
       marker.addTo(markers);
     });
-    if (located.length && !coordinate && !hasAutoFitRef.current) { map.fitBounds(L.latLngBounds(located.map(({ point }) => point)), { padding: [24, 24], maxZoom: 13 }); hasAutoFitRef.current = true; }
-  }, [coordinate, deletePhotoById, photos, removeMarkerById, selectedPhotoId]);
+  }, [deletePhotoById, photos, removeMarkerById, selectedPhotoId]);
 
   const filteredPhotos = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -251,11 +322,18 @@ export function PhotoMapEditorDashboard() {
   };
 
   return <div style={{ display: "grid", gap: 16, padding: 24, maxWidth: 1400 }}>
-    <header><p style={{ margin: "0 0 5px", color: "#64748b", fontSize: 13, fontWeight: 700 }}>独立照片位置编辑</p><h1 style={{ margin: 0, fontSize: 28 }}>照片地图</h1><p style={{ margin: "8px 0 0", color: "#475569", lineHeight: 1.5 }}>这张地图不依赖徒步路线。先点击地图位置，再上传照片，或把已有照片移动到这里。</p></header>
+    <header><p style={{ margin: "0 0 5px", color: "#64748b", fontSize: 13, fontWeight: 700 }}>照片位置与徒步路线</p><h1 style={{ margin: 0, fontSize: 28 }}>照片地图</h1><p style={{ margin: "8px 0 0", color: "#475569", lineHeight: 1.5 }}>照片标记和徒步路线会同时显示。点击地图位置可上传或移动照片；点击下方路线名称可查看完整轨迹。</p></header>
     {error ? <p style={{ margin: 0, padding: 10, borderRadius: 6, background: "#fef2f2", color: "#b42318" }}>{error}</p> : null}
     {message ? <p style={{ margin: 0, padding: 10, borderRadius: 6, background: "#f0fdf4", color: "#166534" }}>{message}</p> : null}
+    {routesError ? <p role="alert" style={{ margin: 0, padding: 10, borderRadius: 6, background: "#fffbeb", color: "#92400e" }}>{routesError}</p> : null}
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 16, alignItems: "start" }}>
-      <div style={{ display: "grid", gap: 8 }}><div ref={mapElementRef} style={{ height: 620, minHeight: 420, border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden", background: "#e5eef5" }} /><div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", color: "#64748b", fontSize: 12 }}><span>已定位照片：{locatedPhotoCount} / {photos.length}</span><button type="button" onClick={showWorld} style={{ minHeight: 32, padding: "0 10px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#475569", cursor: "pointer" }}>显示全球地图</button></div></div>
+      <div style={{ display: "grid", gap: 8 }}>
+        <div ref={mapElementRef} style={{ height: 620, minHeight: 420, border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden", background: "#e5eef5" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", color: "#64748b", fontSize: 12 }}><span>已定位照片：{locatedPhotoCount} / {photos.length} · {routesLoading ? "正在读取路线…" : `路线：${routes.length}`}</span><button type="button" onClick={showWorld} style={{ minHeight: 32, padding: "0 10px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#475569", cursor: "pointer" }}>显示全球地图</button></div>
+        {routes.length ? <nav aria-label="地图路线" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {routes.map((route, index) => <button key={route._id} type="button" onClick={() => mapRef.current?.fitBounds(L.latLngBounds(route.track), { padding: [32, 32], maxZoom: 15 })} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 32, padding: "0 10px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#334155", cursor: "pointer", fontSize: 12 }}><span aria-hidden="true" style={{ width: 18, height: 4, borderRadius: 2, background: routeColor(route, index) }} />{route.title}</button>)}
+        </nav> : null}
+      </div>
       <aside style={{ display: "grid", gap: 12 }}>
         <section style={{ padding: 14, border: "1px solid #bfdbfe", borderRadius: 8, background: "#eff6ff" }}>
           <strong style={{ display: "block", marginBottom: 8, color: "#1e3a8a" }}>在地图位置添加照片</strong>
