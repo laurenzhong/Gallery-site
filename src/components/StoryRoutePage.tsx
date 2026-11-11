@@ -5,6 +5,7 @@ import type { Photo } from "../data/photos";
 import type { ResolvedStoryRouteStop, RouteCoordinate, StoryRoute } from "../data/storyRoutes";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { resolveRouteStopPhotos } from "../lib/routePhotos";
+import { addMapBasemap } from "../lib/mapBasemap";
 
 type StoryRoutePageProps = {
   route: StoryRoute;
@@ -164,13 +165,7 @@ export function StoryRoutePage({ route, photos, onOpen }: StoryRoutePageProps) {
       maxBounds: route.bounds,
       maxBoundsViscosity: 0.7,
     }).fitBounds(route.bounds, { padding: [28, 28] });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-      updateWhenZooming: false,
-      updateWhenIdle: true,
-      keepBuffer: 0,
-    }).addTo(map);
+    addMapBasemap(map);
     visitedLineRef.current = L.polyline([], {
       color: "#b6424b",
       weight: 4,

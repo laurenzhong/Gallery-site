@@ -5,6 +5,7 @@ import type { Photo } from "../data/photos";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { buildPhotoStops, getPhotoMapBounds, getPhotoMapInteractionBounds, type PhotoStop } from "../lib/photoMapData";
 import { photoMapMarkerMarkup } from "../lib/photoMapMarker";
+import { mapTileSources } from "../lib/mapTileSources";
 
 type PhotoMapMapLibreExperimentProps = {
   photos: Photo[];
@@ -16,9 +17,10 @@ const MAP_STYLE = {
   sources: {
     osm: {
       type: "raster" as const,
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tiles: [mapTileSources[0].url],
       tileSize: 256,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxzoom: mapTileSources[0].maxNativeZoom,
+      attribution: mapTileSources[0].attribution,
     },
   },
   layers: [

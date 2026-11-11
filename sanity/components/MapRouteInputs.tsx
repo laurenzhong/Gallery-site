@@ -3,6 +3,7 @@ import exifr from "exifr";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { set, useClient, useFormValue, type ArrayOfObjectsInputProps } from "sanity";
+import { addMapBasemap } from "../../src/lib/mapBasemap";
 
 type ReferenceItem = { _key: string; _ref?: string; _type?: string };
 type TrackPointItem = { _key: string; latitude?: number; longitude?: number; elevationM?: number };
@@ -271,12 +272,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
     const element = mapElementRef.current;
     if (!element || track.length < 2 || mapRef.current) return undefined;
     const map = L.map(element, { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-      // Studio defaults to same-origin, but OSM requires a Referer for tiles.
-      referrerPolicy: "strict-origin-when-cross-origin",
-    }).addTo(map);
+    addMapBasemap(map);
     const routeLayer = L.polyline(track, { color: "#2563eb", weight: 5, opacity: 0.85 }).addTo(map);
     map.fitBounds(routeLayer.getBounds(), { padding: [24, 24] });
     routeLayer.on("click", (event: L.LeafletMouseEvent) => {

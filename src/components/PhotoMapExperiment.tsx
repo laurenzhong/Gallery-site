@@ -10,6 +10,7 @@ import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { useCmsMapRoutes } from "../lib/mapRoutes";
 import { buildPhotoStops, getPhotoMapBounds, getPhotoMapInteractionBoundsFromBounds, getPhotoMapRouteBounds, mergePhotoMapBounds } from "../lib/photoMapData";
 import { photoMapMarkerMarkup } from "../lib/photoMapMarker";
+import { addMapBasemap } from "../lib/mapBasemap";
 
 type PhotoMapExperimentProps = {
   photos: Photo[];
@@ -92,13 +93,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
       maxBoundsViscosity: 0.75,
     });
 
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-      updateWhenZooming: false,
-      updateWhenIdle: true,
-      keepBuffer: 0,
-    }).addTo(map);
+    addMapBasemap(map);
 
     mapRef.current = map;
     markerLayerRef.current = L.markerClusterGroup({
@@ -275,7 +270,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
         <div className="photo-map-experiment__map-wrap">
           <div className="photo-map-experiment__map" ref={mapElement} />
           <div className="photo-map-experiment__map-label photo-map-experiment__map-label--top">Archive / field map</div>
-          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--bottom">OpenStreetMap · archive + walking routes</div>
+          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--bottom">Photo archive + walking routes</div>
           <div className="photo-map-experiment__controls" aria-label="Map controls">
             <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom in">+</button>
             <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label="Zoom out">−</button>

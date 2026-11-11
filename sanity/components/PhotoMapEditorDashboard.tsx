@@ -3,6 +3,7 @@ import exifr from "exifr";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useClient } from "sanity";
+import { addMapBasemap } from "../../src/lib/mapBasemap";
 
 type Coordinate = [number, number];
 type Album = { _id: string; title: string };
@@ -138,12 +139,7 @@ export function PhotoMapEditorDashboard() {
     const element = mapElementRef.current;
     if (!element || mapRef.current) return undefined;
     const map = L.map(element, { zoomControl: true, attributionControl: true });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-      // Studio defaults to same-origin, but OSM requires a Referer for tiles.
-      referrerPolicy: "strict-origin-when-cross-origin",
-    }).addTo(map);
+    addMapBasemap(map);
     map.setView([22.35, 114.17], 10);
     map.on("click", (event: L.LeafletMouseEvent) => {
       setCoordinate([event.latlng.lat, event.latlng.lng]);
