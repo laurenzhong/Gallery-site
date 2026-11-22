@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L, { type Map as LeafletMap, type Marker } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster";
@@ -16,26 +16,39 @@ type PhotoMapExperimentProps = {
   photos: Photo[];
   onOpen: (index: number, photos?: Photo[]) => void;
   compact?: boolean;
+  showRoutesOnly?: boolean;
 };
 
 function routeLabel(route: StoryRoute) {
   return `${route.title}${route.titleEmphasis ? ` ${route.titleEmphasis}` : ""}`;
 }
 
-export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMapExperimentProps) {
+function updateMapQuery(name: string, value?: string) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (value) url.searchParams.set(name, value);
+  else url.searchParams.delete(name);
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+export function PhotoMapExperiment({ photos, onOpen, compact = false, showRoutesOnly = false }: PhotoMapExperimentProps) {
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
+  const userLocationLayerRef = useRef<L.LayerGroup | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
   const [activeIndex, setActiveIndex] = useState(0);
-  const [selectedArea, setSelectedArea] = useState("All places");
-  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [requestedArea, setRequestedArea] = useState(() => new URLSearchParams(window.location.search).get("place"));
+  const [requestedRouteId, setRequestedRouteId] = useState(() => new URLSearchParams(window.location.search).get("map-route"));
+  const [locationStatus, setLocationStatus] = useState<"idle" | "locating" | "found" | "error">("idle");
   const cmsRoutes = useCmsMapRoutes();
   const routes = useMemo(() => {
     const cmsRouteIds = new Set(cmsRoutes.map((route) => route.id));
     return [...storyRoutes.filter((route) => !cmsRouteIds.has(route.id)), ...cmsRoutes];
   }, [cmsRoutes]);
+  const selectedRoute = routes.find((route) => route.id === requestedRouteId);
+  const selectedRouteId = selectedRoute?.id ?? null;
   const baseStops = useMemo(() => buildPhotoStops(photos), [photos]);
   const routePhotoStops = useMemo(() => {
     const photoById = new Map<string, Photo>();
@@ -53,7 +66,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
         // A route attachment must not move a photo that already has EXIF or
         // CMS coordinates. Route stops only provide a position for otherwise
         // unlocated photos.
-        if (!photo || baseStopById.get(photo.id)?.coordinateSource === "gps") return;
+        if (!photo || (photo.coordinateVisibility && photo.coordinateVisibility !== "exact") || baseStopById.get(photo.id)?.coordinateSource === "gps") return;
         attached.set(photoId, { lat: stop.coordinate[0], lng: stop.coordinate[1], note: `${routeLabel(route)} · ${stop.title}` });
       });
     }));
@@ -66,8 +79,10 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
   const photoBounds = useMemo(() => getPhotoMapBounds(stops), [stops]);
   const routeBounds = useMemo(() => getPhotoMapRouteBounds(routes), [routes]);
   const allBounds = useMemo(() => mergePhotoMapBounds(photoBounds, routeBounds), [photoBounds, routeBounds]);
-  const interactionBounds = useMemo(() => getPhotoMapInteractionBoundsFromBounds(allBounds), [allBounds]);
+  const visibleBounds = showRoutesOnly ? routeBounds : allBounds;
+  const interactionBounds = useMemo(() => getPhotoMapInteractionBoundsFromBounds(visibleBounds), [visibleBounds]);
   const areas = useMemo(() => ["All places", ...Array.from(new Set(stops.map((stop) => stop.area)))], [stops]);
+  const selectedArea = requestedArea && areas.includes(requestedArea) ? requestedArea : "All places";
   const filteredStops = useMemo(
     () => stops.filter((stop) => selectedArea === "All places" || stop.area === selectedArea),
     [selectedArea, stops],
@@ -77,6 +92,17 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
   const previousStopsRef = useRef(stops);
   const gpsCount = useMemo(() => stops.filter((stop) => stop.coordinateSource === "gps").length, [stops]);
   const unlocatedCount = useMemo(() => stops.filter((stop) => stop.coordinateSource === "fallback").length, [stops]);
+
+  const selectArea = useCallback((area: string) => {
+    const place = area === "All places" ? null : area;
+    setRequestedArea(place);
+    updateMapQuery("place", place ?? undefined);
+  }, []);
+
+  const selectRoute = useCallback((routeId: string | null) => {
+    setRequestedRouteId(routeId);
+    updateMapQuery("map-route", routeId ?? undefined);
+  }, []);
 
   useEffect(() => {
     const mapNode = mapElement.current;
@@ -111,6 +137,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
       }),
     }).addTo(map);
     routeLayerRef.current = L.layerGroup().addTo(map);
+    userLocationLayerRef.current = L.layerGroup().addTo(map);
     const resizeObserver = typeof ResizeObserver === "undefined"
       ? undefined
       : new ResizeObserver(() => map.invalidateSize({ pan: false }));
@@ -125,7 +152,27 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
       mapRef.current = null;
       markerLayerRef.current = null;
       routeLayerRef.current = null;
+      userLocationLayerRef.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return undefined;
+    const handleFound = (event: L.LocationEvent) => {
+      const layer = userLocationLayerRef.current;
+      if (!layer) return;
+      layer.clearLayers();
+      L.circleMarker(event.latlng, { radius: 7, color: "#fff8eb", weight: 2, fillColor: "#315d5a", fillOpacity: 1 }).addTo(layer);
+      if (event.accuracy > 0) L.circle(event.latlng, { radius: event.accuracy, color: "#315d5a", weight: 1, fillColor: "#315d5a", fillOpacity: 0.12 }).addTo(layer);
+      map.setMaxBounds(L.latLngBounds([-85, -180], [85, 180]));
+      map.flyTo(event.latlng, Math.max(map.getZoom(), 12), { duration: 0.65 });
+      setLocationStatus("found");
+    };
+    const handleError = () => setLocationStatus("error");
+    map.on("locationfound", handleFound);
+    map.on("locationerror", handleError);
+    return () => { map.off("locationfound", handleFound); map.off("locationerror", handleError); };
   }, []);
 
   useEffect(() => {
@@ -133,8 +180,8 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
     if (!map) return;
     map.invalidateSize({ pan: false });
     map.setMaxBounds(interactionBounds);
-    map.fitBounds(allBounds, { padding: [40, 40], maxZoom: 11, animate: false });
-  }, [allBounds, interactionBounds]);
+    map.fitBounds(selectedRoute?.bounds ?? visibleBounds, { padding: [40, 40], maxZoom: selectedRoute ? 14 : 11, animate: false });
+  }, [interactionBounds, selectedRoute, visibleBounds]);
 
   useEffect(() => {
     const routeLayer = routeLayerRef.current;
@@ -151,10 +198,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
         lineJoin: "round",
       });
       line.bindTooltip(routeLabel(route), { sticky: true, direction: "top", className: "photo-map-route-tooltip" });
-      line.on("click", () => {
-        setSelectedRouteId(route.id);
-        mapRef.current?.fitBounds(route.bounds, { padding: [40, 40], maxZoom: 14, animate: true });
-      });
+      line.on("click", () => selectRoute(route.id));
       line.addTo(routeLayer);
 
       const start = L.circleMarker(route.track[0] ?? route.bounds[0], { radius: 5, color, fillColor: "#f3eee4", fillOpacity: 1, weight: 2 });
@@ -172,14 +216,11 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
           weight: 1.5,
         });
         stopMarker.bindTooltip(`${routeLabel(route)} · ${String(stopIndex + 1).padStart(2, "0")} ${stop.title}`, { direction: "top" });
-        stopMarker.on("click", () => {
-          setSelectedRouteId(route.id);
-          mapRef.current?.fitBounds(route.bounds, { padding: [40, 40], maxZoom: 14, animate: true });
-        });
+        stopMarker.on("click", () => selectRoute(route.id));
         stopMarker.addTo(routeLayer);
       });
     });
-  }, [routes, selectedRouteId]);
+  }, [routes, selectRoute, selectedRouteId]);
 
   useEffect(() => {
     const markerLayer = markerLayerRef.current;
@@ -188,7 +229,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
     markerLayer.clearLayers();
     markersRef.current.clear();
     const nextMarkers: Marker[] = [];
-    filteredStops.filter((stop) => stop.coordinateSource !== "fallback").forEach((stop) => {
+    filteredStops.filter((stop) => !showRoutesOnly && stop.coordinateSource !== "fallback").forEach((stop) => {
       const index = stops.findIndex((item) => item.photo.id === stop.photo.id);
       const isLandscape = stop.photo.width > stop.photo.height * 1.15;
       const iconWidth = isLandscape ? 78 : 52;
@@ -213,7 +254,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
       markersRef.current.set(stop.photo.id, marker);
     });
     markerLayer.addLayers(nextMarkers);
-  }, [filteredStops, stops]);
+  }, [filteredStops, showRoutesOnly, stops]);
 
   useEffect(() => {
     markersRef.current.forEach((marker, photoId) => {
@@ -233,7 +274,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !activeStop || activeStop.coordinateSource === "fallback") return;
+    if (showRoutesOnly || !map || !activeStop || activeStop.coordinateSource === "fallback") return;
     const dataChanged = previousStopsRef.current !== stops;
     previousStopsRef.current = stops;
     if (dataChanged) {
@@ -243,11 +284,17 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
     if (previousActiveIdRef.current === activeStop.photo.id) return;
     previousActiveIdRef.current = activeStop.photo.id;
     map.flyTo([activeStop.lat, activeStop.lng], Math.max(map.getZoom(), 10.5), { duration: 0.65 });
-  }, [activeStop, stops]);
+  }, [activeStop, showRoutesOnly, stops]);
 
   const selectStop = (index: number) => {
     setActiveIndex(index);
   };
+  const locateUser = () => {
+    if (!navigator.geolocation || !mapRef.current) { setLocationStatus("error"); return; }
+    setLocationStatus("locating");
+    mapRef.current.locate({ enableHighAccuracy: true, timeout: 10000, maximumAge: 120000 });
+  };
+  const locationLabel = locationStatus === "locating" ? "正在请求位置…" : locationStatus === "found" ? "已显示当前位置" : locationStatus === "error" ? "无法获取位置，请检查浏览器权限" : "地图已就绪";
 
   return (
     <article className={`photo-map-experiment${compact ? " photo-map-experiment--compact" : ""}`}>
@@ -269,13 +316,15 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
       <section className="photo-map-experiment__stage" aria-label="Photo map prototype">
         <div className="photo-map-experiment__map-wrap">
           <div className="photo-map-experiment__map" ref={mapElement} />
-          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--top">Archive / field map</div>
-          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--bottom">Photo archive + walking routes</div>
+          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--top">{showRoutesOnly ? "Routes / field records" : "Archive / field map"}</div>
+          <div className="photo-map-experiment__map-label photo-map-experiment__map-label--bottom">{showRoutesOnly ? "Walking routes + route stops" : "Photo archive + walking routes"}</div>
           <div className="photo-map-experiment__controls" aria-label="Map controls">
             <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom in">+</button>
             <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label="Zoom out">−</button>
-            <button type="button" onClick={() => mapRef.current?.fitBounds(allBounds, { padding: [40, 40], maxZoom: 11 })} aria-label="Show all photos and routes">◎</button>
+            <button type="button" onClick={() => mapRef.current?.fitBounds(visibleBounds, { padding: [40, 40], maxZoom: 11 })} aria-label={showRoutesOnly ? "Show all routes" : "Show all photos and routes"}>◎</button>
+            <button type="button" onClick={locateUser} aria-label="定位到我的位置" aria-busy={locationStatus === "locating"}>⌖</button>
           </div>
+          <p className="photo-map-experiment__status" role="status" aria-live="polite">{locationLabel}</p>
         </div>
 
         {!compact ? <aside className="photo-map-experiment__panel" aria-label="Photo map index">
@@ -289,7 +338,7 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
 
           <div className="photo-map-experiment__filters" aria-label="Filter by place">
             {areas.map((area) => (
-              <button key={area} type="button" className={selectedArea === area ? "is-active" : ""} onClick={() => setSelectedArea(area)}>
+              <button key={area} type="button" className={selectedArea === area ? "is-active" : ""} onClick={() => selectArea(area)}>
                 {area}
               </button>
             ))}
@@ -300,13 +349,13 @@ export function PhotoMapExperiment({ photos, onOpen, compact = false }: PhotoMap
               <span>Walking routes</span>
               <small>{routes.length.toString().padStart(2, "0")} connected</small>
             </div>
-            <button type="button" className={selectedRouteId === null ? "is-active" : ""} onClick={() => { setSelectedRouteId(null); mapRef.current?.fitBounds(allBounds, { padding: [40, 40], maxZoom: 11 }); }}>
+            <button type="button" className={selectedRouteId === null ? "is-active" : ""} onClick={() => { selectRoute(null); mapRef.current?.fitBounds(allBounds, { padding: [40, 40], maxZoom: 11 }); }}>
               <span className="photo-map-experiment__route-swatch photo-map-experiment__route-swatch--all" />
               <strong>All routes</strong>
               <small>Show the connected archive</small>
             </button>
             {routes.map((route, routeIndex) => (
-              <button type="button" key={route.id} className={selectedRouteId === route.id ? "is-active" : ""} onClick={() => { setSelectedRouteId(route.id); mapRef.current?.fitBounds(route.bounds, { padding: [40, 40], maxZoom: 14 }); }}>
+              <button type="button" key={route.id} className={selectedRouteId === route.id ? "is-active" : ""} onClick={() => { selectRoute(route.id); mapRef.current?.fitBounds(route.bounds, { padding: [40, 40], maxZoom: 14 }); }}>
                 <span className={`photo-map-experiment__route-swatch photo-map-experiment__route-swatch--${routeIndex % 6}`} style={route.color ? { background: route.color } : undefined} />
                 <strong>{routeLabel(route)}</strong>
                 <small>{route.stats.distance} km · {route.stops.length} stops</small>

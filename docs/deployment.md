@@ -30,6 +30,23 @@ VITE_SANITY_PROJECT_ID=zj2ik922
 VITE_SANITY_DATASET=production
 ```
 
+### Production map tiles
+
+The map uses the configured provider first and keeps the built-in OSM/Esri
+sources as a fallback. To use a different tile provider, set these public
+variables in the Vercel Production environment:
+
+```text
+VITE_MAP_TILE_URL=https://tiles.example.com/{z}/{x}/{y}.png
+VITE_MAP_TILE_ATTRIBUTION=© Map provider
+VITE_MAP_TILE_MAX_NATIVE_ZOOM=18
+```
+
+Use a provider whose terms allow the site's expected traffic, and keep its
+attribution visible. A provider URL is public data; it does not belong in a
+secret variable. With these values blank, the site uses the built-in
+OSM/Esri sources in production, preview, and local builds.
+
 Do not add this to Vercel:
 
 ```text

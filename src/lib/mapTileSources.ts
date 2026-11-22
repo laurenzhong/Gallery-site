@@ -1,4 +1,17 @@
+const configuredUrl = import.meta.env.VITE_MAP_TILE_URL?.trim();
+const configuredAttribution = import.meta.env.VITE_MAP_TILE_ATTRIBUTION?.trim();
+const configuredMaxNativeZoom = Number(import.meta.env.VITE_MAP_TILE_MAX_NATIVE_ZOOM);
+
+const configuredSource = configuredUrl
+  ? {
+      url: configuredUrl,
+      attribution: configuredAttribution || "Map tiles",
+      maxNativeZoom: Number.isFinite(configuredMaxNativeZoom) ? configuredMaxNativeZoom : 18,
+    }
+  : undefined;
+
 export const mapTileSources = [
+  ...(configuredSource ? [configuredSource] : []),
   {
     url: "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',

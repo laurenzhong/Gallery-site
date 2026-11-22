@@ -17,9 +17,11 @@ function routeLabel(route: StoryRoute) {
 }
 
 function routeHref(route: StoryRoute) {
-  if (route.id === "maclehose-section-2") return "/experiments/trail-route";
-  if (route.id === "gpx-trail-demo") return "/experiments/trail-route-gpx-demo";
-  return "/experiments/trail-route";
+  if (storyRoutes.includes(route)) {
+    if (route.id === "maclehose-section-2") return "/experiments/trail-route";
+    if (route.id === "gpx-trail-demo") return "/experiments/trail-route-gpx-demo";
+  }
+  return `/experiments/trail-route?route=${encodeURIComponent(route.id)}`;
 }
 
 export function MapHubDemo({ photos, onOpen }: MapHubDemoProps) {
@@ -78,7 +80,7 @@ export function MapHubDemo({ photos, onOpen }: MapHubDemoProps) {
             <small>OpenStreetMap · CMS archive + walking routes</small>
           </div>
           <div className="map-hub-demo__map-frame">
-            <PhotoMapExperiment photos={photos} onOpen={onOpen} compact />
+            <PhotoMapExperiment photos={photos} onOpen={onOpen} compact showRoutesOnly={mode === "routes"} />
           </div>
         </div>
 
@@ -94,7 +96,7 @@ export function MapHubDemo({ photos, onOpen }: MapHubDemoProps) {
                 <div><strong>{gpsCount}</strong><span>with GPS</span></div>
                 <div><strong>{placeCount}</strong><span>places</span></div>
               </div>
-              <p className="map-hub-demo__copy">Select a pin to open the photograph. Pins without GPS stay grouped as approximate locations until they are curated.</p>
+              <p className="map-hub-demo__copy">Select a pin to open the photograph. Photos without a verified location remain in the index and will enter the map after they are curated.</p>
               <a className="map-hub-demo__text-link" href="/photography">Open the full archive <span aria-hidden="true">↗</span></a>
             </>
           ) : (

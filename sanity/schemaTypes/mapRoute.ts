@@ -1,5 +1,5 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
-import { CollapsedTrackPointsInput, MapRoutePhotosInput, MapRouteStopsInput } from "../components/MapRouteInputs";
+import { CollapsedTrackPointsInput, MapRoutePhotosInput, MapRouteStatsInput, MapRouteStopsInput } from "../components/MapRouteInputs";
 
 const coordinateFields = [
   defineField({ name: "latitude", title: "纬度", type: "number", validation: (Rule) => Rule.required().min(-90).max(90) }),
@@ -28,6 +28,7 @@ export const mapRouteType = defineType({
         defineField({ name: "duration", title: "用时", type: "string" }),
         defineField({ name: "ascent", title: "累计爬升（m）", type: "string" }),
       ],
+      components: { input: MapRouteStatsInput },
     }),
     defineField({
       name: "trackFile",
@@ -76,7 +77,7 @@ export const mapRouteType = defineType({
     { title: "名称", name: "titleAsc", by: [{ field: "title", direction: "asc" }] },
   ],
   preview: {
-    select: { title: "title", visible: "isVisible", stops: "stops", media: "trackFile" },
-    prepare: ({ title, visible, stops, media }) => ({ title, subtitle: `${visible === false ? "已隐藏" : "地图显示"} · ${stops?.length ?? 0} 个标注点`, media }),
+    select: { title: "title", visible: "isVisible", stops: "stops", trackPoints: "trackPoints", stats: "stats", media: "trackFile" },
+    prepare: ({ title, visible, stops, trackPoints, stats, media }) => ({ title, subtitle: `${visible === false ? "已隐藏" : "地图显示"} · ${trackPoints?.length ?? 0} 个轨迹点 · ${stats?.distance ?? "—"} km · ${stats?.ascent ?? "—"} m 爬升 · ${stops?.length ?? 0} 个标注点`, media }),
   },
 });

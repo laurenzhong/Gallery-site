@@ -127,6 +127,9 @@ const photoDocs = photos.map((photo, index) => {
     category: ref(categoryIdByTitle.get(photo.category)),
     date: meta?.date,
     location: meta?.location,
+    ...(Number.isFinite(photo.latitude) && Number.isFinite(photo.longitude)
+      ? { geo: { latitude: photo.latitude, longitude: photo.longitude, source: "exif", visibility: "exact" } }
+      : {}),
     camera: meta?.camera,
     lens: meta?.lens,
     aperture: meta?.aperture,

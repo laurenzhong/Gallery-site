@@ -1,24 +1,21 @@
 import { useEffect, useState } from "react";
 import { storyRoutes } from "../data/routes";
-import type { RouteCoordinate, StoryRoute } from "../data/storyRoutes";
+import type { RouteCoordinate, StoryRoute, StoryRouteStop } from "../data/storyRoutes";
 import { cmsMapRoutesQuery, type CmsMapRoute } from "./cmsQueries";
+import { calculateMapRouteStats, formatRouteAscent, formatRouteDistance, formatRouteDuration, parseGpxTrack, trackPointsFromCoordinates, type MapRouteTrackPoint } from "./mapRouteStats";
 import { fetchCms, isSanityConfigured } from "./sanity";
 
 function validCoordinate(latitude: unknown, longitude: unknown): latitude is number {
   return typeof latitude === "number" && Number.isFinite(latitude) && Math.abs(latitude) <= 90 && typeof longitude === "number" && Number.isFinite(longitude) && Math.abs(longitude) <= 180;
 }
 
-function parseGpx(xml: string): RouteCoordinate[] {
-  if (typeof DOMParser === "undefined") return [];
-  const document = new DOMParser().parseFromString(xml, "application/xml");
-  return Array.from(document.querySelectorAll("trkpt")).flatMap((point) => {
-    const latitude = Number(point.getAttribute("lat"));
-    const longitude = Number(point.getAttribute("lon"));
-    return validCoordinate(latitude, longitude) ? [[latitude, longitude] as RouteCoordinate] : [];
-  });
+type LoadedRouteTrack = { coordinates: RouteCoordinate[]; points: MapRouteTrackPoint[] };
+
+function loadedTrack(points: MapRouteTrackPoint[]): LoadedRouteTrack {
+  return { coordinates: points.map((point) => [point.latitude, point.longitude] as RouteCoordinate), points };
 }
 
-async function routeTrack(route: CmsMapRoute): Promise<RouteCoordinate[]> {
+async function routeTrack(route: CmsMapRoute): Promise<LoadedRouteTrack> {
   if (route.trackUrl) {
     try {
       const trackUrl = typeof window !== "undefined" && new URL(route.trackUrl).origin !== window.location.origin
@@ -26,20 +23,21 @@ async function routeTrack(route: CmsMapRoute): Promise<RouteCoordinate[]> {
         : route.trackUrl;
       const response = await fetch(trackUrl);
       if (response.ok) {
-        const track = parseGpx(await response.text());
-        if (track.length >= 2) return track;
+        const points = parseGpxTrack(await response.text());
+        if (points.length >= 2) return loadedTrack(points);
       }
     } catch {
       // Fall back to manually entered track points below.
     }
   }
-  const manualTrack = (route.trackPoints ?? []).flatMap((point) => validCoordinate(point.latitude, point.longitude) ? [[point.latitude, point.longitude] as RouteCoordinate] : []);
-  if (manualTrack.length >= 2) return manualTrack;
+  const manualPoints = trackPointsFromCoordinates(route.trackPoints ?? []);
+  if (manualPoints.length >= 2) return loadedTrack(manualPoints);
 
   // Sanity's file CDN does not expose every GPX asset with browser CORS
   // headers. Keep the public map identical to the editorial route when the
   // GPX proxy is unavailable instead of reducing it to a few stop points.
-  return storyRoutes.find((candidate) => candidate.id === route.sourceRouteId || candidate.id === route.id)?.track ?? manualTrack;
+  const fallbackTrack = storyRoutes.find((candidate) => candidate.id === route.sourceRouteId || candidate.id === route.id)?.track ?? [];
+  return loadedTrack(fallbackTrack.map(([latitude, longitude]) => ({ latitude, longitude })));
 }
 
 function boundsFor(track: RouteCoordinate[], stops: NonNullable<CmsMapRoute["stops"]>): [[number, number], [number, number]] {
@@ -65,19 +63,18 @@ function nearestTrackIndex(track: RouteCoordinate[], coordinate: RouteCoordinate
 }
 
 async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
-  const track = await routeTrack(route);
+  const loaded = await routeTrack(route);
+  const track = loaded.coordinates;
   const rawStops = (route.stops ?? []).filter((stop) => stop.title && (
     (stop.coordinate?.length === 2 && validCoordinate(stop.coordinate[0], stop.coordinate[1])) ||
     (Number.isInteger(stop.trackIndex) && track.length > 0)
   ));
-  if (track.length < 2 && rawStops.length < 2) return null;
-  const stops = rawStops.flatMap((stop, index) => {
+  const namedStops = rawStops.flatMap((stop, index): StoryRouteStop[] => {
     const explicitCoordinate = stop.coordinate?.length === 2 && validCoordinate(stop.coordinate[0], stop.coordinate[1])
       ? stop.coordinate as RouteCoordinate
       : undefined;
-    const indexedCoordinate = Number.isInteger(stop.trackIndex) && track.length > 0
-      ? track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)]
-      : undefined;
+    const trackIndex = stop.trackIndex ?? -1;
+    const indexedCoordinate = Number.isInteger(trackIndex) ? track[trackIndex] : undefined;
     const coordinate = indexedCoordinate ?? explicitCoordinate;
     if (!coordinate) return [];
     return {
@@ -85,7 +82,7 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
       title: stop.title as string,
       localTitle: stop.localTitle,
       coordinate,
-      trackIndex: stop.trackIndex ?? nearestTrackIndex(track, coordinate),
+      trackIndex: indexedCoordinate ? trackIndex : nearestTrackIndex(track, coordinate),
       distanceKm: stop.distanceKm,
       time: stop.time,
       elevationM: stop.elevationM,
@@ -93,14 +90,28 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
       photoIds: stop.photoIds,
     };
   });
+  if (track.length < 2 && namedStops.length < 2) return null;
+  const stops = namedStops.length ? namedStops : [0, track.length - 1].map((trackIndex, index): StoryRouteStop => ({
+    id: `${route.id}-${index === 0 ? "start" : "finish"}`,
+    title: index === 0 ? "Start" : "Finish",
+    coordinate: track[trackIndex],
+    trackIndex,
+    elevationM: loaded.points[trackIndex].elevationM,
+  }));
   const safeTrack = track.length >= 2 ? track : stops.map((stop) => stop.coordinate);
+  const calculated = loaded.points.length >= 2 ? calculateMapRouteStats(loaded.points) : undefined;
+  const calculatedDuration = formatRouteDuration(calculated?.durationSeconds);
   return {
     id: route.sourceRouteId ?? `cms-${route.id}`,
     kicker: "CMS map route",
     title: route.title,
     subtitle: route.subtitle ?? "A route from the map archive.",
     introLabel: `${stops.length.toString().padStart(2, "0")} map stops / CMS route`,
-    stats: { distance: route.stats?.distance ?? "—", duration: route.stats?.duration ?? "—", ascent: route.stats?.ascent ?? "—" },
+    stats: {
+      distance: route.stats?.distance || (calculated ? formatRouteDistance(calculated.distanceKm) : "—"),
+      duration: route.stats?.duration || calculatedDuration || "—",
+      ascent: route.stats?.ascent || (calculated?.ascentM === undefined ? "—" : formatRouteAscent(calculated.ascentM)),
+    },
     track: safeTrack,
     stops,
     bounds: boundsFor(safeTrack, stops),

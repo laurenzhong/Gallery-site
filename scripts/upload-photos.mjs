@@ -326,6 +326,7 @@ async function readPhotoExif(localPath) {
       iso: typeof exifTags.ISO === "number" && Number.isFinite(exifTags.ISO) ? exifTags.ISO : undefined,
       focalLength: formatFocalLength(exifTags.FocalLength),
       location: formatLocation(gps),
+      ...(gps?.latitude != null && gps?.longitude != null ? { geo: { latitude: gps.latitude, longitude: gps.longitude, source: "exif", visibility: "exact" } } : {}),
     };
 
     return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== undefined));

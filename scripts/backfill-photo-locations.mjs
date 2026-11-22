@@ -65,20 +65,35 @@ const staticPhotos = JSON.parse(source.slice(start, end));
 const coordinatesByFilename = new Map(
   staticPhotos
     .filter((photo) => Number.isFinite(photo.latitude) && Number.isFinite(photo.longitude))
-    .map((photo) => [photo.filename, `${photo.latitude.toFixed(6)}, ${photo.longitude.toFixed(6)}`]),
+    .map((photo) => [photo.filename, { latitude: photo.latitude, longitude: photo.longitude, text: `${photo.latitude.toFixed(6)}, ${photo.longitude.toFixed(6)}` }]),
 );
 
+function parseCoordinateText(value) {
+  const match = typeof value === "string" ? value.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)$/) : null;
+  if (!match) return undefined;
+  const first = Number(match[1]);
+  const second = Number(match[2]);
+  if (Math.abs(first) <= 90 && Math.abs(second) <= 180) return { latitude: first, longitude: second };
+  if (Math.abs(second) <= 90 && Math.abs(first) <= 180) return { latitude: second, longitude: first };
+  return undefined;
+}
+
 const query = encodeURIComponent(
-  `*[_type == "photo" && defined(image.asset) && isHidden != true]{ _id, sourceFilename, location }`,
+  `*[_type == "photo" && defined(image.asset) && isHidden != true]{ _id, sourceFilename, location, geo }`,
 );
 const result = await request("GET", `/query/${dataset}?query=${query}`);
 const patches = result.result
-  .filter((photo) => coordinatesByFilename.has(photo.sourceFilename) && !photo.location)
-  .map((photo) => ({
-    patch: { id: photo._id, set: { location: coordinatesByFilename.get(photo.sourceFilename) } },
-    sourceFilename: photo.sourceFilename,
-    location: coordinatesByFilename.get(photo.sourceFilename),
-  }));
+  .flatMap((photo) => {
+    if (photo.geo) return [];
+    const staticCoordinate = coordinatesByFilename.get(photo.sourceFilename);
+    const coordinate = staticCoordinate ?? parseCoordinateText(photo.location);
+    if (!coordinate) return [];
+    return [{
+      patch: { id: photo._id, set: { ...(staticCoordinate ? { location: staticCoordinate.text } : {}), geo: { latitude: coordinate.latitude, longitude: coordinate.longitude, source: staticCoordinate ? "exif" : "manual", visibility: "exact" } } },
+      sourceFilename: photo.sourceFilename,
+      location: staticCoordinate?.text ?? `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
+    }];
+  });
 
 console.log(`Found ${patches.length} visible CMS photos with EXIF coordinates missing from location.`);
 for (const patch of patches) console.log(`  ${patch.sourceFilename} -> ${patch.location}`);

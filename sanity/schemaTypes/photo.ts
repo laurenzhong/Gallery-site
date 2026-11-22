@@ -346,7 +346,34 @@ export const photoType = defineType({
       title: "拍摄地点",
       type: "string",
       fieldset: "identity",
-      description: "导入照片时会自动写入 GPS 坐标，格式为“纬度, 经度”；没有 GPS 时可手动补充。",
+      description: "人类可读的拍摄地点，例如“浙江台州 · 石塘”。坐标请填写下方的地图位置。",
+    }),
+    defineField({
+      name: "geo",
+      title: "地图位置",
+      type: "object",
+      fieldset: "placement",
+      options: { collapsible: true, collapsed: false },
+      description: "用于地图展示的结构化坐标。导入照片时会自动记录 EXIF 来源；人工移动照片时会记录为手动位置。",
+      fields: [
+        defineField({ name: "latitude", title: "纬度", type: "number", validation: (Rule) => Rule.min(-90).max(90) }),
+        defineField({ name: "longitude", title: "经度", type: "number", validation: (Rule) => Rule.min(-180).max(180) }),
+        defineField({
+          name: "source",
+          title: "坐标来源",
+          type: "string",
+          options: { list: [{ title: "照片 EXIF", value: "exif" }, { title: "人工标注", value: "manual" }, { title: "估算位置", value: "estimated" }] },
+          initialValue: "manual",
+        }),
+        defineField({ name: "accuracyM", title: "精度（米，可选）", type: "number", validation: (Rule) => Rule.min(0) }),
+        defineField({
+          name: "visibility",
+          title: "公开精度",
+          type: "string",
+          options: { list: [{ title: "精确位置", value: "exact" }, { title: "显示近似区域", value: "approximate" }, { title: "不在公开地图显示", value: "private" }], layout: "radio" },
+          initialValue: "exact",
+        }),
+      ],
     }),
     defineField({
       name: "camera",
@@ -475,6 +502,10 @@ export const photoType = defineType({
       hidden: "isHidden",
       hero: "isHero",
       order: "sortOrder",
+      width: "dimensions.width",
+      height: "dimensions.height",
+      assetWidth: "image.asset.metadata.dimensions.width",
+      assetHeight: "image.asset.metadata.dimensions.height",
       media: "image",
     },
     prepare({
@@ -485,10 +516,32 @@ export const photoType = defineType({
       hidden,
       hero,
       order,
+      width,
+      height,
+      assetWidth,
+      assetHeight,
       media,
     }) {
       const status = hidden ? "已隐藏" : hero ? "主视觉备选" : "正常显示";
+      const assetDimensions = media?.asset?._ref?.match(/-(\d+)x(\d+)-[^-]+$/);
+      const numericWidth = Number(assetWidth ?? assetDimensions?.[1] ?? width);
+      const numericHeight = Number(assetHeight ?? assetDimensions?.[2] ?? height);
+      const orientation = numericWidth && numericHeight
+        ? numericWidth === numericHeight
+          ? "方形"
+          : numericWidth > numericHeight
+            ? "横拍"
+            : "竖拍"
+        : "比例未知";
+      const ratio = numericWidth && numericHeight
+        ? (() => {
+            const gcd = (left: number, right: number): number => right ? gcd(right, left % right) : left;
+            const divisor = gcd(Math.round(numericWidth), Math.round(numericHeight));
+            return `${Math.round(numericWidth / divisor)}:${Math.round(numericHeight / divisor)}`;
+          })()
+        : null;
       const details = [
+        `${orientation}${ratio ? ` · ${ratio}` : ""}`,
         subjects?.length ? subjects.join("、") : category,
         status,
         order != null ? `排序 ${order}` : null,

@@ -7,8 +7,9 @@ import { addMapBasemap } from "../../src/lib/mapBasemap";
 
 type Coordinate = [number, number];
 type Album = { _id: string; title: string };
-type Photo = { _id: string; title?: string; sourceFilename?: string; imageUrl?: string; location?: string; album?: { _id?: string; title?: string } };
-type MapRoute = { _id: string; title: string; color?: string; trackUrl?: string; trackPoints?: { latitude?: number; longitude?: number }[] };
+type Photo = { _id: string; title?: string; sourceFilename?: string; imageUrl?: string; location?: string; geo?: { latitude?: number; longitude?: number; source?: "exif" | "manual" | "estimated"; visibility?: "exact" | "approximate" | "private" }; album?: { _id?: string; title?: string } };
+type MapRouteStop = { _key: string; title?: string };
+type MapRoute = { _id: string; title: string; color?: string; trackUrl?: string; trackPoints?: { latitude?: number; longitude?: number }[]; stops?: MapRouteStop[] };
 type LocatedRoute = MapRoute & { track: Coordinate[] };
 
 async function loadRoute(route: MapRoute, signal: AbortSignal): Promise<LocatedRoute> {
@@ -52,6 +53,12 @@ function parseLocation(value: string | undefined): Coordinate | undefined {
   return undefined;
 }
 
+function photoCoordinate(photo: Pick<Photo, "location" | "geo">): Coordinate | undefined {
+  const geo = photo.geo;
+  if (validCoordinate(geo?.latitude, geo?.longitude)) return [geo.latitude, geo.longitude];
+  return parseLocation(photo.location);
+}
+
 function formatLocation([latitude, longitude]: Coordinate) {
   return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
 }
@@ -85,6 +92,8 @@ export function PhotoMapEditorDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasAutoFitRef = useRef(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photoTotal, setPhotoTotal] = useState(0);
+  const [photoOffset, setPhotoOffset] = useState(0);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [routes, setRoutes] = useState<LocatedRoute[]>([]);
   const [routesLoading, setRoutesLoading] = useState(true);
@@ -95,7 +104,13 @@ export function PhotoMapEditorDashboard() {
   const [longitudeInput, setLongitudeInput] = useState("");
   const [albumId, setAlbumId] = useState("");
   const [search, setSearch] = useState("");
+  const [photoFilter, setPhotoFilter] = useState<"all" | "located" | "unlocated">("all");
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
+  const [bulkAlbumId, setBulkAlbumId] = useState("");
+  const [bulkRouteId, setBulkRouteId] = useState("");
+  const [bulkRouteStopKey, setBulkRouteStopKey] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
@@ -104,10 +119,13 @@ export function PhotoMapEditorDashboard() {
     setLoading(true);
     try {
       const [photoResult, albumResult] = await Promise.all([
-        client.fetch<Photo[]>(`*[_type == "photo" && isHidden != true && defined(image.asset)] | order(_updatedAt desc)[0...500]{ _id, title, sourceFilename, location, album->{_id, title}, "imageUrl": image.asset->url }`),
+        client.fetch<Photo[]>(`*[_type == "photo" && isHidden != true && defined(image.asset)] | order(_updatedAt desc)[0...500]{ _id, title, sourceFilename, location, geo, album->{_id, title}, "imageUrl": image.asset->url }`),
         client.fetch<Album[]>(`*[_type == "album" && isVisible != false] | order(sortOrder asc, title asc){ _id, title }`),
       ]);
+      const total = await client.fetch<number>(`count(*[_type == "photo" && isHidden != true && defined(image.asset)])`);
       setPhotos(photoResult);
+      setPhotoTotal(total);
+      setPhotoOffset(photoResult.length);
       setAlbums(albumResult);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "无法读取地图照片，请刷新重试。");
@@ -118,11 +136,26 @@ export function PhotoMapEditorDashboard() {
 
   useEffect(() => { void loadContent(); }, [loadContent]);
 
+  const loadMorePhotos = async () => {
+    if (loadingMore || photoOffset >= photoTotal) return;
+    setLoadingMore(true);
+    setError(undefined);
+    try {
+      const next = await client.fetch<Photo[]>(`*[_type == "photo" && isHidden != true && defined(image.asset)] | order(_updatedAt desc)[${photoOffset}...${photoOffset + 500}]{ _id, title, sourceFilename, location, geo, album->{_id, title}, "imageUrl": image.asset->url }`);
+      setPhotos((current) => [...current, ...next.filter((photo) => !current.some((item) => item._id === photo._id))]);
+      setPhotoOffset((current) => current + next.length);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "无法继续读取照片，请重试。");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     const controller = new AbortController();
     setRoutesLoading(true);
     setRoutesError(undefined);
-    void client.fetch<MapRoute[]>(`*[_type == "mapRoute" && isVisible != false] | order(_updatedAt desc){ _id, title, color, "trackUrl": trackFile.asset->url, trackPoints[]{ latitude, longitude } }`)
+    void client.fetch<MapRoute[]>(`*[_type == "mapRoute" && isVisible != false] | order(_updatedAt desc){ _id, title, color, "trackUrl": trackFile.asset->url, trackPoints[]{ latitude, longitude }, stops[]{ _key, title } }`)
       .then(async (records) => {
         const results = await Promise.allSettled(records.map((route) => loadRoute(route, controller.signal)));
         if (controller.signal.aborted) return;
@@ -172,7 +205,7 @@ export function PhotoMapEditorDashboard() {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || loading || routesLoading || coordinate || hasAutoFitRef.current) return;
-    const points = [...photos.flatMap((photo) => { const point = parseLocation(photo.location); return point ? [point] : []; }), ...routes.flatMap((route) => route.track)];
+    const points = [...photos.flatMap((photo) => { const point = photoCoordinate(photo); return point ? [point] : []; }), ...routes.flatMap((route) => route.track)];
     if (points.length) {
       map.fitBounds(L.latLngBounds(points), { padding: [24, 24], maxZoom: 13 });
       hasAutoFitRef.current = true;
@@ -182,14 +215,17 @@ export function PhotoMapEditorDashboard() {
   const removeMarkerById = useCallback(async (photoId: string) => {
     setBusy(true); setMessage(undefined); setError(undefined);
     try {
-      await client.patch(photoId).unset(["location"]).commit();
-      setPhotos((current) => current.map((photo) => photo._id === photoId ? { ...photo, location: undefined } : photo));
+      const selected = photos.find((photo) => photo._id === photoId);
+      const patch = client.patch(photoId).unset(["geo"]);
+      if (selected && parseLocation(selected.location)) patch.unset(["location"]);
+      await patch.commit();
+      setPhotos((current) => current.map((photo) => photo._id === photoId ? { ...photo, geo: undefined, ...(parseLocation(photo.location) ? { location: undefined } : {}) } : photo));
       if (selectedPhotoId === photoId) setCoordinate(undefined);
       setMessage("已删除地图标记，照片仍保留在照片库中。");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "删除地图标记失败，请重试。");
     } finally { setBusy(false); }
-  }, [client, selectedPhotoId]);
+  }, [client, photos, selectedPhotoId]);
 
   const deletePhotoById = useCallback(async (photoId: string) => {
     const selected = photos.find((photo) => photo._id === photoId);
@@ -210,7 +246,7 @@ export function PhotoMapEditorDashboard() {
     const map = mapRef.current;
     if (!markers || !map) return;
     markers.clearLayers();
-    const located = photos.flatMap((photo) => { const point = parseLocation(photo.location); return point ? [{ photo, point }] : []; });
+    const located = photos.flatMap((photo) => { const point = photoCoordinate(photo); return point ? [{ photo, point }] : []; });
     located.forEach(({ photo, point }) => {
       const marker = L.circleMarker(point, { radius: photo._id === selectedPhotoId ? 10 : 7, color: "#fff", weight: 2, fillColor: photo._id === selectedPhotoId ? "#2563eb" : "#b42318", fillOpacity: 0.95 });
       marker.bindTooltip(photoTooltip(photo), { direction: "top", sticky: true, opacity: 1, className: "photo-map-thumbnail-tooltip" });
@@ -228,10 +264,112 @@ export function PhotoMapEditorDashboard() {
 
   const filteredPhotos = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return photos.filter((photo) => !query || [photo.title, photo.sourceFilename, photo.album?.title, photo.location].some((value) => value?.toLowerCase().includes(query)));
-  }, [photos, search]);
+    return photos.filter((photo) => {
+      const located = Boolean(photoCoordinate(photo));
+      if (photoFilter === "located" && !located) return false;
+      if (photoFilter === "unlocated" && located) return false;
+      return !query || [photo.title, photo.sourceFilename, photo.album?.title, photo.location].some((value) => value?.toLowerCase().includes(query));
+    });
+  }, [photoFilter, photos, search]);
 
-  const locatedPhotoCount = useMemo(() => photos.filter((photo) => Boolean(parseLocation(photo.location))).length, [photos]);
+  const locatedPhotoCount = useMemo(() => photos.filter((photo) => Boolean(photoCoordinate(photo))).length, [photos]);
+  const legacyCoordinatePhotos = useMemo(() => photos.filter((photo) => !photo.geo && Boolean(parseLocation(photo.location))), [photos]);
+  const bulkSelectedPhotos = useMemo(() => photos.filter((photo) => bulkSelectedIds.includes(photo._id)), [bulkSelectedIds, photos]);
+  const bulkRouteStops = useMemo(() => routes.find((route) => route._id === bulkRouteId)?.stops ?? [], [bulkRouteId, routes]);
+  const toggleBulkPhoto = (photoId: string) => setBulkSelectedIds((current) => current.includes(photoId) ? current.filter((id) => id !== photoId) : [...current, photoId]);
+  const clearBulkSelection = () => setBulkSelectedIds([]);
+
+  const applyBulkVisibility = async (visibility: "exact" | "approximate" | "private") => {
+    const located = bulkSelectedPhotos.filter((photo) => photoCoordinate(photo));
+    if (!located.length || busy) return;
+    setBusy(true); setMessage(undefined); setError(undefined);
+    try {
+      const transaction = client.transaction();
+      for (const photo of located) {
+        const point = photoCoordinate(photo);
+        if (!point) continue;
+        transaction.patch(photo._id, (patch) => patch
+          .setIfMissing({ geo: { latitude: point[0], longitude: point[1], source: "manual" } })
+          .set({ "geo.visibility": visibility }));
+      }
+      await transaction.commit();
+      const ids = new Set(located.map((photo) => photo._id));
+      setPhotos((current) => current.map((photo) => {
+        if (!ids.has(photo._id)) return photo;
+        const point = photoCoordinate(photo);
+        return point ? { ...photo, geo: { latitude: point[0], longitude: point[1], ...photo.geo, visibility } } : photo;
+      }));
+      setMessage(`已批量设置 ${located.length} 张照片的地图精度为“${visibility === "exact" ? "精确" : visibility === "approximate" ? "约略" : "私密"}”。${located.length < bulkSelectedPhotos.length ? `另有 ${bulkSelectedPhotos.length - located.length} 张未定位照片已跳过。` : ""}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量设置地图精度失败，请重试。");
+    } finally { setBusy(false); }
+  };
+
+  const applyBulkAlbum = async () => {
+    if (!bulkSelectedPhotos.length || busy) return;
+    setBusy(true); setMessage(undefined); setError(undefined);
+    try {
+      await Promise.all(bulkSelectedPhotos.map((photo) => {
+        const patch = client.patch(photo._id);
+        if (bulkAlbumId) patch.set({ album: { _type: "reference", _ref: bulkAlbumId } });
+        else patch.unset(["album"]);
+        return patch.commit();
+      }));
+      const album = albums.find((item) => item._id === bulkAlbumId);
+      const ids = new Set(bulkSelectedIds);
+      setPhotos((current) => current.map((photo) => ids.has(photo._id) ? { ...photo, album: album ? { _id: album._id, title: album.title } : undefined } : photo));
+      setMessage(bulkAlbumId ? `已将 ${bulkSelectedPhotos.length} 张照片关联到“${album?.title ?? "所选相册"}”。` : `已清除 ${bulkSelectedPhotos.length} 张照片的相册关联。`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量关联相册失败，请重试。");
+    } finally { setBusy(false); }
+  };
+
+  const applyBulkRouteStop = async () => {
+    if (!bulkSelectedPhotos.length || !bulkRouteId || !bulkRouteStopKey || busy) return;
+    setBusy(true); setMessage(undefined); setError(undefined);
+    try {
+      const route = await client.fetch<{ stops?: { _key: string; title?: string; photos?: { _ref?: string }[] }[] } | null>(`*[_type == "mapRoute" && _id == $routeId][0]{ stops[]{ _key, title, photos[]{ _ref } } }`, { routeId: bulkRouteId });
+      const selectedRefs = bulkSelectedPhotos.map((photo) => photo._id);
+      const selectedSet = new Set(selectedRefs);
+      const stopIndex = (route?.stops ?? []).findIndex((stop) => stop._key === bulkRouteStopKey);
+      if (stopIndex < 0) throw new Error("路线标注点已不存在，请刷新后重试。");
+      const targetStop = route?.stops?.[stopIndex];
+      const existing = (targetStop?.photos ?? []).map((photo) => photo._ref).filter((id): id is string => Boolean(id));
+      const nextIds = Array.from(new Set([...existing, ...selectedRefs]));
+      await client.patch(bulkRouteId).set({ [`stops[${stopIndex}].photos`]: nextIds.map((id) => ({ _type: "reference", _ref: id })) }).commit();
+      const selectedRoute = routes.find((routeItem) => routeItem._id === bulkRouteId);
+      const selectedStop = selectedRoute?.stops?.find((stop) => stop._key === bulkRouteStopKey);
+      setMessage(`已将 ${selectedSet.size} 张照片关联到“${selectedRoute?.title ?? "所选路线"} · ${selectedStop?.title ?? "所选标注点"}”。`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量关联路线标注点失败，请重试。");
+    } finally { setBusy(false); }
+  };
+
+  const migrateLegacyCoordinates = async () => {
+    if (!legacyCoordinatePhotos.length || busy) return;
+    if (!window.confirm(`将 ${legacyCoordinatePhotos.length} 张照片的旧坐标迁移到结构化地图位置吗？原有文字地点会保留。`)) return;
+    setBusy(true);
+    setMessage(undefined);
+    setError(undefined);
+    try {
+      await Promise.all(legacyCoordinatePhotos.map(async (photo) => {
+        const point = parseLocation(photo.location);
+        if (!point) return;
+        await client.patch(photo._id).set({ geo: { latitude: point[0], longitude: point[1], source: "manual", visibility: "exact" } }).commit();
+      }));
+      const migratedIds = new Set(legacyCoordinatePhotos.map((photo) => photo._id));
+      setPhotos((current) => current.map((photo) => {
+        if (!migratedIds.has(photo._id)) return photo;
+        const point = parseLocation(photo.location);
+        return point ? { ...photo, geo: { latitude: point[0], longitude: point[1], source: "manual", visibility: "exact" } } : photo;
+      }));
+      setMessage(`已迁移 ${legacyCoordinatePhotos.length} 张照片的旧地图坐标。`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "旧坐标迁移失败，请重试。");
+    } finally {
+      setBusy(false);
+    }
+  };
   const goToInputCoordinate = () => {
     const latitude = Number(latitudeInput);
     const longitude = Number(longitudeInput);
@@ -248,8 +386,12 @@ export function PhotoMapEditorDashboard() {
     if (!selectedPhotoId || !coordinate) return;
     setBusy(true); setMessage(undefined); setError(undefined);
     try {
-      await client.patch(selectedPhotoId).set({ location: formatLocation(coordinate) }).commit();
-      setPhotos((current) => current.map((photo) => photo._id === selectedPhotoId ? { ...photo, location: formatLocation(coordinate) } : photo));
+      const [latitude, longitude] = coordinate;
+      await client.patch(selectedPhotoId)
+        .setIfMissing({ geo: { visibility: "exact" } })
+        .set({ "geo.latitude": latitude, "geo.longitude": longitude, "geo.source": "manual" })
+        .commit();
+      setPhotos((current) => current.map((photo) => photo._id === selectedPhotoId ? { ...photo, geo: { visibility: "exact", ...photo.geo, latitude, longitude, source: "manual" } } : photo));
       setMessage("已更新选中照片的位置。");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "照片位置更新失败，请重试。");
@@ -260,8 +402,11 @@ export function PhotoMapEditorDashboard() {
     if (!selectedPhotoId) return;
     setBusy(true); setMessage(undefined); setError(undefined);
     try {
-      await client.patch(selectedPhotoId).unset(["location"]).commit();
-      setPhotos((current) => current.map((photo) => photo._id === selectedPhotoId ? { ...photo, location: undefined } : photo));
+      const selected = photos.find((photo) => photo._id === selectedPhotoId);
+      const patch = client.patch(selectedPhotoId).unset(["geo"]);
+      if (selected && parseLocation(selected.location)) patch.unset(["location"]);
+      await patch.commit();
+      setPhotos((current) => current.map((photo) => photo._id === selectedPhotoId ? { ...photo, geo: undefined, ...(parseLocation(photo.location) ? { location: undefined } : {}) } : photo));
       setCoordinate(undefined);
       setMessage("已删除地图标记，照片仍保留在照片库中。");
     } catch (reason) {
@@ -302,13 +447,13 @@ export function PhotoMapEditorDashboard() {
         image: { _type: "image", asset: { _type: "reference", _ref: asset._id } },
         sourceFilename: file.name,
         altText: title,
-        location: formatLocation(finalCoordinate),
+        geo: { latitude: finalCoordinate[0], longitude: finalCoordinate[1], source: gpsCoordinate ? "exif" : "manual", visibility: "exact" },
         isHidden: false,
         isHero: false,
         isFeatured: false,
         ...(albumId ? { album: { _type: "reference", _ref: albumId } } : {}),
       });
-      setPhotos((current) => [{ ...created, _id: created._id, imageUrl: asset.url, location: formatLocation(finalCoordinate) }, ...current]);
+      setPhotos((current) => [{ ...created, _id: created._id, imageUrl: asset.url, geo: { latitude: finalCoordinate[0], longitude: finalCoordinate[1], source: gpsCoordinate ? "exif" : "manual", visibility: "exact" } }, ...current]);
       setSelectedPhotoId(created._id);
       setCoordinate(finalCoordinate);
       setMessage(gpsCoordinate ? "照片已上传，并使用照片 GPS 位置。" : "照片已上传，并使用地图点击位置。");
@@ -325,7 +470,7 @@ export function PhotoMapEditorDashboard() {
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 16, alignItems: "start" }}>
       <div style={{ display: "grid", gap: 8 }}>
         <div ref={mapElementRef} style={{ height: 620, minHeight: 420, border: "1px solid #cbd5e1", borderRadius: 8, overflow: "hidden", background: "#e5eef5" }} />
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", color: "#64748b", fontSize: 12 }}><span>已定位照片：{locatedPhotoCount} / {photos.length} · {routesLoading ? "正在读取路线…" : `路线：${routes.length}`}</span><button type="button" onClick={showWorld} style={{ minHeight: 32, padding: "0 10px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#475569", cursor: "pointer" }}>显示全球地图</button></div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", color: "#64748b", fontSize: 12 }}><span>已定位照片：{locatedPhotoCount} / 已加载 {photos.length}{photoTotal ? ` / 共 ${photoTotal}` : ""} · {routesLoading ? "正在读取路线…" : `路线：${routes.length}`}</span><button type="button" onClick={showWorld} style={{ minHeight: 32, padding: "0 10px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#475569", cursor: "pointer" }}>显示全球地图</button></div>
         {routes.length ? <nav aria-label="地图路线" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {routes.map((route, index) => <button key={route._id} type="button" onClick={() => mapRef.current?.fitBounds(L.latLngBounds(route.track), { padding: [32, 32], maxZoom: 15 })} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 32, padding: "0 10px", border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#334155", cursor: "pointer", fontSize: 12 }}><span aria-hidden="true" style={{ width: 18, height: 4, borderRadius: 2, background: routeColor(route, index) }} />{route.title}</button>)}
         </nav> : null}
@@ -343,7 +488,22 @@ export function PhotoMapEditorDashboard() {
         <section style={{ padding: 14, border: "1px solid #e2e8f0", borderRadius: 8, background: "#fff" }}>
           <strong style={{ display: "block", marginBottom: 8 }}>移动已有照片</strong>
           <input value={search} onChange={(event) => setSearch(event.currentTarget.value)} placeholder="搜索照片或相册" style={{ boxSizing: "border-box", width: "100%", minHeight: 36, marginBottom: 8, padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: 5 }} />
-          <div style={{ maxHeight: 300, overflow: "auto", display: "grid", gap: 6 }}>{filteredPhotos.map((photo) => <button type="button" key={photo._id} onClick={() => { setSelectedPhotoId(photo._id); const point = parseLocation(photo.location); if (point) setCoordinate(point); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: 6, border: `1px solid ${selectedPhotoId === photo._id ? "#2563eb" : "#e2e8f0"}`, borderRadius: 5, background: selectedPhotoId === photo._id ? "#eff6ff" : "#fff", textAlign: "left", cursor: "pointer" }}><div style={{ width: 46, height: 38, flex: "0 0 auto", borderRadius: 3, overflow: "hidden", background: "#f1f5f9" }}>{photo.imageUrl ? <img src={`${photo.imageUrl}?w=120&q=70&auto=format`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}</div><span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#334155", fontSize: 12 }}>{photo.title || photo.sourceFilename || "未命名照片"}</span></button>)}</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }} aria-label="照片定位筛选">{([['all', `全部 ${photos.length}`], ['located', `已定位 ${locatedPhotoCount}`], ['unlocated', `未定位 ${photos.length - locatedPhotoCount}`]] as const).map(([value, label]) => <button type="button" key={value} onClick={() => setPhotoFilter(value)} style={{ minHeight: 30, padding: "0 9px", border: `1px solid ${photoFilter === value ? "#2563eb" : "#cbd5e1"}`, borderRadius: 999, background: photoFilter === value ? "#dbeafe" : "#fff", color: photoFilter === value ? "#1d4ed8" : "#475569", cursor: "pointer", fontSize: 11 }}>{label}</button>)}{legacyCoordinatePhotos.length ? <button type="button" onClick={() => void migrateLegacyCoordinates()} disabled={busy} style={{ minHeight: 30, padding: "0 9px", border: "1px solid #0f766e", borderRadius: 999, background: "#ccfbf1", color: "#0f766e", cursor: busy ? "wait" : "pointer", fontSize: 11 }}>{busy ? "正在迁移…" : `迁移旧坐标 ${legacyCoordinatePhotos.length}`}</button> : null}</div>
+          {bulkSelectedPhotos.length ? <div style={{ marginBottom: 8, padding: 9, border: "1px solid #bfdbfe", borderRadius: 6, background: "#eff6ff" }}>
+            <strong style={{ display: "block", marginBottom: 7, color: "#1e3a8a", fontSize: 12 }}>已选择 {bulkSelectedPhotos.length} 张照片</strong>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6, marginBottom: 6 }}>
+              <select value={bulkAlbumId} onChange={(event) => setBulkAlbumId(event.currentTarget.value)} disabled={busy} aria-label="批量关联相册" style={{ minHeight: 32, minWidth: 0, padding: "0 7px", border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", fontSize: 11 }}><option value="">不指定相册（清除关联）</option>{albums.map((album) => <option key={album._id} value={album._id}>{album.title}</option>)}</select>
+              <button type="button" onClick={() => void applyBulkAlbum()} disabled={busy} style={{ minHeight: 32, padding: "0 8px", border: "1px solid #2563eb", borderRadius: 4, background: "#fff", color: "#1d4ed8", cursor: busy ? "wait" : "pointer", fontSize: 11 }}>应用相册</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6, marginBottom: 6 }}>
+              <select value={bulkRouteId} onChange={(event) => { setBulkRouteId(event.currentTarget.value); setBulkRouteStopKey(""); }} disabled={busy} aria-label="批量关联路线" style={{ minHeight: 32, minWidth: 0, padding: "0 7px", border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", fontSize: 11 }}><option value="">选择路线</option>{routes.map((route) => <option key={route._id} value={route._id}>{route.title}</option>)}</select>
+              <select value={bulkRouteStopKey} onChange={(event) => setBulkRouteStopKey(event.currentTarget.value)} disabled={busy || !bulkRouteId} aria-label="批量关联路线标注点" style={{ minHeight: 32, minWidth: 0, padding: "0 7px", border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", fontSize: 11 }}><option value="">选择标注点</option>{bulkRouteStops.map((stop) => <option key={stop._key} value={stop._key}>{stop.title || "未命名标注点"}</option>)}</select>
+              <button type="button" onClick={() => void applyBulkRouteStop()} disabled={busy || !bulkRouteId || !bulkRouteStopKey} style={{ minHeight: 32, padding: "0 8px", border: "1px solid #2563eb", borderRadius: 4, background: "#fff", color: "#1d4ed8", cursor: busy || !bulkRouteId || !bulkRouteStopKey ? "not-allowed" : "pointer", fontSize: 11 }}>应用路线</button>
+            </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}><button type="button" onClick={() => void applyBulkVisibility("exact")} disabled={busy} style={{ minHeight: 29, padding: "0 7px", border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", color: "#475569", cursor: busy ? "wait" : "pointer", fontSize: 11 }}>精确</button><button type="button" onClick={() => void applyBulkVisibility("approximate")} disabled={busy} style={{ minHeight: 29, padding: "0 7px", border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", color: "#475569", cursor: busy ? "wait" : "pointer", fontSize: 11 }}>约略</button><button type="button" onClick={() => void applyBulkVisibility("private")} disabled={busy} style={{ minHeight: 29, padding: "0 7px", border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", color: "#475569", cursor: busy ? "wait" : "pointer", fontSize: 11 }}>私密</button><button type="button" onClick={clearBulkSelection} disabled={busy} style={{ minHeight: 29, marginLeft: "auto", padding: "0 7px", border: 0, background: "transparent", color: "#64748b", cursor: busy ? "wait" : "pointer", fontSize: 11 }}>清除选择</button></div>
+          </div> : null}
+          <div style={{ maxHeight: 300, overflow: "auto", display: "grid", gap: 6 }}>{filteredPhotos.map((photo) => <div key={photo._id} style={{ display: "flex", gap: 5, alignItems: "center" }}><input type="checkbox" checked={bulkSelectedIds.includes(photo._id)} onChange={() => toggleBulkPhoto(photo._id)} aria-label={`选择${photo.title || photo.sourceFilename || "未命名照片"}`} /><button type="button" onClick={() => { setSelectedPhotoId(photo._id); const point = photoCoordinate(photo); setCoordinate(point); if (point) { setLatitudeInput(point[0].toFixed(6)); setLongitudeInput(point[1].toFixed(6)); } else { setLatitudeInput(""); setLongitudeInput(""); } }} style={{ display: "flex", flex: 1, gap: 8, alignItems: "center", padding: 6, border: `1px solid ${selectedPhotoId === photo._id ? "#2563eb" : "#e2e8f0"}`, borderRadius: 5, background: selectedPhotoId === photo._id ? "#eff6ff" : "#fff", textAlign: "left", cursor: "pointer" }}><div style={{ width: 46, height: 38, flex: "0 0 auto", borderRadius: 3, overflow: "hidden", background: "#f1f5f9" }}>{photo.imageUrl ? <img src={`${photo.imageUrl}?w=120&q=70&auto=format`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}</div><span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#334155", fontSize: 12 }}>{photo.title || photo.sourceFilename || "未命名照片"}</span></button></div>)}</div>
+          {photoOffset < photoTotal ? <button type="button" onClick={() => void loadMorePhotos()} disabled={loadingMore} style={{ minHeight: 36, marginTop: 8, border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#475569", cursor: loadingMore ? "wait" : "pointer", fontSize: 12 }}>{loadingMore ? "正在加载更多…" : `加载更多照片（剩余 ${photoTotal - photoOffset}）`}</button> : null}
           <button type="button" onClick={() => void updateSelectedPhoto()} disabled={!selectedPhotoId || !coordinate || busy} style={{ width: "100%", minHeight: 38, marginTop: 10, border: "1px solid #2563eb", borderRadius: 5, background: !selectedPhotoId || !coordinate || busy ? "#f1f5f9" : "#fff", color: !selectedPhotoId || !coordinate || busy ? "#94a3b8" : "#1d4ed8", cursor: !selectedPhotoId || !coordinate || busy ? "not-allowed" : "pointer", fontWeight: 700 }}>把选中照片移动到地图位置</button>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
             <button type="button" onClick={() => void removeSelectedMarker()} disabled={!selectedPhotoId || busy} style={{ minHeight: 36, border: "1px solid #cbd5e1", borderRadius: 5, background: "#fff", color: "#475569", cursor: !selectedPhotoId || busy ? "not-allowed" : "pointer", fontSize: 12 }}>删除地图标记</button>

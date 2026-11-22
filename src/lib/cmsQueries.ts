@@ -16,6 +16,13 @@ export type CmsPhoto = {
   isHero?: boolean;
   date?: string;
   location?: string;
+  geo?: {
+    latitude?: number;
+    longitude?: number;
+    source?: "exif" | "manual" | "estimated";
+    accuracyM?: number;
+    visibility?: "exact" | "approximate" | "private";
+  };
   camera?: string;
   lens?: string;
   aperture?: string;
@@ -242,7 +249,13 @@ export const cmsPhotosQuery = `*[
   "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height),
   isHero,
   date,
-  location,
+  "location": select(geo.visibility in ["private", "approximate"] => null, location),
+  "geo": geo {
+    source,
+    visibility,
+    "latitude": select(visibility == "private" => null, visibility == "approximate" => round(latitude, 2), latitude),
+    "longitude": select(visibility == "private" => null, visibility == "approximate" => round(longitude, 2), longitude)
+  },
   camera,
   lens,
   aperture,

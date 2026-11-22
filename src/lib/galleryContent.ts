@@ -122,13 +122,24 @@ function toPhoto(photo: CmsPhoto): Photo | null {
   const staticMatch = staticPhotos.find((item) => item.filename === photo.filename);
   const staticLatitude = staticMatch?.latitude;
   const staticLongitude = staticMatch?.longitude;
+  const visibility = photo.geo?.visibility ?? "exact";
+  const latitude = photo.geo?.latitude;
+  const longitude = photo.geo?.longitude;
+  const geoCoordinates = typeof latitude === "number" && Math.abs(latitude) <= 90 && typeof longitude === "number" && Math.abs(longitude) <= 180
+    ? { latitude, longitude }
+    : undefined;
   const manualCoordinates = coordinatesFromLocation(photo.location);
   // A CMS value always wins. If it is a named place rather than coordinates,
   // leave the photo unlocated instead of silently replacing the editor's value
   // with an older static EXIF coordinate.
-  const coordinates = manualCoordinates ?? (!photo.location?.trim() && Number.isFinite(staticLatitude) && Number.isFinite(staticLongitude)
+  const rawCoordinates = geoCoordinates ?? manualCoordinates ?? (visibility === "exact" && !photo.location?.trim() && Number.isFinite(staticLatitude) && Number.isFinite(staticLongitude)
     ? { latitude: staticLatitude as number, longitude: staticLongitude as number }
     : undefined);
+  const coordinates = visibility === "private" || !rawCoordinates
+    ? undefined
+    : visibility === "approximate"
+      ? { latitude: Number(rawCoordinates.latitude.toFixed(2)), longitude: Number(rawCoordinates.longitude.toFixed(2)) }
+      : rawCoordinates;
   return {
     id: photo.id,
     ...(photo.legacyId ? { legacyId: photo.legacyId } : {}),
@@ -141,6 +152,8 @@ function toPhoto(photo: CmsPhoto): Photo | null {
     height: photo.height || 1,
     ...(!shouldUseRemoteImages() && staticMatch?.mapSrc ? { mapSrc: staticMatch.mapSrc } : {}),
     ...coordinates,
+    coordinateVisibility: visibility,
+    ...(coordinates ? { coordinateSource: photo.geo?.source ?? (manualCoordinates ? "manual" : "exif") } : {}),
     isHero: photo.isHero,
   };
 }

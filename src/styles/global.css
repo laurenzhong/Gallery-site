@@ -6196,6 +6196,22 @@ main {
   transform: translateY(-2px);
 }
 
+.photo-map-experiment__status {
+  position: absolute;
+  z-index: 600;
+  right: 18px;
+  bottom: 52px;
+  max-width: min(260px, calc(100% - 36px));
+  margin: 0;
+  padding: 6px 9px;
+  border: 1px solid rgba(59, 70, 63, .22);
+  border-radius: 4px;
+  background: rgba(241, 236, 223, .82);
+  color: #536056;
+  font: 9px/1.35 "JetBrains Mono", monospace;
+  pointer-events: none;
+}
+
 .photo-map-marker-shell {
   border: 0;
   background: transparent;
@@ -6606,7 +6622,7 @@ main {
   .photo-map-experiment__stage { margin-inline: -16px; border-right: 0; border-left: 0; }
   .photo-map-experiment__map-wrap,
   .photo-map-experiment__map { height: 62svh; min-height: 420px; }
-  .photo-map-experiment__panel { padding: 24px 18px 30px; }
+  .photo-map-experiment__panel { position: relative; z-index: 4; max-height: 68svh; min-height: 0; margin: -54px 12px 0; overflow: auto; padding: 24px 18px 30px; border: 1px solid rgba(62, 66, 57, .22); border-radius: 18px 18px 0 0; box-shadow: 0 -12px 30px rgba(73, 61, 42, .16); }
   .photo-map-experiment__list { max-height: 270px; }
 
   .photo-map-experiment--compact .photo-map-experiment__stage {
@@ -7889,7 +7905,7 @@ body:has(.sasha-kurmaz-demo) main { margin-top: 0; }
   .map-hub-demo__tabs button small { display: none; }
   .map-hub-demo__map-label { align-items: flex-start; flex-direction: column; gap: 5px; }
   .map-hub-demo__map-frame { padding: 0; }
-  .map-hub-demo__sidebar { min-height: 0; padding: 24px 20px 28px; }
+  .map-hub-demo__sidebar { position: relative; z-index: 3; min-height: 0; margin-top: -28px; padding: 28px 20px 28px; border-radius: 18px 18px 0 0; box-shadow: 0 -12px 28px rgba(54, 61, 53, .12); }
   .map-hub-demo__footer-note { align-items: flex-start; flex-direction: column; gap: 8px; }
 }
 
