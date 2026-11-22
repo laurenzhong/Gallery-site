@@ -444,6 +444,8 @@ function serializeData(photos, initialHeroPhoto) {
   previewSrc?: string;
   latitude?: number;
   longitude?: number;
+  place?: string;
+  spot?: string;
   coordinateVisibility?: "exact" | "approximate" | "private";
   coordinateSource?: "exif" | "manual" | "estimated";
   isHero?: boolean;

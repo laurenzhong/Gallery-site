@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { createClient } from '@sanity/client'
+import { Agent } from 'node:https'
 
 const IMAGE_CDN_SUFFIX = '?w=2560&q=90&auto=format&fit=max'
 
@@ -139,6 +140,7 @@ function heroPreloadPlugin(): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const sanityProjectId = env.VITE_SANITY_PROJECT_ID || 'zj2ik922'
+  const cmsProxy = env.SANITY_DEV_HTTPS_PROXY
 
   return {
     define: {
@@ -149,6 +151,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         "/sanity": {
           target: `https://${sanityProjectId}.api.sanity.io`,
+          agent: cmsProxy ? new Agent({ proxyEnv: { HTTPS_PROXY: cmsProxy }, keepAlive: true }) : undefined,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/sanity/, ""),
         },

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { storyRoutes } from "../data/routes";
 import type { RouteCoordinate, StoryRoute, StoryRouteStop } from "../data/storyRoutes";
 import { cmsMapRoutesQuery, type CmsMapRoute } from "./cmsQueries";
@@ -139,4 +139,13 @@ export function useCmsMapRoutes() {
     };
   }, []);
   return routes;
+}
+
+export function useMapRoutes(atlas = false) {
+  const cmsRoutes = useCmsMapRoutes();
+  return useMemo(() => {
+    if (atlas && isSanityConfigured()) return cmsRoutes;
+    const cmsRouteIds = new Set(cmsRoutes.map((route) => route.id));
+    return [...storyRoutes.filter((route) => !cmsRouteIds.has(route.id)), ...cmsRoutes];
+  }, [atlas, cmsRoutes]);
 }

@@ -352,7 +352,10 @@ function App() {
         ) : isJournalPage ? (
           <Journal photos={photos} photoStories={photoStories} />
         ) : isMapPage ? (
-          <MapHubDemo photos={photos} onOpen={openPhoto} />
+          <MapHubDemo photos={photos} onOpen={openPhoto}
+            publishedDataStatus={content.source === "static" && (content.isLoading || content.error)
+              ? (content.isLoading ? "loading" : "error") : undefined}
+          />
         ) : isPhotographyPage ? (
           <>
             <section className="page-title-band" id="top" aria-labelledby="page-title">

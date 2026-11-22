@@ -95,7 +95,7 @@ export function buildPhotoStops(photos: Photo[]): PhotoStop[] {
         lat: photo.latitude as number,
         lng: photo.longitude as number,
         area: photo.category,
-        note: "GPS coordinates from EXIF",
+        note: photo.coordinateVisibility === "approximate" ? "Approximate location" : "Mapped photograph",
         coordinateSource: "gps",
       };
     }
