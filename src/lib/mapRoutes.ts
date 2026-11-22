@@ -77,7 +77,7 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
     const indexedCoordinate = Number.isInteger(trackIndex) ? track[trackIndex] : undefined;
     const coordinate = indexedCoordinate ?? explicitCoordinate;
     if (!coordinate) return [];
-    return {
+    return [{
       id: stop.id ?? `${route.id}-stop-${index + 1}`,
       title: stop.title as string,
       localTitle: stop.localTitle,
@@ -88,7 +88,7 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
       elevationM: stop.elevationM,
       note: stop.note,
       photoIds: stop.photoIds,
-    };
+    }];
   });
   if (track.length < 2 && namedStops.length < 2) return null;
   const stops = namedStops.length ? namedStops : [0, track.length - 1].map((trackIndex, index): StoryRouteStop => ({
