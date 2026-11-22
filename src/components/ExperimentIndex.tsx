@@ -123,7 +123,7 @@ export function ExperimentIndex() {
           <div>
             <p className="experiment-kicker">Photography / timeline study</p>
             <h2>Year archive</h2>
-            <p>A date-led photo index with year filters, featured frames, and the existing lightbox.</p>
+            <p>Browse the collection by the year and month each photograph was taken.</p>
           </div>
           <span className="experiment-index__arrow" aria-hidden="true">↗</span>
         </a>

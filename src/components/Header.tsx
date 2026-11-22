@@ -1,15 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { siteNavLinks } from "../lib/siteNavigation";
 
 const menuItems = [
   { label: "Home", href: "/" },
-  { label: "Photography", href: "/photography" },
-  { label: "Map", href: "/map" },
-  { label: "Balcony View", href: "/photobalcony" },
-  { label: "Journal", href: "/journal" },
-  { label: "About", href: "/about" },
+  ...siteNavLinks,
 ];
 
-export function Header() {
+export function Header({ pageTitle }: { pageTitle?: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -42,6 +39,7 @@ export function Header() {
   return (
     <>
       <header className={`site-header${scrolled ? " site-header--scrolled" : ""}`} aria-label="Site header">
+        {pageTitle ? <h1 className="site-header-title">{pageTitle}</h1> : (
         <a className="brand-lockup" href="/" aria-label="Queenstown home">
           <span className="brand-mark" aria-hidden="true">
             <svg className="brand-mark-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -70,6 +68,7 @@ export function Header() {
             Queenstown<em>.top</em>
           </span>
         </a>
+        )}
 
         <button
           type="button"

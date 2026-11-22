@@ -1,5 +1,7 @@
 import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import { captureTime } from "./capture-time.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { imageSizeFromFile } from "image-size/fromFile";
@@ -359,6 +361,9 @@ async function collectPhotos(heroFilename) {
       if (hasPreviewThumbnail) expectedFiles.add(path.resolve(previewTargetPath));
 
       const dimensions = await imageSizeFromFile(sourcePath);
+      const bytes = await readFile(sourcePath);
+      const hash = createHash("sha1").update(bytes).digest("hex");
+      const capturedAt = await captureTime(bytes).catch(() => null);
       const gps = await exifr.gps(sourcePath).catch(() => undefined);
       const rawWidth = dimensions.width ?? 1;
       const rawHeight = dimensions.height ?? 1;
@@ -375,6 +380,8 @@ async function collectPhotos(heroFilename) {
         slug: slugify(titleFromFilename(filename)) || `photo-${String(photos.length + 1).padStart(3, "0")}`,
         category,
         filename,
+        hash,
+        capturedAt,
         width: shouldSwap ? rawHeight : rawWidth,
         height: shouldSwap ? rawWidth : rawHeight,
         ...(Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : {}),
@@ -429,6 +436,8 @@ function serializeData(photos, initialHeroPhoto) {
   slug?: string;
   category: string;
   filename: string;
+  hash?: string;
+  capturedAt?: string | null;
   width: number;
   height: number;
   mapSrc?: string;

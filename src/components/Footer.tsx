@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AboutData } from "../data/stories";
 
-const baseNavLinks = [
-  { label: "Photography", href: "/photography" },
-  { label: "Map", href: "/map" },
-  { label: "Balcony View", href: "/photobalcony" },
-  { label: "Journal", href: "/journal" },
-  { label: "About", href: "/about" },
-];
+import { siteNavLinks } from "../lib/siteNavigation";
 
 const previewNavLink = { label: "Photo Notes", href: "/photostory" };
 
@@ -75,7 +69,7 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
   const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   const year = new Date().getFullYear();
   const lastUpdate = formatLastUpdate(__LAST_UPDATE__);
-  const navLinks = import.meta.env.DEV || showPreview ? [...baseNavLinks, previewNavLink] : baseNavLinks;
+  const navLinks = import.meta.env.DEV || showPreview ? [...siteNavLinks, previewNavLink] : siteNavLinks;
   const emailContact = aboutData?.contact.find((item) => item.label.toLowerCase() === "email");
   const emailHref = emailContact ? normalizeHref(emailContact.label, emailContact.value, emailContact.href) : undefined;
 
@@ -83,7 +77,7 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
     <footer className={`site-footer ${variant === "photo" ? "site-footer--photo" : ""}`}>
       <div className="site-footer__inner">
         <div className="footer-brand-row">
-          <p className="footer-brand">Queenstown.top</p>
+          <a className="footer-brand" href="/" aria-label="Queenstown home">Queenstown.top</a>
           <button
             type="button"
             className={`footer-top-btn ${showTop ? "is-visible" : ""}`}

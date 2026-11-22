@@ -8,6 +8,7 @@ import { Footer } from "./components/Footer";
 import { GpxTrailDemoExperiment } from "./components/GpxTrailDemoExperiment";
 import { GallerySections } from "./components/GallerySections";
 import { Header } from "./components/Header";
+import "./components/YearArchive.css";
 import { Home } from "./components/Home";
 import { ExperimentIndex } from "./components/ExperimentIndex";
 import { JourneyMapExperiment } from "./components/JourneyMapExperiment";
@@ -19,7 +20,6 @@ import { PhotoMapExperiment } from "./components/PhotoMapExperiment";
 import { PhotographyArchiveExperiment } from "./components/PhotographyArchiveExperiment";
 import { ReferenceArchiveExperiment } from "./components/ReferenceArchiveExperiment";
 import { SashaKurmazExperiment } from "./components/SashaKurmazExperiment";
-import { YearArchiveExperiment } from "./components/YearArchiveExperiment";
 import { PhotoStory } from "./components/PhotoStory";
 import { StoryDetail } from "./components/StoryDetail";
 import { TrailRouteExperiment } from "./components/TrailRouteExperiment";
@@ -33,6 +33,7 @@ import { matchesPhotoSlug, matchesStorySlug, photoPath } from "./lib/routes";
 const PhotoMapMapLibreExperiment = lazy(() =>
   import("./components/PhotoMapMapLibreExperiment").then((module) => ({ default: module.PhotoMapMapLibreExperiment })),
 );
+const YearArchiveExperiment = lazy(() => import("./components/YearArchiveExperiment"));
 
 const SITE_TITLE = "Queenstown.top | Photography";
 const DEFAULT_DESCRIPTION =
@@ -70,7 +71,8 @@ function App() {
   const isReferenceArchivePage = pathname === "/experiments/reference-archive";
   const isPhotographyArchivePage = pathname === "/experiments/photography-archive";
   const isSashaKurmazPage = pathname === "/experiments/sasha-kurmaz";
-  const isYearArchivePage = pathname === "/experiments/year-archive";
+  const isLocalArchivePreview = pathname === "/experiments/year-archive";
+  const isYearArchivePage = pathname === "/archive" || isLocalArchivePreview;
   const isAgarunAtlasPage = pathname === "/experiments/agarun-atlas";
   const isPhotoMapExperimentPage = pathname === "/experiments/photo-map";
   const isPhotoMapMapLibrePage = pathname === "/experiments/photo-map-maplibre";
@@ -215,7 +217,8 @@ function App() {
     const title = activePhoto?.title ?? activeStory?.story.title;
     const description =
       activeStory?.story.excerpt ??
-      (activePhoto ? `${activePhoto.category} / ${activePhoto.filename}` : DEFAULT_DESCRIPTION);
+      (activePhoto ? `${activePhoto.category} / ${activePhoto.filename}`
+        : isYearArchivePage ? "Browse the Queenstown.top photo archive by capture year and month." : DEFAULT_DESCRIPTION);
     const image = activePhoto?.src ?? activeStory?.photo.src ?? heroPhoto?.src;
 
     const pageTitle = title
@@ -239,7 +242,7 @@ function App() {
             : isSashaKurmazPage
               ? "Sasha Kurmaz index study | Queenstown.top"
             : isYearArchivePage
-              ? "Year archive study | Queenstown.top"
+              ? "Photo archive | Queenstown.top"
             : isAgarunAtlasPage
               ? "Atlas archive experiment | Queenstown.top"
             : isPhotoMapExperimentPage
@@ -286,7 +289,7 @@ function App() {
   return (
     <>
       <VisualEditingBridge enabled={showPreview} />
-      <Header />
+      <Header pageTitle={isYearArchivePage ? <>Photo <em>archive</em></> : undefined} />
 
       <CmsSourceBadge content={content} />
 
@@ -410,7 +413,9 @@ function App() {
         ) : isSashaKurmazPage ? (
           <SashaKurmazExperiment photos={photos} onOpen={openPhoto} />
         ) : isYearArchivePage ? (
-          <YearArchiveExperiment photos={photos} photoMeta={photoMeta} onOpen={openPhoto} />
+          <Suspense fallback={<p role="status">Loading photo archive…</p>}>
+            <YearArchiveExperiment includeLocal={isLocalArchivePreview} photoMeta={photoMeta} photoStories={photoStories} />
+          </Suspense>
         ) : isAgarunAtlasPage ? (
           <AgarunAtlasExperiment photos={photos} onOpen={openPhoto} />
         ) : isPhotoMapExperimentPage ? (

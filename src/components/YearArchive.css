@@ -1,0 +1,97 @@
+body:has(.photo-chronicle) .cms-source-badge { display: none; }
+html:has(.site-header-title) {
+  --paper: #f8f8f5;
+  --ink: #202421;
+  --muted: #585e58;
+  --rule: #d1d4cb;
+  --gutter: clamp(16px, 4.5vw, 80px);
+  background: var(--paper);
+}
+body:has(.site-header-title) { background: var(--paper); }
+.site-header:has(.site-header-title) {
+  position: relative;
+  z-index: auto;
+  width: 100%;
+  align-items: center;
+  padding-block: 0;
+  padding-inline-start: max(var(--gutter), calc((100% - 1680px) / 2 + var(--gutter)));
+}
+.site-header:has(.site-header-title) ~ main { margin-top: 0; }
+.site-header:has(.site-header-title) .menu-toggle { position: relative; inset: auto; z-index: 30; flex-shrink: 0; }
+.photo-chronicle {
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+}
+.chronicle-summary, .chronicle-collection {
+  max-width: 1680px;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+.site-header-title, .chronicle-year h2 {
+  margin: 0;
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -.065em;
+  line-height: 1.07;
+}
+.site-header-title { font-size: clamp(2.6rem, 6.6vw, 6rem); color: var(--ink); }
+.site-header-title em { color: #45604d; font-weight: inherit; }
+.chronicle-summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: .875rem; padding-bottom: 20px; }
+.chronicle-summary strong { color: var(--ink); font-size: 1rem; font-weight: 500; }
+.chronicle-filter {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 9px max(var(--gutter), calc((100vw - 1680px) / 2 + var(--gutter)));
+  border-block: 1px solid var(--rule);
+  background: var(--paper);
+}
+.chronicle-filter button {
+  flex: none;
+  min-height: 40px;
+  padding: 5px 16px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font-size: .875rem;
+  cursor: pointer;
+}
+.chronicle-filter button:hover { background: #e6eae2; }
+.chronicle-filter button[aria-pressed="true"] { background: #2c4233; color: white; }
+.chronicle-collection { padding-bottom: 56px; }
+.chronicle-year {
+  display: grid;
+  grid-template-columns: minmax(120px, 15%) minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 52px);
+  padding-block: clamp(28px, 3.5vw, 54px);
+  border-bottom: 1px solid var(--rule);
+}
+.chronicle-year-label { align-self: start; position: sticky; top: 88px; }
+.chronicle-year h2 { font-size: clamp(2.4rem, 4vw, 4.5rem); }
+.chronicle-year-label > span { display: block; margin-top: 10px; color: var(--muted); font-size: .875rem; }
+.chronicle-month-links { display: grid; grid-template-columns: repeat(3, max-content); gap: 0 12px; margin-top: 18px; }
+.chronicle-month-links a { padding-block: 5px; font-size: .875rem; color: var(--muted); }
+.chronicle-month-links a:hover { color: var(--ink); text-decoration: underline; }
+.chronicle-month, .chronicle-collection { scroll-margin-top: 76px; }
+.chronicle-month + .chronicle-month { margin-top: clamp(28px, 3vw, 48px); }
+.chronicle-month h3 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; font-size: 1.125rem; font-weight: 500; }
+.chronicle-month h3 span { font-size: .8125rem; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.chronicle-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(5px, .75vw, 12px); }
+.chronicle-grid button { display: block; padding: 0; border: 0; aspect-ratio: 3 / 2; overflow: hidden; background: #dde1da; cursor: zoom-in; }
+.chronicle-grid img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 180ms ease; }
+.photo-chronicle :focus-visible { outline: 2px solid #527b58; outline-offset: 3px; }
+@media (hover: hover) { .chronicle-grid button:hover img { transform: scale(1.035); } }
+@media (max-width: 1000px) { .chronicle-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .chronicle-year { display: block; }
+  .chronicle-year-label { position: static; display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 21px; }
+  .chronicle-year-label > span { margin: 0; }
+  .chronicle-month-links { width: 100%; display: flex; flex-wrap: wrap; gap: 0 12px; margin-top: 0; }
+  .chronicle-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .chronicle-grid img { transition: none; } }
