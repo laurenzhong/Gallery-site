@@ -5853,129 +5853,155 @@ main {
 .photo-map-experiment-loading { min-height: calc(100vh - var(--header-h)); margin-top: var(--header-h); padding: 20vh 8vw; background: #e8e2d5; color: #6f756c; font: 12px "JetBrains Mono", monospace; letter-spacing: .1em; text-transform: uppercase; }
 .experiment-index__card--trail-route { grid-column: 1 / -1; min-height: 300px; background: #6f5647; }
 
+body:has(.trail-route-experiment) .site-header { position: relative; top: auto; background: #0a0a0a; }
+body:has(.trail-route-experiment) .cms-source-badge { position: absolute; }
+main:has(> .trail-route-experiment) { margin-top: 0; }
+
 .trail-route-experiment {
   --trail-ink: #26313a;
   --trail-paper: #eeece5;
   --trail-route: #b6424b;
-  min-height: 100vh;
-  margin-top: var(--header-h);
+  --trail-gutter: clamp(16px, 5vw, 72px);
   background: var(--trail-paper);
   color: var(--trail-ink);
 }
 
-.trail-route-hero {
-  position: relative;
-  display: flex;
-  min-height: min(820px, 88vh);
-  align-items: center;
-  justify-content: center;
-  padding: 110px clamp(22px, 7vw, 120px) 100px;
-  overflow: hidden;
-  background: #214152;
-  color: #f3eee5;
-  isolation: isolate;
-}
-
-.trail-route-hero::before,
-.trail-route-hero::after {
-  position: absolute;
-  z-index: -1;
-  border: 1px solid rgba(222, 231, 222, .17);
-  border-radius: 50%;
-  content: "";
-  pointer-events: none;
-}
-
-.trail-route-hero::before { top: 12%; right: -12%; width: 73vw; height: 73vw; transform: rotate(24deg); }
-.trail-route-hero::after { bottom: -44%; left: -18%; width: 74vw; height: 74vw; transform: rotate(-14deg); }
-
-.trail-route-hero__inner { width: min(980px, 100%); }
-
-.trail-route-kicker,
-.trail-route-intro-line,
-.trail-route-stats,
-.trail-route-map-panel__topline,
-.trail-route-elevation__head,
-.trail-route-chapter__eyebrow,
-.trail-route-chapter__meta,
+.trail-route-summary,
+.trail-route-body,
 .trail-route-footer {
-  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-  letter-spacing: .09em;
-  text-transform: uppercase;
+  width: min(100%, 1440px);
+  margin-inline: auto;
+  padding-inline: var(--trail-gutter);
 }
 
-.trail-route-kicker { margin: 0 0 25px; color: #afc4c5; font-size: 10px; }
-
-.trail-route-hero h1 {
-  max-width: 850px;
+.trail-route-summary {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  column-gap: 24px;
+  row-gap: 10px;
+  padding-block: 22px 18px;
+  border-bottom: 1px solid #d4d4c8;
+}
+.trail-route-summary h1 {
   margin: 0;
-  font-family: Poppins, sans-serif;
-  font-size: clamp(44px, 9vw, 124px);
-  font-weight: 500;
-  letter-spacing: -.06em;
-  line-height: .87;
+  font: 400 clamp(24px, 3vw, 36px)/1.15 "Playfair Display", Georgia, serif;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+.trail-route-summary__location { margin: 0 0 4px; color: #52645d; font-size: 13px; }
+.trail-route-stats { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; color: #43564e; font-size: 13px; }
+.trail-route-stats strong { color: var(--trail-ink); font-weight: 600; }
+.trail-route-summary--status { min-height: 170px; align-content: flex-start; }
+.trail-route-status p { margin: 0; }
+
+.trail-route-toolbar { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.trail-route-toolbar :is(a, button), .trail-route-status button, .trail-route-footer a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: #354e47;
+  font: 650 13px/1.3 system-ui, sans-serif;
+  cursor: pointer;
+}
+.trail-route-toolbar .trail-route-map-toggle { display: none; }
+.trail-route-toolbar :is(a, button):hover, .trail-route-status button:hover, .trail-route-footer a:hover { text-decoration: underline; }
+.trail-route-toolbar :is(a, button):focus-visible, .trail-route-status button:focus-visible, .trail-route-footer a:focus-visible {
+  outline: 2px solid #324f45;
+  outline-offset: 2px;
+}
+
+.trail-route-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  gap: clamp(24px, 4vw, 64px);
+  align-items: start;
+  padding-block: 24px 32px;
+}
+.trail-route-story { grid-area: 1 / 1; min-width: 0; }
+.trail-route-chapter {
+  padding: clamp(24px, 4vw, 54px) 0;
+  border-bottom: 1px solid #d4d4c8;
+  scroll-margin-top: 16px;
+}
+.trail-route-chapter:first-child { padding-top: 0; }
+.trail-route-chapter:focus-visible { outline: 2px solid var(--trail-route); outline-offset: 4px; }
+.trail-route-chapter__eyebrow, .trail-route-chapter__place, .trail-route-chapter__meta {
+  color: #52645d;
+  font: 12px/1.5 "JetBrains Mono", Consolas, monospace;
+  letter-spacing: .045em;
   text-transform: uppercase;
 }
-
-.trail-route-hero h1 em {
-  display: block;
-  margin-left: clamp(30px, 9vw, 132px);
-  color: #c8d5c8;
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: 1.22em;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: -.09em;
-  text-transform: none;
-}
-
-.trail-route-hero__dek { max-width: 440px; margin: 35px 0 0; color: rgba(243, 238, 229, .72); font-size: 16px; line-height: 1.65; }
-
-.trail-route-stats { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 56px; color: #afc4c5; font-size: 9px; }
-.trail-route-stats span { display: grid; gap: 5px; }
-.trail-route-stats strong { color: #f3eee5; font-size: 15px; font-weight: 500; letter-spacing: .01em; }
-
-.trail-route-back { position: absolute; right: clamp(22px, 6vw, 90px); bottom: 34px; display: inline-flex; min-height: 44px; align-items: center; border-bottom: 1px solid rgba(243, 238, 229, .4); color: #d6e3dc; font: 10px "JetBrains Mono", monospace; letter-spacing: .09em; text-transform: uppercase; }
-.trail-route-back:hover, .trail-route-back:focus-visible { border-color: #fff; color: #fff; outline: none; }
-
-.trail-route-intro-line { display: flex; justify-content: space-between; gap: 20px; padding: 17px clamp(22px, 5vw, 78px); border-bottom: 1px solid rgba(38, 49, 58, .18); color: #737b76; font-size: 10px; }
-
-.trail-route-body { display: grid; grid-template-columns: minmax(0, .86fr) minmax(420px, 1.14fr); align-items: start; background: var(--trail-paper); }
-.trail-route-story { padding: 0 clamp(22px, 5vw, 80px) 12vw; }
-
-.trail-route-chapter { display: flex; min-height: 86vh; flex-direction: column; justify-content: center; padding: 11vh 0; opacity: .38; transition: opacity 360ms ease; }
-.trail-route-chapter.is-active { opacity: 1; }
-.trail-route-chapter__eyebrow { display: flex; gap: 14px; align-items: center; color: #7b837e; font-size: 10px; }
+.trail-route-chapter__eyebrow { display: flex; gap: 12px; }
 .trail-route-chapter__eyebrow span { color: var(--trail-route); }
-.trail-route-chapter h2 { max-width: 570px; margin: 18px 0 0; color: var(--trail-ink); font-family: "Playfair Display", Georgia, serif; font-size: clamp(46px, 5.5vw, 82px); font-weight: 400; letter-spacing: -.07em; line-height: .86; }
-.trail-route-chapter__place { margin: 12px 0 0; color: #75827d; font: 10px "JetBrains Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
-.trail-route-chapter__note { max-width: 510px; margin: 28px 0 0; font-size: clamp(16px, 1.7vw, 22px); line-height: 1.5; }
-.trail-route-chapter__meta { margin: 19px 0 0; color: #a16b67; font-size: 10px; }
-.trail-route-chapter__photo-note { max-width: 510px; margin: 20px 0 0; color: #7b837e; font: 11px "JetBrains Mono", monospace; letter-spacing: .03em; }
-.trail-route-chapter figure { max-width: 640px; margin: 34px 0 0; }
-.trail-route-chapter figure button { position: relative; display: block; width: 100%; padding: 0; border: 0; background: #d6d9d8; cursor: zoom-in; overflow: hidden; }
-.trail-route-chapter figure img { display: block; width: 100%; height: auto; max-height: 62vh; object-fit: cover; transition: transform 550ms ease; }
-.trail-route-chapter figure button:hover img, .trail-route-chapter figure button:focus-visible img { transform: scale(1.025); }
-.trail-route-chapter figure button:focus-visible { outline: 3px solid var(--trail-route); outline-offset: 4px; }
-.trail-route-chapter figure button span { position: absolute; right: 14px; bottom: 14px; padding: 8px 10px; background: rgba(21, 26, 30, .78); color: #fff; font: 10px "JetBrains Mono", monospace; letter-spacing: .05em; text-transform: uppercase; }
-.trail-route-chapter figcaption { padding: 9px 12px; color: #6f7775; font: italic 12px "Playfair Display", Georgia, serif; }
-.trail-route-photo-strip { display: flex; gap: 8px; padding: 9px 0 0; overflow-x: auto; }
-.trail-route-photo-strip button { flex: 0 0 68px; height: 54px; padding: 0; border: 1px solid rgba(64, 91, 84, .25); background: #d6d9d8; cursor: zoom-in; overflow: hidden; }
-.trail-route-photo-strip button:focus-visible { outline: 2px solid var(--trail-route); outline-offset: 2px; }
+.trail-route-chapter h2 {
+  margin: 9px 0 0;
+  font: 400 clamp(28px, 4vw, 46px)/1.12 "Playfair Display", Georgia, serif;
+  letter-spacing: -.04em;
+}
+.trail-route-chapter__place { margin: 5px 0 0; }
+.trail-route-chapter__note { max-width: 60ch; margin: 14px 0 0; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; }
+.trail-route-chapter__meta { margin: 13px 0 0; }
+.trail-route-chapter figure { max-width: 640px; margin: 18px 0 0; }
+.trail-route-chapter figure > button {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: #d6d9d8;
+  cursor: zoom-in;
+}
+.trail-route-chapter figure > button img { display: block; width: 100%; height: auto; max-height: 75vh; object-fit: contain; }
+.trail-route-chapter figure button:focus-visible { outline: 2px solid var(--trail-route); outline-offset: 2px; }
+.trail-route-chapter figure > button span {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 8px 10px;
+  background: #151a1ec9;
+  color: #fff;
+  font-size: 12px;
+}
+.trail-route-chapter figcaption { padding: 7px 0; color: #52645d; font: italic 13px "Playfair Display", Georgia, serif; }
+.trail-route-photo-strip { display: flex; gap: 8px; padding: 9px 0 3px; overflow-x: auto; }
+.trail-route-photo-strip button { flex: 0 0 68px; height: 54px; padding: 0; border: 1px solid #bfcac0; background: #d6d9d8; cursor: zoom-in; }
 .trail-route-photo-strip img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
-.trail-route-map-panel { position: sticky; top: var(--header-h); height: calc(100vh - var(--header-h)); min-height: 680px; background: #dfe5df; }
-.trail-route-map-panel__map-wrap { position: relative; height: min(78vh, 760px); min-height: 560px; overflow: hidden; background: #c3d0c6; }
+.trail-route-map-panel {
+  grid-area: 1 / 2;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #bfcac0;
+  border-radius: 4px;
+  background: #dfe5df;
+  isolation: isolate;
+}
+.trail-route-map-panel__map-wrap { position: relative; height: clamp(280px, 44svh, 450px); overflow: hidden; background: #c3d0c6; }
 .trail-route-map-panel__map { width: 100%; height: 100%; }
-.trail-route-map-panel__map .leaflet-control-attribution { padding: 3px 6px; border: 0; background: rgba(239, 235, 224, .68); color: #647067; font: 9px "JetBrains Mono", monospace; }
-.trail-route-map-panel__map .leaflet-control-attribution a { color: #475d56; }
-.trail-route-map-panel__topline { position: absolute; z-index: 500; top: 19px; right: 22px; left: 22px; display: flex; justify-content: space-between; color: rgba(40, 50, 44, .72); font-size: 10px; pointer-events: none; }
-.trail-route-map-panel__controls { position: absolute; z-index: 600; top: 49px; right: 20px; display: grid; gap: 5px; }
-.trail-route-map-panel__controls button { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(59, 70, 63, .35); border-radius: 50%; background: rgba(241, 236, 223, .84); color: #455349; cursor: pointer; font-size: 19px; line-height: 1; transition: background 160ms ease, transform 160ms ease; }
-.trail-route-map-panel__controls button:hover, .trail-route-map-panel__controls button:focus-visible { outline: none; background: #f6f0e5; transform: translateY(-2px); }
-.trail-route-map-panel__current { position: absolute; z-index: 500; right: clamp(22px, 4vw, 58px); bottom: 31px; left: clamp(22px, 4vw, 58px); display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid rgba(71, 79, 82, .43); pointer-events: none; }
-.trail-route-map-panel__current span, .trail-route-map-panel__current small { color: #6f7770; font: 10px "JetBrains Mono", monospace; letter-spacing: .1em; text-transform: uppercase; }
-.trail-route-map-panel__current strong { color: #3e5550; font-family: "Playfair Display", Georgia, serif; font-size: clamp(33px, 4vw, 62px); font-weight: 400; letter-spacing: -.05em; line-height: .88; }
+.trail-route-map-panel__map .leaflet-control-attribution { padding: 3px 6px; border: 0; background: #f3eee5e8; color: #52645d; font: 9px "JetBrains Mono", Consolas, monospace; }
+.trail-route-map-panel__map .leaflet-control-attribution a { color: #354e47; }
+.trail-route-map-panel__controls { position: absolute; z-index: 600; top: 12px; right: 12px; display: grid; gap: 5px; }
+.trail-route-map-panel__controls button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #a7b1a7;
+  border-radius: 50%;
+  background: #f6f0e5;
+  color: #354e47;
+  font-size: 19px;
+  cursor: pointer;
+}
+.trail-route-map-panel__controls button:hover { background: #fffaf0; }
+.trail-route-map-panel__controls button:focus-visible { outline: 2px solid #324f45; }
+.trail-route-map-panel__current { display: grid; gap: 4px; padding: 12px 16px; border-block: 1px solid #bbc8be; }
+.trail-route-map-panel__current :is(span, small) { color: #52645d; font: 11px/1.4 "JetBrains Mono", Consolas, monospace; }
+.trail-route-map-panel__current strong { color: #354e47; font: 400 22px/1.15 "Playfair Display", Georgia, serif; }
 
 .trail-route-marker-shell { border: 0; background: transparent; }
 .trail-route-marker { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid #405b54; border-radius: 50% 50% 50% 5px; background: #e9e6db; box-shadow: 0 6px 12px rgba(33, 39, 34, .2); transform: rotate(-45deg); transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease; }
@@ -5992,46 +6018,73 @@ main {
 .trail-route-photo-marker-shell { border: 0; background: transparent; }
 .trail-route-photo-marker { display: grid; width: 24px; height: 24px; place-items: center; border: 1px solid #b6424b; border-radius: 50%; background: #b6424b; box-shadow: 0 3px 8px rgba(33, 39, 34, .22); color: #fff5eb; cursor: pointer; font-size: 12px; }
 
-.trail-route-elevation { padding: 15px clamp(22px, 4vw, 58px) 12px; background: #dfe5df; }
-.trail-route-elevation__head { display: flex; justify-content: space-between; color: #78827c; font-size: 9px; }
-.trail-route-elevation svg { display: block; width: 100%; height: 58px; margin-top: 7px; overflow: visible; }
+.trail-route-elevation { padding: 9px 16px 5px; }
+.trail-route-elevation__head {
+  display: flex;
+  justify-content: space-between;
+  color: #52645d;
+  font: 10px "JetBrains Mono", Consolas, monospace;
+  text-transform: uppercase;
+}
+.trail-route-elevation svg { display: block; width: 100%; height: 34px; margin-top: 4px; overflow: visible; }
 .trail-route-elevation path { fill: none; stroke: #405b54; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .trail-route-elevation circle { fill: var(--trail-route); stroke: #f2eee4; stroke-width: 1.4; }
 
-.trail-route-map-panel__list { display: grid; max-height: 220px; padding: 0 clamp(22px, 4vw, 58px) 28px; overflow: auto; background: #dfe5df; }
-.trail-route-map-panel__list button { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: baseline; padding: 9px 0; border: 0; border-bottom: 1px solid rgba(64, 91, 84, .16); background: transparent; color: #727c74; cursor: pointer; text-align: left; }
-.trail-route-map-panel__list button span { color: var(--trail-route); font: 10px "JetBrains Mono", monospace; }
-.trail-route-map-panel__list button strong { color: #40534e; font-size: 12px; font-weight: 500; }
-.trail-route-map-panel__list button small { color: #7a837c; font: 10px "JetBrains Mono", monospace; }
-.trail-route-map-panel__list button:hover strong, .trail-route-map-panel__list button:focus-visible strong, .trail-route-map-panel__list button.is-active strong { color: var(--trail-route); }
-.trail-route-map-panel__list button:focus-visible { outline: 2px solid var(--trail-route); outline-offset: 3px; }
+.trail-route-map-panel__list { display: grid; max-height: 18rem; padding: 0 16px; overflow: auto; }
+.trail-route-map-panel__list button {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 3px;
+  border: 0;
+  border-top: 1px solid #bfcac0;
+  background: transparent;
+  color: #40534e;
+  text-align: left;
+  cursor: pointer;
+}
+.trail-route-map-panel__list button span { color: var(--trail-route); font: 11px "JetBrains Mono", Consolas, monospace; }
+.trail-route-map-panel__list button strong { font-size: 13px; font-weight: 500; }
+.trail-route-map-panel__list button small { color: #52645d; font: 11px "JetBrains Mono", Consolas, monospace; }
+.trail-route-map-panel__list button:hover strong, .trail-route-map-panel__list button[aria-current] strong { color: var(--trail-route); }
+.trail-route-map-panel__list button[aria-current] { background: #f2eee4; }
+.trail-route-map-panel__list button:focus-visible { outline: 2px solid var(--trail-route); outline-offset: -2px; }
+.trail-route-footer { padding-bottom: 24px; }
 
-.trail-route-footer { display: flex; justify-content: space-between; gap: 20px; padding: 27px clamp(22px, 5vw, 78px); background: #151a1e; color: #d8dee9; font-size: 10px; }
-.trail-route-footer a { color: #aac5ca; }
-
-@media (max-width: 980px) {
-  .trail-route-body { grid-template-columns: 1fr; }
-  .trail-route-map-panel { position: relative; top: auto; order: -1; height: auto; min-height: 0; }
-  .trail-route-map-panel__map-wrap { height: 68svh; min-height: 540px; }
-  .trail-route-map-panel__list { max-height: 250px; }
-  .trail-route-chapter { min-height: auto; padding: 18vh 0; }
+@media (min-width: 981px) and (min-height: 480px) {
+  .trail-route-experiment--public .trail-route-map-panel {
+    position: sticky;
+    top: 16px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100svh - 32px);
+    overflow: auto;
+  }
+  .trail-route-experiment--public .trail-route-map-panel__map-wrap { height: clamp(176px, 42svh, 420px); }
+  .trail-route-experiment--public :is(.trail-route-map-panel__map-wrap, .trail-route-map-panel__current, .trail-route-elevation) {
+    flex-shrink: 0;
+  }
+  .trail-route-experiment--public .trail-route-map-panel__list { min-height: 0; }
 }
 
-@media (max-width: 560px) {
-  .trail-route-hero { min-height: 80svh; padding-bottom: 92px; }
-  .trail-route-hero h1 { font-size: clamp(43px, 14vw, 72px); }
-  .trail-route-hero h1 em { margin-left: 26px; }
-  .trail-route-stats { gap: 16px; margin-top: 40px; }
-  .trail-route-intro-line { align-items: flex-start; flex-direction: column; }
-  .trail-route-map-panel__map-wrap { height: 62svh; min-height: 480px; }
-  .trail-route-story { padding-inline: 20px; }
-  .trail-route-chapter h2 { font-size: clamp(47px, 16vw, 76px); }
-  .trail-route-chapter__note { font-size: 18px; }
-  .trail-route-footer { align-items: flex-start; flex-direction: column; }
+@media (max-width: 980px) {
+  .trail-route-summary { padding-block: 16px 4px; }
+  .trail-route-toolbar { width: 100%; justify-content: space-between; }
+  .trail-route-toolbar .trail-route-map-toggle { display: inline-flex; }
+  .trail-route-body { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-block: 18px 24px; }
+  .trail-route-story, .trail-route-map-panel { grid-area: auto; }
+  .trail-route-map-panel:not(.is-expanded) { display: none; }
+  .trail-route-map-panel__map-wrap { height: clamp(230px, 42svh, 380px); }
+}
+
+@media (max-width: 640px) {
+  body:has(.trail-route-experiment) .site-header .menu-toggle { position: absolute; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .trail-route-experiment *, .trail-route-experiment *::before, .trail-route-experiment *::after { scroll-behavior: auto !important; animation: none !important; transition-duration: .01ms !important; }
+  .trail-route-experiment *, .trail-route-experiment *::after { transition-duration: .01ms !important; }
 }
 
 .photo-map-experiment {

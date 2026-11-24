@@ -1,7 +1,7 @@
 import type { Photo } from "../data/photos";
 import type { StoryRoute } from "../data/storyRoutes";
-import { storyRoutes } from "../data/routes";
 import { sizedImageUrl } from "../lib/imageUrl";
+import { routeStoryHref } from "../lib/mapRoutes";
 import type { PhotoStop } from "../lib/photoMapData";
 
 function coordinateLabel(stop: PhotoStop) {
@@ -59,14 +59,6 @@ export function AtlasPhotoCard({ stop, index, count, onMove, onOpen, onClose }: 
   </aside>;
 }
 
-function routeHref(route: StoryRoute) {
-  if (storyRoutes.includes(route)) {
-    if (route.id === "maclehose-section-2") return "/experiments/trail-route";
-    if (route.id === "gpx-trail-demo") return "/experiments/trail-route-gpx-demo";
-  }
-  return `/experiments/trail-route?route=${encodeURIComponent(route.id)}`;
-}
-
 export function AtlasRouteCard({ routes, route, stopIndex, stopPhotos, onRoute, onStop, onOpen }: {
   routes: StoryRoute[]; route?: StoryRoute; stopIndex: number; stopPhotos: Photo[];
   onRoute: (routeId: string | null) => void; onStop: (index: number) => void; onOpen: (photo: Photo) => void;
@@ -79,7 +71,7 @@ export function AtlasRouteCard({ routes, route, stopIndex, stopPhotos, onRoute, 
     </div>
     <div className="map-hub-demo__route-list">
       {routes.map((walk, i) => <div className="map-hub-demo__route-row" key={walk.id}>
-        <a className="map-hub-demo__route-card" href={routeHref(walk)}>
+        <a className="map-hub-demo__route-card" href={routeStoryHref(walk.id)}>
           <span className="map-hub-demo__route-number">{String(i + 1).padStart(2, "0")}</span>
           <span className="map-hub-demo__route-copy"><strong>{walk.title} {walk.titleEmphasis}</strong>
             <small>{walk.stats.distance} km · {walk.stops.length} stops</small></span>
@@ -101,6 +93,6 @@ export function AtlasRouteCard({ routes, route, stopIndex, stopPhotos, onRoute, 
         {stopPhotos[0] && <AtlasPrint photo={stopPhotos[0]} onOpen={() => onOpen(stopPhotos[0])} />}
         {stop.note && <p>{stop.note}</p>}
       </div>}
-      <a className="atlas-route__link" href={routeHref(route)}>Read the route story ↗</a>
+      <a className="atlas-route__link" href={routeStoryHref(route.id, stop?.id)}>Read the route story ↗</a>
   </aside>;
 }

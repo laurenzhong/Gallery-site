@@ -62,6 +62,7 @@ function App() {
   const isAboutPage = pathname === "/about";
   const isJournalPage = pathname === "/journal";
   const isMapPage = pathname === "/map";
+  const isMapRoutePage = pathname === "/map/route";
   const isFooterPreviewPage = pathname === "/footer-preview";
   const isExperimentsPage = pathname === "/experiments";
   const isJourneyExperimentPage = pathname === "/experiments/journey-map";
@@ -227,6 +228,8 @@ function App() {
         ? "Photography | Queenstown.top"
         : isMapPage
           ? "Map demo | Queenstown.top"
+        : isMapRoutePage
+          ? "Route story | Queenstown.top"
         : isJourneyExperimentPage
           ? "Journey map experiment | Queenstown.top"
           : isLookButExperimentPage
@@ -271,6 +274,7 @@ function App() {
     isExperimentsPage,
     isJourneyExperimentPage,
     isMapPage,
+    isMapRoutePage,
     isLookButExperimentPage,
     isLookButFvmExperimentPage,
     isMetroExperimentPage,
@@ -427,8 +431,8 @@ function App() {
           <Suspense fallback={<section className="photo-map-experiment-loading" aria-label="Loading MapLibre experiment">Loading MapLibre…</section>}>
             <PhotoMapMapLibreExperiment photos={photos} onOpen={openPhoto} />
           </Suspense>
-        ) : isTrailRoutePage ? (
-          <TrailRouteExperiment photos={photos} onOpen={openPhoto} />
+        ) : isMapRoutePage || isTrailRoutePage ? (
+          <TrailRouteExperiment photos={photos} onOpen={openPhoto} publicStory={isMapRoutePage} />
         ) : isGpxTrailDemoPage ? (
           <GpxTrailDemoExperiment photos={photos} onOpen={openPhoto} />
         ) : isFooterPreviewPage ? (

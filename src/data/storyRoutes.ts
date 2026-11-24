@@ -33,6 +33,8 @@ export type StoryRouteStats = {
 export type StoryRoute = {
   id: string;
   kicker: string;
+  name?: string;
+  locationLabel?: string;
   title: string;
   titleEmphasis?: string;
   subtitle: string;

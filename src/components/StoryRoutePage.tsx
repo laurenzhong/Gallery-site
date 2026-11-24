@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import L, { type LayerGroup, type Map as LeafletMap, type Marker, type Polyline } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Photo } from "../data/photos";
@@ -6,11 +6,14 @@ import type { ResolvedStoryRouteStop, RouteCoordinate, StoryRoute } from "../dat
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { resolveRouteStopPhotos } from "../lib/routePhotos";
 import { addMapBasemap } from "../lib/mapBasemap";
+import { mapRouteHref } from "../lib/mapRoutes";
 
 type StoryRoutePageProps = {
   route: StoryRoute;
   photos: Photo[];
   onOpen: (index: number, photos?: Photo[]) => void;
+  publicStory?: boolean;
+  initialStopIndex?: number;
 };
 
 function resolvePhotos(photoIds: string[] | undefined, photos: Photo[]) {
@@ -29,7 +32,7 @@ function getVisitedTrack(
   breakpoints: number[],
   progress: number,
 ): RouteCoordinate[] {
-  if (track.length < 2 || breakpoints.length < 2) return track;
+  if (breakpoints.length < 2) return track.slice(0, (breakpoints[0] ?? 0) + 1);
   const safeProgress = Math.max(0, Math.min(progress, breakpoints.length - 1));
   const segment = Math.min(Math.floor(safeProgress), breakpoints.length - 2);
   const localProgress = safeProgress - segment;
@@ -80,18 +83,21 @@ function elevationPoint(stops: ResolvedStoryRouteStop[], index: number): [number
   return [x, y];
 }
 
-export function StoryRoutePage({ route, photos, onOpen }: StoryRoutePageProps) {
+export function StoryRoutePage({ route, photos, onOpen, publicStory = false, initialStopIndex = -1 }: StoryRoutePageProps) {
   const stops = useMemo(() => resolveStops(route, photos), [photos, route]);
   const mapElement = useRef<HTMLDivElement | null>(null);
-  const storyElement = useRef<HTMLElement | null>(null);
+  const storyElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerLayerRef = useRef<LayerGroup<Marker> | null>(null);
   const visitedLineRef = useRef<Polyline | null>(null);
   const chapterRefs = useRef<Array<HTMLElement | null>>([]);
-  const [routeProgress, setRouteProgress] = useState(0);
+  const anchoredChapter = useRef(initialStopIndex);
+  const [routeProgress, setRouteProgress] = useState(Math.max(0, initialStopIndex));
   const [mapZoom, setMapZoom] = useState(13);
+  const [mapExpanded, setMapExpanded] = useState(false);
   const activeIndex = Math.min(Math.max(0, stops.length - 1), Math.floor(routeProgress));
   const activeStop = stops[activeIndex] ?? stops[0];
+  const mapReturnHref = publicStory ? mapRouteHref(route.id, activeStop?.id) : undefined;
   const breakpoints = useMemo(() => route.stops.map((stop) => stop.trackIndex), [route]);
   const profilePath = useMemo(() => elevationPath(stops), [stops]);
   const profilePoint = useMemo(() => elevationPoint(stops, activeIndex), [activeIndex, stops]);
@@ -101,30 +107,61 @@ export function StoryRoutePage({ route, photos, onOpen }: StoryRoutePageProps) {
     () => stops.flatMap((stop) => stop.photos.filter((photo) => Number.isFinite(photo.latitude) && Number.isFinite(photo.longitude)).map((photo) => ({ photo }))),
     [stops],
   );
+  const hasElevationProfile = stops.length > 1 && stops.every((stop) => stop.elevationM !== undefined);
 
-  const scrollToStop = (index: number) => {
+  const scrollToStop = useCallback((index: number) => {
+    const chapter = chapterRefs.current[index];
+    if (!chapter) return;
+    anchoredChapter.current = index;
     setRouteProgress(index);
-    chapterRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
+    if (publicStory) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("stop", route.stops[index].id);
+      window.history.replaceState(window.history.state, "", url);
+    }
+    chapter.focus({ preventScroll: true });
+    chapter.scrollIntoView({ behavior: "instant", block: "start" });
+  }, [publicStory, route.stops]);
+
+  useLayoutEffect(() => {
+    if (initialStopIndex < 0) return;
+    anchoredChapter.current = initialStopIndex;
+    const chapter = chapterRefs.current[initialStopIndex];
+    chapter?.focus({ preventScroll: true });
+  }, [initialStopIndex]);
+
+  useLayoutEffect(() => {
+    // Gallery photos can arrive after the route and change the heights of earlier chapters.
+    chapterRefs.current[anchoredChapter.current]?.scrollIntoView({ behavior: "instant", block: "start" });
+  }, [initialStopIndex, photos, route]);
+
+  useEffect(() => {
+    const releaseChapter = () => { anchoredChapter.current = -1; };
+    const events = ["pointerdown", "touchmove", "wheel", "keydown"];
+    for (const event of events) window.addEventListener(event, releaseChapter, { capture: true, passive: true });
+    return () => {
+      for (const event of events) window.removeEventListener(event, releaseChapter, true);
+    };
+  }, []);
+
+  const fitRoute = useCallback(() => {
+    mapRef.current?.fitBounds(route.bounds, { padding: [28, 28], animate: false });
+  }, [route.bounds]);
 
   useEffect(() => {
     const story = storyElement.current;
     const sections = story ? Array.from(story.querySelectorAll<HTMLElement>(".trail-route-chapter")) : [];
     if (!sections.length) return undefined;
     let frame = 0;
-    let running = true;
     let lastProgress = -1;
     const measure = () => {
-      const focusDocumentY = window.scrollY + window.innerHeight * 0.5;
+      const focusY = 56;
+      if (sections[0].getBoundingClientRect().top > focusY) return;
       let nextProgress = 0;
       sections.forEach((section, index) => {
-        const start = section.getBoundingClientRect().top + window.scrollY;
-        const height = Math.max(1, section.getBoundingClientRect().height);
-        const end = start + height;
-        if (focusDocumentY >= start && focusDocumentY <= end) {
-          nextProgress = index + Math.max(0, Math.min(1, (focusDocumentY - start) / height));
-        } else if (focusDocumentY > end) {
-          nextProgress = index + 1;
+        const rect = section.getBoundingClientRect();
+        if (focusY >= rect.top) {
+          nextProgress = index + Math.min(0.999, (focusY - rect.top) / Math.max(1, rect.height));
         }
       });
       if (Math.abs(lastProgress - nextProgress) >= 0.012) {
@@ -136,19 +173,12 @@ export function StoryRoutePage({ route, photos, onOpen }: StoryRoutePageProps) {
       if (frame) return;
       frame = window.requestAnimationFrame(() => { frame = 0; measure(); });
     };
-    const tick = () => {
-      if (!running) return;
-      measure();
-      frame = window.requestAnimationFrame(tick);
-    };
     measure();
-    frame = window.requestAnimationFrame(tick);
     window.addEventListener("scroll", updateFromScroll, { passive: true });
     window.addEventListener("resize", updateFromScroll);
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateFromScroll) : null;
     observer?.observe(document.body);
     return () => {
-      running = false;
       window.removeEventListener("scroll", updateFromScroll);
       window.removeEventListener("resize", updateFromScroll);
       observer?.disconnect();
@@ -157,41 +187,63 @@ export function StoryRoutePage({ route, photos, onOpen }: StoryRoutePageProps) {
   }, [stops.length]);
 
   useEffect(() => {
-    if (!mapElement.current || mapRef.current || !stops.length) return undefined;
-    const map = L.map(mapElement.current, {
+    const element = mapElement.current;
+    if (!element || mapRef.current || !route.stops.length) return undefined;
+    const map = L.map(element, {
       zoomControl: false,
+      scrollWheelZoom: false,
       minZoom: 8,
       maxZoom: 18,
       maxBounds: route.bounds,
       maxBoundsViscosity: 0.7,
-    }).fitBounds(route.bounds, { padding: [28, 28] });
+    });
+    mapRef.current = map;
+    let wasVisible = element.clientWidth > 0 && element.clientHeight > 0;
+    if (wasVisible) fitRoute();
+    else map.setView(route.stops[0].coordinate, route.focusZoom ?? 13, { animate: false });
     addMapBasemap(map);
+    L.polyline(route.track, {
+      className: "trail-route-track",
+      color: "#37564f",
+      weight: 4,
+      opacity: 0.85,
+      interactive: false,
+    }).addTo(map);
     visitedLineRef.current = L.polyline([], {
+      className: "trail-route-track--visited",
       color: "#b6424b",
       weight: 4,
       opacity: 0.95,
       lineCap: "round",
       lineJoin: "round",
+      interactive: false,
     }).addTo(map);
-    mapRef.current = map;
     markerLayerRef.current = L.layerGroup().addTo(map);
     const onZoomEnd = () => setMapZoom(map.getZoom());
     map.on("zoomend", onZoomEnd);
     setMapZoom(map.getZoom());
-    window.requestAnimationFrame(() => map.invalidateSize());
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      const visible = element.clientWidth > 0 && element.clientHeight > 0;
+      if (visible) {
+        map.invalidateSize({ pan: false });
+        if (!wasVisible) fitRoute();
+      }
+      wasVisible = visible;
+    });
+    observer?.observe(element);
     return () => {
+      observer?.disconnect();
       map.off("zoomend", onZoomEnd);
       map.remove();
       mapRef.current = null;
       markerLayerRef.current = null;
       visitedLineRef.current = null;
     };
-  }, [route, stops.length]);
+  }, [fitRoute, route]);
 
   useEffect(() => {
     const markerLayer = markerLayerRef.current;
-    const visitedLine = visitedLineRef.current;
-    if (!markerLayer || !visitedLine) return;
+    if (!markerLayer) return;
     markerLayer.clearLayers();
     stops.forEach((stop, index) => {
       const marker = L.marker(stop.coordinate, {
@@ -206,6 +258,7 @@ export function StoryRoutePage({ route, photos, onOpen }: StoryRoutePageProps) {
       });
       marker.on("click", () => scrollToStop(index));
       markerLayer.addLayer(marker);
+      marker.getElement()?.setAttribute("aria-label", `${String(index + 1).padStart(2, "0")} ${stop.title}`);
     });
     visibleMapPoints.forEach((point, index) => {
       const pointPhotos = resolvePhotos(point.photoIds, photos);
@@ -247,71 +300,102 @@ export function StoryRoutePage({ route, photos, onOpen }: StoryRoutePageProps) {
       marker.on("click", () => onOpen(photos.indexOf(photo), [photo]));
       markerLayer.addLayer(marker);
     });
-    visitedLine.setLatLngs(getVisitedTrack(route.track, breakpoints, routeProgress));
-  }, [activeIndex, breakpoints, mapZoom, onOpen, photoPoints, photos, route, routeProgress, stops, visibleMapPoints]);
+  }, [activeIndex, mapZoom, onOpen, photoPoints, photos, scrollToStop, stops, visibleMapPoints]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !activeStop) return;
-    const segment = Math.min(Math.floor(routeProgress), stops.length - 2);
-    const localProgress = Math.max(0, Math.min(1, routeProgress - segment));
-    const nextStop = stops[Math.min(segment + 1, stops.length - 1)] ?? activeStop;
-    const center: RouteCoordinate = [
-      activeStop.coordinate[0] + (nextStop.coordinate[0] - activeStop.coordinate[0]) * localProgress,
-      activeStop.coordinate[1] + (nextStop.coordinate[1] - activeStop.coordinate[1]) * localProgress,
-    ];
-    map.setView(center, route.focusZoom ?? 13, { animate: false });
-  }, [activeStop, route.focusZoom, routeProgress, stops]);
+    visitedLineRef.current?.setLatLngs(getVisitedTrack(route.track, breakpoints, routeProgress));
+  }, [breakpoints, route.track, routeProgress]);
 
   if (!stops.length) return null;
 
+  const currentStop = (
+    <div className="trail-route-map-panel__current">
+      <span>Stop {activeIndex + 1} of {stops.length}</span>
+      <strong>{activeStop.title}</strong>
+      <small>{[
+        activeStop.time,
+        activeStop.elevationM === undefined ? undefined : `${activeStop.elevationM} m`,
+        activeStop.distanceKm === undefined ? undefined : `${activeStop.distanceKm.toFixed(1)} km`,
+      ].filter(Boolean).join(" · ")}</small>
+    </div>
+  );
+
   return (
-    <article className="trail-route-experiment">
-      <header className="trail-route-hero">
-        <div className="trail-route-hero__inner">
-          <p className="trail-route-kicker">{route.kicker}</p>
-          <h1>{route.title}{route.titleEmphasis ? <><br /><em>{route.titleEmphasis}</em></> : null}</h1>
-          <p className="trail-route-hero__dek">{route.subtitle}</p>
+    <article className={`trail-route-experiment${publicStory ? " trail-route-experiment--public" : ""}`}>
+      <header className="trail-route-summary">
+        <div>
+          {route.locationLabel && <p className="trail-route-summary__location">{route.locationLabel}</p>}
+          <h1>{route.name ?? [route.title, route.titleEmphasis].filter(Boolean).join(" ")}</h1>
           <div className="trail-route-stats" aria-label="Route summary">
-            <span><strong>{route.stats.distance}</strong> km</span>
-            <span><strong>{route.stats.duration}</strong> {route.stats.durationLabel ?? "moving time"}</span>
-            <span><strong>{route.stats.ascent}</strong> m ascent</span>
+            {route.stats.distance !== "—" && <span><strong>{route.stats.distance}</strong> km</span>}
+            {route.stats.duration !== "—" && <span><strong>{route.stats.duration}</strong> {route.stats.durationLabel ?? "moving time"}</span>}
+            {route.stats.ascent !== "—" && <span><strong>{route.stats.ascent}</strong> m ascent</span>}
           </div>
         </div>
-        <a className="trail-route-back" href="/experiments">Back to lab ↗</a>
+        <nav className="trail-route-toolbar" aria-label="Route story navigation">
+          <a href={mapReturnHref ?? "/experiments"}>{publicStory ? "← Back to map" : "← Back to lab"}</a>
+          <button type="button" className="trail-route-map-toggle" aria-expanded={mapExpanded} aria-controls="walking-route-map"
+            onClick={() => setMapExpanded((open) => !open)}>{mapExpanded ? "Hide map & stops" : "Map & stops"}</button>
+        </nav>
       </header>
 
-      <div className="trail-route-intro-line">
-        <span>{route.introLabel}</span>
-        <span>{route.sourceLabel ?? "Scroll to move the route"}</span>
-      </div>
-
       <div className="trail-route-body">
-        <main className="trail-route-story" ref={storyElement}>
+        <aside id="walking-route-map" className={`trail-route-map-panel${mapExpanded ? " is-expanded" : ""}`} aria-label="Route map and stops">
+          <div className="trail-route-map-panel__map-wrap">
+            <div className="trail-route-map-panel__map" ref={mapElement} />
+            <div className="trail-route-map-panel__controls" aria-label="Map controls">
+              <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom in">+</button>
+              <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label="Zoom out">−</button>
+              <button type="button" onClick={fitRoute} aria-label="Show the complete route">◎</button>
+            </div>
+          </div>
+          {currentStop}
+          {hasElevationProfile && <div className="trail-route-elevation">
+            <div className="trail-route-elevation__head"><span>Elevation / m</span><span>Start → finish</span></div>
+            <svg viewBox="0 0 100 28" role="img" aria-label="Route elevation profile">
+              <path d={profilePath} />
+              <circle cx={profilePoint[0]} cy={profilePoint[1]} r="1.8" />
+            </svg>
+          </div>}
+          <nav className="trail-route-map-panel__list" aria-label="Route stops">
+            {stops.map((stop, index) => (
+              <button type="button" className={activeIndex === index ? "is-active" : ""} key={stop.id} onClick={() => scrollToStop(index)}
+                aria-current={activeIndex === index ? "location" : undefined}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{stop.title}</strong>
+                <small>{stop.time}</small>
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        <div className="trail-route-story" ref={storyElement}>
           {stops.map((stop, index) => {
             const primaryPhoto = stop.photos[0];
+            const stationMetrics = [stop.time, stop.distanceKm === undefined ? undefined : `${stop.distanceKm.toFixed(1)} km`].filter(Boolean);
             return (
               <section
                 className={`trail-route-chapter${activeIndex === index ? " is-active" : ""}`}
                 data-route-index={index}
                 key={stop.id}
                 ref={(element) => { chapterRefs.current[index] = element; }}
+                tabIndex={-1}
+                aria-labelledby={`route-stop-${index}`}
               >
-                <div className="trail-route-chapter__eyebrow"><span>{String(index + 1).padStart(2, "0")}</span>{stop.time ?? "—"} / {stop.distanceKm?.toFixed(1) ?? "—"} km</div>
-                <h2>{stop.localTitle ?? stop.title}</h2>
-                <p className="trail-route-chapter__place">{stop.title}</p>
-                <p className="trail-route-chapter__note">{stop.note ?? "A recorded point along this route."}</p>
-                <p className="trail-route-chapter__meta">Elevation {stop.elevationM ?? "—"} m{primaryPhoto ? ` · ${primaryPhoto.title}` : ""}</p>
-                {!primaryPhoto && route.photoSelection === "gps" ? (
-                  <p className="trail-route-chapter__photo-note">No EXIF GPS photograph is assigned to this stop yet.</p>
-                ) : null}
+                <div className="trail-route-chapter__eyebrow"><span>{String(index + 1).padStart(2, "0")}</span>{stationMetrics.join(" / ")}</div>
+                <h2 id={`route-stop-${index}`}>{stop.localTitle ?? stop.title}</h2>
+                {stop.localTitle && stop.localTitle !== stop.title && <p className="trail-route-chapter__place">{stop.title}</p>}
+                {stop.note && <p className="trail-route-chapter__note">{stop.note}</p>}
+                {(stop.elevationM !== undefined || primaryPhoto) && <p className="trail-route-chapter__meta">
+                  {[stop.elevationM === undefined ? undefined : `Elevation ${stop.elevationM} m`, primaryPhoto?.title].filter(Boolean).join(" · ")}
+                </p>}
                 {primaryPhoto ? (
                   <figure>
                     <button type="button" onClick={() => onOpen(photos.indexOf(primaryPhoto), stop.photos)}>
                       <img
                         src={primaryPhoto.previewSrc ?? sizedImageUrl(primaryPhoto.src, 1200, 84)}
                         {...(primaryPhoto.previewSrc ? {} : { srcSet: imageSrcSet(primaryPhoto.src, [640, 900, 1200], 84) })}
-                        sizes="(max-width: 900px) 100vw, 42vw"
+                        sizes="(max-width: 980px) 100vw, 42vw"
                         alt={primaryPhoto.altText ?? primaryPhoto.title}
                         width={primaryPhoto.width}
                         height={primaryPhoto.height}
@@ -335,43 +419,12 @@ export function StoryRoutePage({ route, photos, onOpen }: StoryRoutePageProps) {
               </section>
             );
           })}
-        </main>
-
-        <aside className="trail-route-map-panel" aria-label="Route map">
-          <div className="trail-route-map-panel__map-wrap">
-            <div className="trail-route-map-panel__map" ref={mapElement} />
-            <div className="trail-route-map-panel__topline"><span>{route.title}</span><span>{String(activeIndex + 1).padStart(2, "0")} — {String(stops.length).padStart(2, "0")}</span></div>
-            <div className="trail-route-map-panel__controls" aria-label="Map controls">
-              <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom in">+</button>
-              <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label="Zoom out">−</button>
-              <button type="button" onClick={() => mapRef.current?.fitBounds(route.bounds, { padding: [28, 28] })} aria-label="Show the complete route">◎</button>
-            </div>
-            <div className="trail-route-map-panel__current">
-              <span>Current stop</span>
-              <strong>{activeStop.title}</strong>
-              <small>{activeStop.time ?? "—"} · {activeStop.elevationM ?? "—"} m · {activeStop.distanceKm?.toFixed(1) ?? "—"} km</small>
-            </div>
-          </div>
-          <div className="trail-route-elevation" aria-label="Route elevation profile">
-            <div className="trail-route-elevation__head"><span>Elevation / m</span><span>Start → finish</span></div>
-            <svg viewBox="0 0 100 28" role="img" aria-label="Route elevation profile">
-              <path d={profilePath} />
-              <circle cx={profilePoint[0]} cy={profilePoint[1]} r="1.8" />
-            </svg>
-          </div>
-          <div className="trail-route-map-panel__list">
-            {stops.map((stop, index) => (
-              <button type="button" className={activeIndex === index ? "is-active" : ""} key={stop.id} onClick={() => scrollToStop(index)}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{stop.title}</strong>
-                <small>{stop.time ?? "—"}</small>
-              </button>
-            ))}
-          </div>
-        </aside>
+        </div>
       </div>
 
-      <footer className="trail-route-footer"><span>{route.sourceLabel ?? "End of route study"}</span><a href="/photography">Return to the archive ↗</a></footer>
+      <footer className="trail-route-footer">
+        <a href={mapReturnHref ?? "/photography"}>{mapReturnHref ? "← Back to map" : "Return to the archive ↗"}</a>
+      </footer>
     </article>
   );
 }

@@ -63,9 +63,10 @@ function nearestTrackIndex(track: RouteCoordinate[], coordinate: RouteCoordinate
 }
 
 async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
+  const editorialRoute = storyRoutes.find((candidate) => candidate.id === route.sourceRouteId);
   const loaded = await routeTrack(route);
   const track = loaded.coordinates;
-  const rawStops = (route.stops ?? []).filter((stop) => stop.title && (
+  const rawStops = (route.stops ?? []).filter((stop) => stop.title?.trim() && stop.title.trim() !== "新标注点" && (
     (stop.coordinate?.length === 2 && validCoordinate(stop.coordinate[0], stop.coordinate[1])) ||
     (Number.isInteger(stop.trackIndex) && track.length > 0)
   ));
@@ -101,15 +102,23 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
   const safeTrack = track.length >= 2 ? track : stops.map((stop) => stop.coordinate);
   const calculated = loaded.points.length >= 2 ? calculateMapRouteStats(loaded.points) : undefined;
   const calculatedDuration = formatRouteDuration(calculated?.durationSeconds);
+  const durationLabel = route.stats?.duration
+    ? editorialRoute?.stats.durationLabel ?? "route time"
+    : "recorded time";
   return {
     id: route.sourceRouteId ?? `cms-${route.id}`,
     kicker: "CMS map route",
+    name: editorialRoute?.name,
+    locationLabel: editorialRoute?.locationLabel,
     title: route.title,
-    subtitle: route.subtitle ?? "A route from the map archive.",
+    subtitle: route.subtitle === "A six-stop route narrative generated from the GPX track you provided."
+      ? editorialRoute?.subtitle ?? route.subtitle
+      : route.subtitle ?? editorialRoute?.subtitle ?? "A route from the map archive.",
     introLabel: `${stops.length.toString().padStart(2, "0")} map stops / CMS route`,
     stats: {
       distance: route.stats?.distance || (calculated ? formatRouteDistance(calculated.distanceKm) : "—"),
       duration: route.stats?.duration || calculatedDuration || "—",
+      durationLabel,
       ascent: route.stats?.ascent || (calculated?.ascentM === undefined ? "—" : formatRouteAscent(calculated.ascentM)),
     },
     track: safeTrack,
@@ -121,31 +130,53 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
   };
 }
 
+type MapRoutesState = { routes: StoryRoute[]; status: "loading" | "ready" | "error" };
+
 export function useCmsMapRoutes() {
-  const [routes, setRoutes] = useState<StoryRoute[]>([]);
+  const [state, setState] = useState<MapRoutesState>(() => ({
+    routes: [], status: isSanityConfigured() ? "loading" : "ready",
+  }));
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => {
+    setState({ routes: [], status: "loading" });
+    setAttempt((current) => current + 1);
+  };
   useEffect(() => {
     if (!isSanityConfigured()) return undefined;
     let active = true;
     void fetchCms<CmsMapRoute[]>(cmsMapRoutesQuery)
       .then(async (records) => {
         const next = (await Promise.all(records.map(toStoryRoute))).filter((route): route is StoryRoute => Boolean(route));
-        if (active) setRoutes(next);
+        if (active) setState({ routes: next, status: "ready" });
       })
       .catch(() => {
-        if (active) setRoutes([]);
+        if (active) setState({ routes: [], status: "error" });
       });
     return () => {
       active = false;
     };
-  }, []);
-  return routes;
+  }, [attempt]);
+  return { ...state, retry };
 }
 
 export function useMapRoutes(atlas = false) {
-  const cmsRoutes = useCmsMapRoutes();
+  const { routes: cmsRoutes } = useCmsMapRoutes();
   return useMemo(() => {
     if (atlas && isSanityConfigured()) return cmsRoutes;
     const cmsRouteIds = new Set(cmsRoutes.map((route) => route.id));
     return [...storyRoutes.filter((route) => !cmsRouteIds.has(route.id)), ...cmsRoutes];
   }, [atlas, cmsRoutes]);
+}
+
+export function mapRouteHref(routeId?: string, stopId?: string) {
+  const query = new URLSearchParams({ mode: "routes" });
+  if (routeId) query.set("map-route", routeId);
+  if (routeId && stopId) query.set("map-stop", stopId);
+  return `/map?${query}#map-views`;
+}
+
+export function routeStoryHref(routeId: string, stopId?: string) {
+  const query = new URLSearchParams({ route: routeId });
+  if (stopId) query.set("stop", stopId);
+  return `/map/route?${query}`;
 }

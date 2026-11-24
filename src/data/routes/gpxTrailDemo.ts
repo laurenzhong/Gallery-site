@@ -12,9 +12,11 @@ const GPX_ROUTE_POINTS = GPX_POINT_INDICES.map((trackIndex, index) => ({
 export const gpxTrailDemo: StoryRoute = {
   id: "gpx-trail-demo",
   kicker: "Personal GPX / 2025.12.31 route study",
+  name: "Winter Ridge Walk",
+  locationLabel: "Zhejiang, China",
   title: "Climb into",
   titleEmphasis: "the winter ridge.",
-  subtitle: "A six-stop route narrative generated from the GPX track you provided.",
+  subtitle: "Six stops on a winter climb from the valley trailhead to the ridge.",
   introLabel: "06 field notes / personal GPX",
   stats: { distance: "7.2", duration: "09:09", durationLabel: "recorded time", ascent: "+1,014" },
   track: GPX_TRAIL_DEMO_TRACK,

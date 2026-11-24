@@ -4,6 +4,8 @@ import type { StoryRoute } from "../storyRoutes";
 export const maclehoseSection2: StoryRoute = {
   id: "maclehose-section-2",
   kicker: "MacLehose Trail / stage 02 route study",
+  name: "MacLehose Trail · Section 2",
+  locationLabel: "Hong Kong",
   title: "Follow the coast",
   titleEmphasis: "back inland.",
   subtitle: "A six-stop field record from Long Ke Wan to Pak Tam Au.",

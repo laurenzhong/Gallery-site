@@ -47,12 +47,14 @@ function routeLabel(route: StoryRoute) {
   return `${route.title}${route.titleEmphasis ? ` ${route.titleEmphasis}` : ""}`;
 }
 
-function updateMapQuery(name: string, value?: string) {
+function updateMapQuery(values: Record<string, string | null>) {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
-  if (value) url.searchParams.set(name, value);
-  else url.searchParams.delete(name);
-  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  for (const [name, value] of Object.entries(values)) {
+    if (value) url.searchParams.set(name, value);
+    else url.searchParams.delete(name);
+  }
+  window.history.replaceState(window.history.state, "", url);
 }
 
 export function PhotoMapExperiment(props: PhotoMapExperimentProps) {
@@ -73,14 +75,15 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
   const [activeIndex, setActiveIndex] = useState(0);
   const [atlasPhotoId, setAtlasPhotoId] = useState<string | null>(null);
   const [visiblePhotoCount, setVisiblePhotoCount] = useState(0);
-  const [routeStopIndex, setRouteStopIndex] = useState(-1);
   const markerPhotos = useRef(new WeakMap<Marker, Photo>());
   const selectedAtlasMarker = useRef<Marker | null>(null);
   const [requestedArea, setRequestedArea] = useState(() => new URLSearchParams(window.location.search).get("place"));
   const [requestedRouteId, setRequestedRouteId] = useState(() => new URLSearchParams(window.location.search).get("map-route"));
+  const [requestedStopId, setRequestedStopId] = useState(() => new URLSearchParams(window.location.search).get("map-stop"));
   const [locationStatus, setLocationStatus] = useState<"idle" | "locating" | "found" | "error">("idle");
   const selectedRoute = routes.find((route) => route.id === requestedRouteId);
   const selectedRouteId = selectedRoute?.id ?? null;
+  const routeStopIndex = selectedRoute?.stops.findIndex((stop) => stop.id === requestedStopId) ?? -1;
   const baseStops = useMemo(() => buildPhotoStops(photos), [photos]);
   const routePhotoStops = useMemo(() => {
     const photoById = new Map<string, Photo>();
@@ -135,14 +138,14 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
   const selectArea = useCallback((area: string) => {
     const place = area === "All places" ? null : area;
     setRequestedArea(place);
-    updateMapQuery("place", place ?? undefined);
+    updateMapQuery({ place });
   }, []);
 
-  const selectRoute = useCallback((routeId: string | null) => {
-    setRouteStopIndex(-1);
+  const selectRoute = useCallback((routeId: string | null, stopId: string | null = null) => {
     if (routeId) onRouteFocus?.();
     setRequestedRouteId(routeId);
-    updateMapQuery("map-route", routeId ?? undefined);
+    setRequestedStopId(stopId);
+    updateMapQuery({ "map-route": routeId, "map-stop": stopId });
   }, [onRouteFocus]);
 
   useEffect(() => {
@@ -296,7 +299,7 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
             icon: L.divIcon({ className: `atlas-station${stopIndex === routeStopIndex ? " is-selected" : ""}`, html: String(stopIndex + 1), iconSize: [28, 28], iconAnchor: [14, 14] }),
             title: stop.title,
           });
-          marker.on("click", () => setRouteStopIndex(stopIndex)).addTo(routeLayer);
+          marker.on("click", () => selectRoute(route.id, stop.id)).addTo(routeLayer);
           return;
         }
         const stopMarker = L.circleMarker(stop.coordinate, {
@@ -307,7 +310,7 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
           weight: 1.5,
         });
         stopMarker.bindTooltip(`${routeLabel(route)} · ${String(stopIndex + 1).padStart(2, "0")} ${stop.title}`, { direction: "top" });
-        stopMarker.on("click", () => { selectRoute(route.id); if (atlas) setRouteStopIndex(stopIndex); });
+        stopMarker.on("click", () => selectRoute(route.id, atlas ? stop.id : null));
         stopMarker.addTo(routeLayer);
       });
     });
@@ -472,9 +475,10 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
         {atlas && (showRoutesOnly ? <AtlasRouteCard routes={routes} route={selectedRoute} stopIndex={routeStopIndex}
           stopPhotos={routePhotos[routeStopIndex] ?? []} onRoute={selectRoute}
           onStop={(i) => {
-            setRouteStopIndex(i);
             const stop = selectedRoute?.stops[i];
-            if (stop) mapRef.current?.panInside(stop.coordinate, { padding: [48, 48], animate: false });
+            if (!selectedRoute || !stop) return;
+            selectRoute(selectedRoute.id, stop.id);
+            mapRef.current?.panInside(stop.coordinate, { padding: [48, 48], animate: false });
           }}
           onOpen={photo => onOpen(photos.findIndex(p => p.id === photo.id), routePhotos[routeStopIndex])}
         /> : atlasStop ? <AtlasPhotoCard onClose={() => setAtlasPhotoId(null)} stop={atlasStop} index={printIndex} count={atlasStops.length}
