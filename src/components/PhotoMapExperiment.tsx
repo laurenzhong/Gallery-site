@@ -78,10 +78,15 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
   const markerPhotos = useRef(new WeakMap<Marker, Photo>());
   const selectedAtlasMarker = useRef<Marker | null>(null);
   const [requestedArea, setRequestedArea] = useState(() => new URLSearchParams(window.location.search).get("place"));
-  const [requestedRouteId, setRequestedRouteId] = useState(() => new URLSearchParams(window.location.search).get("map-route"));
+  // An untouched route view defaults to its first walk. Null means the visitor chose the overview.
+  const [requestedRouteId, setRequestedRouteId] = useState<string | null | undefined>(() =>
+    new URLSearchParams(window.location.search).get("map-route") ?? undefined,
+  );
   const [requestedStopId, setRequestedStopId] = useState(() => new URLSearchParams(window.location.search).get("map-stop"));
   const [locationStatus, setLocationStatus] = useState<"idle" | "locating" | "found" | "error">("idle");
-  const selectedRoute = routes.find((route) => route.id === requestedRouteId);
+  const selectedRoute = atlas && showRoutesOnly && requestedRouteId === undefined
+    ? routes[0]
+    : routes.find((route) => route.id === requestedRouteId);
   const selectedRouteId = selectedRoute?.id ?? null;
   const routeStopIndex = selectedRoute?.stops.findIndex((stop) => stop.id === requestedStopId) ?? -1;
   const baseStops = useMemo(() => buildPhotoStops(photos), [photos]);
@@ -245,7 +250,9 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
     const map = mapRef.current;
     if (!map) return;
     map.invalidateSize({ pan: false });
-    map.setMaxBounds(interactionBounds);
+    // Fit the route before enforcing its bounds so Leaflet does not pan from the old view during the fit.
+    if (atlas && showRoutesOnly) map.setMaxBounds(L.latLngBounds([]));
+    else map.setMaxBounds(interactionBounds);
     if (atlas && !showRoutesOnly) {
       const previous = lastAtlasView.current;
       if (previous) map.setView(previous.center, previous.zoom, { animate: false });
@@ -255,6 +262,7 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
       };
     }
     map.fitBounds(selectedRoute?.bounds ?? visibleBounds, { padding: [40, 40], maxZoom: selectedRoute ? 14 : 11, animate: false });
+    if (atlas && showRoutesOnly) map.setMaxBounds(interactionBounds);
   }, [atlas, interactionBounds, selectedRoute, showRoutesOnly, visibleBounds]);
 
   useEffect(() => {
@@ -439,7 +447,10 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
       <div className="photo-map-experiment__controls" aria-label="Map controls">
         <button type="button" onClick={() => mapRef.current?.zoomIn(1, { animate: !atlas })} aria-label="Zoom in">+</button>
         <button type="button" onClick={() => mapRef.current?.zoomOut(1, { animate: !atlas })} aria-label="Zoom out">−</button>
-        <button type="button" onClick={() => mapRef.current?.fitBounds(visibleBounds, { padding: [40, 40], maxZoom: 11 })} aria-label={showRoutesOnly ? "Show all routes" : "Show all photos and routes"}>◎</button>
+        <button type="button" onClick={() => {
+          if (atlas && showRoutesOnly && selectedRoute) selectRoute(null);
+          else mapRef.current?.fitBounds(visibleBounds, { padding: [40, 40], maxZoom: 11 });
+        }} aria-label={showRoutesOnly ? "Show all routes" : "Show all photos and routes"}>◎</button>
         <button type="button" onClick={locateUser} aria-label="定位到我的位置" aria-busy={locationStatus === "locating"}>⌖</button>
       </div>
       {(!atlas || locationStatus !== "idle") && <p className="photo-map-experiment__status" role="status" aria-live="polite">{locationLabel}</p>}
@@ -466,7 +477,13 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
       <section className={atlas ? "map-hub-demo__workspace" : "photo-map-experiment__stage"} aria-label={showRoutesOnly ? "Route map" : "Photo map"}>
         {atlas ? <div className="map-hub-demo__map-column">
           <div className="map-hub-demo__map-label">
-            <span>{showRoutesOnly ? "Routes / field records" : "Archive / field map"}</span>
+            {showRoutesOnly && routes.length > 0 ? (
+              <select className="atlas-route-picker" aria-label="Walking route" value={selectedRouteId ?? ""}
+                onChange={(event) => selectRoute(event.currentTarget.value || null)}>
+                <option value="">All routes</option>
+                {routes.map((route) => <option key={route.id} value={route.id}>{route.name ?? routeLabel(route)}</option>)}
+              </select>
+            ) : <span>{showRoutesOnly ? "Routes / field records" : "Archive / field map"}</span>}
             <small>OpenStreetMap</small>
           </div>
           <div className="map-hub-demo__map-frame"><div className="photo-map-experiment__stage">{mapCanvas}</div></div>
