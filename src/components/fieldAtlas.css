@@ -3,12 +3,7 @@
   --atlas-line: var(--map-demo-line);
   --atlas-paper: #f2eee4;
 }
-main .map-hub-demo { padding-top: clamp(20px, 3vw, 48px); }
-.map-hub-demo .map-hub-demo__hero { margin-bottom: clamp(20px, 2vw, 32px); }
-.map-hub-demo .map-hub-demo__hero h1 { font-size: clamp(52px, 6.4vw, 98px); }
-.map-hub-demo .map-hub-demo__dek { margin-top: 16px; }
 @media (max-width: 560px) {
-  .map-hub-demo .map-hub-demo__hero { gap: 12px; }
   .map-hub-demo .map-hub-demo__sidebar { margin-top: 0; }
 }
 .map-hub-demo .photo-map-experiment--compact { padding: 0; }
@@ -20,8 +15,6 @@ main .map-hub-demo { padding-top: clamp(20px, 3vw, 48px); }
 .map-hub-demo__route-row { display: grid; grid-template-columns: 1fr auto; border-bottom: 1px solid var(--atlas-line); }
 .map-hub-demo__route-row .map-hub-demo__route-card { border-bottom: 0; }
 .map-hub-demo__route-focus { font-size: 13px; }
-.map-hub-demo__jump { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; color: var(--atlas-accent); }
-#map-views { scroll-margin-top: var(--header-h); }
 @media (min-width: 981px) {
   .map-hub-demo .atlas-card { max-height: 700px; }
 }
