@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L, { type Map as LeafletMap, type Marker } from "leaflet";
+import { BookOpen } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import type { Photo } from "../data/photos";
 import type { StoryRoute } from "../data/storyRoutes";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
-import { useMapRoutes } from "../lib/mapRoutes";
+import { routeStoryHref, useMapRoutes } from "../lib/mapRoutes";
 import { buildPhotoStops, getPhotoMapBounds, getPhotoMapInteractionBoundsFromBounds, getPhotoMapRouteBounds, mergePhotoMapBounds } from "../lib/photoMapData";
 import { photoMapMarkerMarkup } from "../lib/photoMapMarker";
 import { addMapBasemap } from "../lib/mapBasemap";
@@ -478,13 +479,21 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
         {atlas ? <div className="map-hub-demo__map-column">
           <div className="map-hub-demo__map-label">
             {showRoutesOnly && routes.length > 0 ? (
-              <select className="atlas-route-picker" aria-label="Walking route" value={selectedRouteId ?? ""}
-                onChange={(event) => selectRoute(event.currentTarget.value || null)}>
-                <option value="">All routes</option>
-                {routes.map((route) => <option key={route.id} value={route.id}>{route.name ?? routeLabel(route)}</option>)}
-              </select>
+              <>
+                <select className="atlas-route-picker" aria-label="Walking route" value={selectedRouteId ?? ""}
+                  onChange={(event) => selectRoute(event.currentTarget.value || null)}>
+                  <option value="">All routes</option>
+                  {routes.map((route) => <option key={route.id} value={route.id}>{route.name ?? routeLabel(route)}</option>)}
+                </select>
+                {selectedRoute && (
+                  <a className="atlas-route-story-link" href={routeStoryHref(selectedRoute.id, selectedRoute.stops[routeStopIndex]?.id)}>
+                    <BookOpen size={16} aria-hidden="true" />
+                    Read the route story
+                  </a>
+                )}
+              </>
             ) : <span>{showRoutesOnly ? "Routes / field records" : "Archive / field map"}</span>}
-            <small>OpenStreetMap</small>
+            {!(showRoutesOnly && selectedRoute) && <small>OpenStreetMap</small>}
           </div>
           <div className="map-hub-demo__map-frame"><div className="photo-map-experiment__stage">{mapCanvas}</div></div>
         </div> : mapCanvas}

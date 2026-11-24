@@ -93,6 +93,5 @@ export function AtlasRouteCard({ routes, route, stopIndex, stopPhotos, onRoute, 
         {stopPhotos[0] && <AtlasPrint photo={stopPhotos[0]} onOpen={() => onOpen(stopPhotos[0])} />}
         {stop.note && <p>{stop.note}</p>}
       </div>}
-      <a className="atlas-route__link" href={routeStoryHref(route.id, stop?.id)}>Read the route story ↗</a>
   </aside>;
 }
