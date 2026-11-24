@@ -12,7 +12,7 @@ type Year = { label: string; count: number; months: Map<string, Month> };
 type Props = { includeLocal: boolean; photoMeta: Record<string, PhotoMeta>; photoStories: Record<string, PhotoStory[]> };
 
 const gridSizes = "(max-width: 640px) 54vw, (max-width: 1000px) 33vw, (max-width: 1680px) 22vw, 340px";
-const singleSizes = "(max-width: 640px) 91vw, (max-width: 1000px) 52vw, (max-width: 1680px) 38vw, 620px";
+const singleSizes = "(max-width: 640px) min(66vw, 360px), (max-width: 1000px) min(36vw, 360px), 360px";
 
 function collectArchive(includeLocal: boolean) {
   const originals = new Map<string, ArchivePhoto>();
