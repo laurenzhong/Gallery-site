@@ -416,7 +416,7 @@ function App() {
         ) : isSashaKurmazPage ? (
           <SashaKurmazExperiment photos={photos} onOpen={openPhoto} />
         ) : isYearArchivePage ? (
-          <Suspense fallback={<p role="status">Loading photo archive…</p>}>
+          <Suspense fallback={<p className="chronicle-loading" role="status">Loading photo archive…</p>}>
             <YearArchiveExperiment includeLocal={isLocalArchivePreview} photoMeta={photoMeta} photoStories={photoStories} />
           </Suspense>
         ) : isAgarunAtlasPage ? (
@@ -448,7 +448,7 @@ function App() {
         )}
       </main>
 
-      <Footer aboutData={aboutData} showPreview={showPreview} variant="photo" />
+      <Footer aboutData={aboutData} showPreview={showPreview} variant="photo" deferPhoto={isYearArchivePage} />
 
       {activeLightbox && (
         <AdvancedPhotoLightbox

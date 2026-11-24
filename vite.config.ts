@@ -101,8 +101,8 @@ function fontPreloadPlugin(): Plugin {
 }
 
 /**
- * Ask Sanity which photo is the homepage hero and inject a preload link
- * so the browser can download it in parallel with the JS bundle.
+ * Ask Sanity which photo is the homepage hero and preload it on home visits
+ * while the app bundle is still loading. All routes share the same HTML.
  *
  * At build time this queries Sanity for the hero photo's CDN URL. If the
  * query fails (no network, proxy issue), the preload is silently skipped
@@ -124,7 +124,17 @@ function heroPreloadPlugin(): Plugin {
 
       const src = await fetchHeroUrlFromSanity()
       if (src) {
-        preload = `  <link rel="preload" as="image" href="${src}${IMAGE_CDN_SUFFIX}" fetchpriority="high">\n`
+        const heroUrl = JSON.stringify(src + IMAGE_CDN_SUFFIX).replaceAll('<', '\\u003c')
+        preload = `  <script>
+    if (location.pathname === '/') {
+      const hero = document.createElement('link');
+      hero.rel = 'preload';
+      hero.as = 'image';
+      hero.fetchPriority = 'high';
+      hero.href = ${heroUrl};
+      document.head.append(hero);
+    }
+  </script>\n`
       }
 
       if (!html.includes('cdn.sanity.io')) {

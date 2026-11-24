@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Copy, X } from "lucide-react";
-import { useEffect, useState, type TouchEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type TouchEvent } from "react";
 import type { Photo } from "../data/photos";
 import {
   photoMeta as staticPhotoMeta,
@@ -41,7 +41,9 @@ export function AdvancedPhotoLightbox({
 }: AdvancedPhotoLightboxProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const photo = index >= 0 ? photos[index] : undefined;
+  const isOpen = Boolean(photo);
   const meta = photo ? photoMeta[photo.filename] : undefined;
   const story = photo ? photoStories[photo.filename]?.[0] : undefined;
   const hasStory = Boolean(story);
@@ -50,23 +52,18 @@ export function AdvancedPhotoLightbox({
 
   const shareUrl = shareUrlOverride ?? (typeof window === "undefined" ? "" : window.location.href);
 
-  useEffect(() => {
-    if (!photo) return undefined;
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (!isOpen || !dialog) return;
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      if (event.key === "ArrowLeft" && canGoPrev) onNavigate(index - 1);
-      if (event.key === "ArrowRight" && canGoNext) onNavigate(index + 1);
-    };
-
+    dialog.showModal();
     document.body.classList.add("advanced-lightbox-is-open");
-    window.addEventListener("keydown", onKeyDown);
 
     return () => {
       document.body.classList.remove("advanced-lightbox-is-open");
-      window.removeEventListener("keydown", onKeyDown);
+      dialog.close();
     };
-  }, [canGoNext, canGoPrev, index, onClose, onNavigate, photo]);
+  }, [isOpen]);
 
   useEffect(() => {
     setCopyState("idle");
@@ -86,7 +83,7 @@ export function AdvancedPhotoLightbox({
     onNavigate(nextIndex);
   };
 
-  const handleTouchEnd = (event: TouchEvent<HTMLElement>) => {
+  const handleTouchEnd = (event: TouchEvent<HTMLDialogElement>) => {
     if (!touchStart || event.changedTouches.length === 0) return;
 
     const touch = event.changedTouches[0];
@@ -100,11 +97,19 @@ export function AdvancedPhotoLightbox({
   };
 
   return (
-    <section
+    <dialog
+      ref={dialogRef}
       className="advanced-lightbox"
-      aria-modal="true"
       role="dialog"
       aria-label={`${photo.title} details`}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft") navigateByOffset(-1);
+        if (event.key === "ArrowRight") navigateByOffset(1);
+      }}
       onTouchStart={(event) => {
         if (event.touches.length === 1) {
           setTouchStart({ x: event.touches[0].clientX, y: event.touches[0].clientY });
@@ -118,26 +123,24 @@ export function AdvancedPhotoLightbox({
           <X size={30} strokeWidth={1.8} />
         </button>
 
-        {canGoPrev ? (
-            <button
-              type="button"
-              className="advanced-lightbox-nav advanced-lightbox-nav--prev"
-              onClick={() => navigateByOffset(-1)}
-              aria-label="Previous photo"
-            >
-              <ChevronLeft size={36} strokeWidth={1.7} />
-            </button>
-        ) : null}
-        {canGoNext ? (
-            <button
-              type="button"
-              className="advanced-lightbox-nav advanced-lightbox-nav--next"
-              onClick={() => navigateByOffset(1)}
-              aria-label="Next photo"
-            >
-              <ChevronRight size={36} strokeWidth={1.7} />
-            </button>
-        ) : null}
+        <button
+          type="button"
+          className="advanced-lightbox-nav advanced-lightbox-nav--prev"
+          onClick={() => navigateByOffset(-1)}
+          aria-label="Previous photo"
+          aria-disabled={!canGoPrev}
+        >
+          <ChevronLeft size={36} strokeWidth={1.7} />
+        </button>
+        <button
+          type="button"
+          className="advanced-lightbox-nav advanced-lightbox-nav--next"
+          onClick={() => navigateByOffset(1)}
+          aria-label="Next photo"
+          aria-disabled={!canGoNext}
+        >
+          <ChevronRight size={36} strokeWidth={1.7} />
+        </button>
 
         <div className={`advanced-lightbox-layout${hasStory ? "" : " advanced-lightbox-layout--no-story"}`}>
           <div className="advanced-lightbox-media-column">
@@ -194,6 +197,6 @@ export function AdvancedPhotoLightbox({
           ) : null}
         </div>
       </div>
-    </section>
+    </dialog>
   );
 }

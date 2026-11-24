@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AboutData } from "../data/stories";
 
 import { siteNavLinks } from "../lib/siteNavigation";
@@ -54,10 +54,14 @@ type FooterProps = {
   aboutData?: AboutData;
   showPreview?: boolean;
   variant?: "default" | "photo";
+  deferPhoto?: boolean;
 };
 
-export function Footer({ aboutData, showPreview = false, variant = "default" }: FooterProps) {
+export function Footer({ aboutData, showPreview = false, variant = "default", deferPhoto = false }: FooterProps) {
+  const footerRef = useRef<HTMLElement>(null);
   const [showTop, setShowTop] = useState(false);
+  const [photoInView, setPhotoInView] = useState(false);
+  const photoDeferred = variant === "photo" && deferPhoto && !photoInView && typeof IntersectionObserver !== "undefined";
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 400);
@@ -65,6 +69,20 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    const footer = footerRef.current;
+    if (!footer || !photoDeferred) return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setPhotoInView(true);
+        observer.disconnect();
+      }
+    });
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, [photoDeferred]);
 
   const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   const year = new Date().getFullYear();
@@ -74,7 +92,7 @@ export function Footer({ aboutData, showPreview = false, variant = "default" }: 
   const emailHref = emailContact ? normalizeHref(emailContact.label, emailContact.value, emailContact.href) : undefined;
 
   return (
-    <footer className={`site-footer ${variant === "photo" ? "site-footer--photo" : ""}`}>
+    <footer ref={footerRef} className={`site-footer${variant === "photo" ? " site-footer--photo" : ""}${photoDeferred ? " site-footer--photo-deferred" : ""}`}>
       <div className="site-footer__inner">
         <div className="footer-brand-row">
           <a className="footer-brand" href="/" aria-label="Queenstown home">Queenstown.top</a>
