@@ -9,7 +9,6 @@ import { GpxTrailDemoExperiment } from "./components/GpxTrailDemoExperiment";
 import { GallerySections } from "./components/GallerySections";
 import { Header } from "./components/Header";
 import "./components/YearArchive.css";
-import { Home } from "./components/Home";
 import { ExperimentIndex } from "./components/ExperimentIndex";
 import { JourneyMapExperiment } from "./components/JourneyMapExperiment";
 import { LookButNoStoppingExperiment } from "./components/LookButNoStoppingExperiment";
@@ -57,7 +56,7 @@ function App() {
   const { photos, photoMeta, photoStories, aboutData, homepageLayout, photobalconyLayout } = content;
   const pathname = currentPath;
   const isBalconyPage = pathname === "/photobalcony";
-  const isPhotographyPage = pathname === "/photography";
+  const isPhotographyPage = pathname === "/" || pathname === "/photography";
   const isStoryPage = pathname === "/photostory";
   const isAboutPage = pathname === "/about";
   const isJournalPage = pathname === "/journal";
@@ -258,9 +257,7 @@ function App() {
               ? "GPX trail route demo | Queenstown.top"
             : isExperimentsPage
               ? "Interaction lab | Queenstown.top"
-        : pathname === "/"
-          ? "Queenstown.top | Photography archive"
-          : SITE_TITLE;
+              : SITE_TITLE;
     document.title = pageTitle;
     setMeta("description", description);
     setMeta("og:title", pageTitle, "property");
@@ -360,44 +357,6 @@ function App() {
             publishedDataStatus={content.source === "static" && (content.isLoading || content.error)
               ? (content.isLoading ? "loading" : "error") : undefined}
           />
-        ) : isPhotographyPage ? (
-          <>
-            <section className="page-title-band" id="top" aria-labelledby="page-title">
-              <h1 id="page-title">Photography</h1>
-            </section>
-
-            <section className="hero" aria-label="Featured photograph">
-              {heroPhoto ? (
-                <img
-                  className="hero-image"
-                  src={sizedImageUrl(heroPhoto.src, 2400, 88)}
-                  srcSet={imageSrcSet(heroPhoto.src, [1400, 2000, 2800], 88)}
-                  sizes="100vw"
-                  alt=""
-                  aria-hidden="true"
-                  loading="eager"
-                  fetchPriority="high"
-                  decoding="async"
-                />
-              ) : null}
-            </section>
-
-            {showPreview && (
-              <a className="story-test-cta" href="/photostory" aria-label="Open photo notes and stories">
-                <span className="story-test-cta-tag">Photo Notes</span>
-                <span className="story-test-cta-text">
-                  Read locations, camera settings, and field notes behind selected photographs.
-                </span>
-                <span className="story-test-cta-arrow" aria-hidden="true">-&gt;</span>
-              </a>
-            )}
-
-            <GallerySections
-              photos={photos}
-              homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
-              onOpen={openPhoto}
-            />
-          </>
         ) : isExperimentsPage ? (
           <ExperimentIndex />
         ) : isJourneyExperimentPage ? (
@@ -441,14 +400,43 @@ function App() {
             <h1 id="footer-preview-title">Footer Background</h1>
           </section>
         ) : (
-          <Home
-            photos={photos}
-            heroPhoto={heroPhoto}
-            homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
-            photoStories={photoStories}
-            aboutData={aboutData}
-            onOpen={openPhoto}
-          />
+          <>
+            <section className="page-title-band" id="top" aria-labelledby="page-title">
+              <h1 id="page-title">Photography</h1>
+            </section>
+
+            <section className="hero" aria-label="Featured photograph">
+              {heroPhoto ? (
+                <img
+                  className="hero-image"
+                  src={sizedImageUrl(heroPhoto.src, 2400, 88)}
+                  srcSet={imageSrcSet(heroPhoto.src, [1400, 2000, 2800], 88)}
+                  sizes="100vw"
+                  alt=""
+                  aria-hidden="true"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
+                />
+              ) : null}
+            </section>
+
+            {showPreview && (
+              <a className="story-test-cta" href="/photostory" aria-label="Open photo notes and stories">
+                <span className="story-test-cta-tag">Photo Notes</span>
+                <span className="story-test-cta-text">
+                  Read locations, camera settings, and field notes behind selected photographs.
+                </span>
+                <span className="story-test-cta-arrow" aria-hidden="true">-&gt;</span>
+              </a>
+            )}
+
+            <GallerySections
+              photos={photos}
+              homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
+              onOpen={openPhoto}
+            />
+          </>
         )}
       </main>
 

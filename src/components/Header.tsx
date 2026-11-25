@@ -1,11 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { siteNavLinks } from "../lib/siteNavigation";
 
-const menuItems = [
-  { label: "Home", href: "/" },
-  ...siteNavLinks,
-];
-
 export function Header({ pageTitle }: { pageTitle?: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -90,7 +85,7 @@ export function Header({ pageTitle }: { pageTitle?: ReactNode }) {
           data-open={menuOpen}
           inert={!menuOpen}
         >
-          {menuItems.map((item) => (
+          {siteNavLinks.map((item) => (
             <a key={item.label} href={item.href} onClick={() => setMenuOpen(false)}>
               {item.label}
             </a>

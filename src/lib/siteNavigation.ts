@@ -1,5 +1,5 @@
 export const siteNavLinks = [
-  { label: "Photography", href: "/photography" },
+  { label: "Photography", href: "/" },
   { label: "Photo archive", href: "/archive" },
   { label: "Map", href: "/map" },
   { label: "Balcony View", href: "/photobalcony" },
