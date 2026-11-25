@@ -82,23 +82,28 @@ export function Header({ pageTitle }: { pageTitle?: ReactNode }) {
           <span></span>
           <span></span>
         </button>
-      </header>
 
-      <div
-        className="menu-overlay"
-        data-open={menuOpen}
-        id="site-menu"
-        aria-hidden={!menuOpen}
-        onClick={() => setMenuOpen(false)}
-      >
-        <nav className="menu-panel" aria-label="Menu navigation" onClick={(event) => event.stopPropagation()}>
+        <nav
+          className="menu-panel"
+          id="site-menu"
+          aria-label="Menu navigation"
+          data-open={menuOpen}
+          inert={!menuOpen}
+        >
           {menuItems.map((item) => (
             <a key={item.label} href={item.href} onClick={() => setMenuOpen(false)}>
               {item.label}
             </a>
           ))}
         </nav>
-      </div>
+      </header>
+
+      <div
+        className="menu-overlay"
+        data-open={menuOpen}
+        aria-hidden="true"
+        onClick={() => setMenuOpen(false)}
+      />
     </>
   );
 }
