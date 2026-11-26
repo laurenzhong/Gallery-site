@@ -24,6 +24,7 @@ export type AboutData = {
   name: string;
   location: string;
   bio: string[];
+  image?: { src: string; alt: string; width: number; height: number; caption?: string };
   gear: { name: string; value: string }[];
   contact: { label: string; value: string; href: string }[];
 };
@@ -128,25 +129,31 @@ export const photoStories: Record<string, PhotoStory[]> = {
 };
 
 export const aboutData: AboutData = {
-  name: "JiaKaiZhong",
-  location: "浙江台州 / 上海",
+  name: "Ethan",
+  location: "湖北 襄阳 / 浙江 台州",
+  image: {
+    src: "https://cdn.sanity.io/images/zj2ik922/production/0813188c3df9a170c80cf8acd6f19de54ebfeff5-1080x1620.webp?w=1600&q=85&auto=format&fit=max",
+    alt: "JiaKaiZhong 站在浅海中的背影",
+    width: 1080,
+    height: 1620,
+  },
   bio: [
-    "在浙江长大,工作后搬到上海。喜欢清晨和傍晚的光,平时用一台 A7M4 记录身边能走到的地方。",
-    "大部分照片是周末或者假期拍的,不刻意规划行程,更倾向于在熟悉的地方反复走。",
-    "如果你想聊聊,可以通过邮件或者 Instagram 找到我。",
+    "我想用一个风景优美的地方给网站取名，于是选了 Queenstown。这个名字让我想到湖、山和开阔的天空，也很贴近我想在这里分享的风景。",
+    "我拍过浙江温岭石塘的渔港、香港的维港和麦理浩径沿线的海岸，也拍过武汉的江滩和浙东冬天的山脊。大部分照片是周末或假期拍的，有时专程去走一段山路，有时就在附近带着相机转一圈。",
+    "我偏爱清晨和傍晚的海边。退潮后，滩涂上露出弯弯的水道。天快黑时，港里的船已经暗下来了，云边还留着一点光。遇到这样的景色，我总想换个时间再去走一趟。",
   ],
   gear: [
-    { name: "机身", value: "Sony A7M4" },
-    { name: "广角", value: "FE 16-35mm F2.8 GM" },
-    { name: "标准", value: "FE 24-70mm F2.8 GM II" },
-    { name: "长焦", value: "FE 70-200mm F2.8 GM II" },
-    { name: "微距", value: "FE 90mm F2.8 Macro G" },
+    { name: "机身", value: "Nikon Z6III" },
+    { name: "标准", value: "Z 24-120mm f/4 S" },
     { name: "滤镜", value: "NiSi True Color CPL · ND1000" },
-    { name: "三脚架", value: "Peak Design Travel" },
+    { name: "三脚架", value: "LEAPLIGHT" },
+    { name: "闪光灯", value: "斯丹德 闪60（FK580）" },
   ],
   contact: [
-    { label: "Email", value: "3552219514@qq.com", href: "mailto:3552219514@qq.com" },
-    { label: "Instagram", value: "@gallery", href: "https://www.instagram.com/" },
-    { label: "Youtube", value: "Channel", href: "https://www.youtube.com/" },
+    { label: "Instagram", value: "@Zhong_Official", href: "https://www.instagram.com/Zhong_Official" },
+    { label: "Facebook", value: "@EthanZhong22", href: "https://www.facebook.com/EthanZhong22" },
+    { label: "WhatsApp", value: "+852 98755134", href: "https://wa.me/85298755134" },
+    { label: "Email", value: "Ethanzhong0411@Gmail.com", href: "mailto:Ethanzhong0411@Gmail.com" },
+    { label: "QQ 邮箱", value: "3552219514@qq.com", href: "mailto:3552219514@qq.com" },
   ],
 };

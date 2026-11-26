@@ -51,6 +51,7 @@ const staticContent: GalleryContent = {
 // The previous page-layout rollout stored a different content shape under v4.
 // Never reuse those entries after restoring the native gallery renderer.
 const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v10";
+const ABOUT_DATA_CACHE_VERSION = 1;
 const LEGACY_CMS_CONTENT_CACHE_KEYS = [
   "queenstown.cmsContent.v9",
   "queenstown.cmsContent.v8",
@@ -309,10 +310,20 @@ function toAboutData(settings: CmsSiteSettings | null | undefined): AboutData {
     return staticAboutData;
   }
 
+  const image = settings.aboutImage;
   return {
     name: settings.aboutName || staticAboutData.name,
     location: settings.aboutLocation || staticAboutData.location,
     bio: blocksToLines(settings.aboutBio).length ? blocksToLines(settings.aboutBio) : staticAboutData.bio,
+    image: image?.src && image.width && image.height
+      ? {
+          src: `${image.src}?w=1600&q=85&auto=format&fit=max`,
+          width: image.width,
+          height: image.height,
+          alt: image.alt ?? "",
+          caption: image.caption,
+        }
+      : staticAboutData.image,
     gear: settings.gear?.flatMap((item) => (item.name && item.value ? [{ name: item.name, value: item.value }] : [])) ?? staticAboutData.gear,
     contact:
       settings.socialLinks?.flatMap((item) =>
@@ -467,20 +478,18 @@ async function loadCmsContent(): Promise<GalleryContent> {
   };
 }
 
-function readCachedCmsContent(): GalleryContent | undefined {
+function readCachedCmsContent(useCacheInDevelopment: boolean): GalleryContent | undefined {
   if (typeof window === "undefined") {
     return undefined;
   }
 
-  // Development should always read the current CMS response. The cache can
-  // contain a snapshot from an earlier content model, which makes local work
-  // look like the old site while production already shows newer photos.
-  if (import.meta.env.DEV) {
-    window.localStorage.removeItem(CMS_CONTENT_CACHE_KEY);
-    return undefined;
-  }
-
   try {
+    // About can render the last CMS response while fetching fresh content.
+    if (import.meta.env.DEV && !useCacheInDevelopment) {
+      window.localStorage.removeItem(CMS_CONTENT_CACHE_KEY);
+      return undefined;
+    }
+
     for (const key of LEGACY_CMS_CONTENT_CACHE_KEYS) {
       window.localStorage.removeItem(key);
     }
@@ -490,18 +499,19 @@ function readCachedCmsContent(): GalleryContent | undefined {
       return undefined;
     }
 
-    const content = JSON.parse(cached) as GalleryContent;
+    const content = JSON.parse(cached) as GalleryContent & { aboutDataVersion?: number };
     if (content.source !== "cms" || content.photos.length === 0) {
       return undefined;
     }
 
     return {
       ...content,
+      // Older sessions can keep their gallery data while using the current profile.
+      aboutData: content.aboutDataVersion === ABOUT_DATA_CACHE_VERSION ? content.aboutData : staticAboutData,
       isLoading: true,
       error: undefined,
     };
   } catch {
-    window.localStorage.removeItem(CMS_CONTENT_CACHE_KEY);
     return undefined;
   }
 }
@@ -516,6 +526,7 @@ function writeCachedCmsContent(content: GalleryContent) {
       CMS_CONTENT_CACHE_KEY,
       JSON.stringify({
         ...content,
+        aboutDataVersion: ABOUT_DATA_CACHE_VERSION,
         isLoading: false,
         error: undefined,
       }),
@@ -525,9 +536,9 @@ function writeCachedCmsContent(content: GalleryContent) {
   }
 }
 
-export function useGalleryContent() {
+export function useGalleryContent({ useCacheInDevelopment = false } = {}) {
   const [content, setContent] = useState<GalleryContent>(() => ({
-    ...(isSanityConfigured() ? (readCachedCmsContent() ?? staticContent) : staticContent),
+    ...(isSanityConfigured() ? (readCachedCmsContent(useCacheInDevelopment) ?? staticContent) : staticContent),
     isLoading: isSanityConfigured(),
   }));
 

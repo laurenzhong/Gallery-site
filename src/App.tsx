@@ -52,7 +52,7 @@ function App() {
   const [lightboxState, setLightboxState] = useState<{ photos: Photo[]; index: number } | null>(null);
   const lightboxReturnPath = useRef<string | null>(null);
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/$/, "") || "/");
-  const content = useGalleryContent();
+  const content = useGalleryContent({ useCacheInDevelopment: currentPath === "/about" });
   const { photos, photoMeta, photoStories, aboutData, homepageLayout, photobalconyLayout } = content;
   const pathname = currentPath;
   const isBalconyPage = pathname === "/photobalcony";
@@ -290,9 +290,12 @@ function App() {
   return (
     <>
       <VisualEditingBridge enabled={showPreview} />
-      <Header pageTitle={isYearArchivePage ? <>Photo <em>archive</em></> : undefined} />
+      <Header
+        pageTitle={isAboutPage ? "About" : isYearArchivePage ? <>Photo <em>archive</em></> : undefined}
+        pageTitleClassName={isAboutPage ? "site-header-about-title" : undefined}
+      />
 
-      <CmsSourceBadge content={content} />
+      {!isAboutPage && <CmsSourceBadge content={content} />}
 
       <main>
         {activeStory ? (

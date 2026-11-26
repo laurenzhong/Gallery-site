@@ -109,18 +109,38 @@ function compareStories(a: PhotoStoryData, b: PhotoStoryData) {
   return storyTime(b) - storyTime(a);
 }
 
-export function AboutSection({ aboutData = staticAboutData }: { aboutData?: AboutData }) {
+export function AboutSection({
+  aboutData = staticAboutData,
+  standalone = false,
+}: {
+  aboutData?: AboutData;
+  standalone?: boolean;
+}) {
+  const image = standalone ? aboutData.image : undefined;
+
   return (
     <section className="story-section story-about" aria-labelledby="story-about-title">
-      <div className="story-section-head">
-        <span className="story-section-kicker">About</span>
-        <h1 id="story-about-title">关于摄影师</h1>
-      </div>
+      {!standalone && (
+        <div className="story-section-head">
+          <span className="story-section-kicker">About</span>
+          <h1 id="story-about-title">关于摄影师</h1>
+        </div>
+      )}
 
       <div className="story-about-grid">
         <div className="story-about-bio">
-          <p className="story-about-name">{aboutData.name}</p>
-          <p className="story-about-location">{aboutData.location}</p>
+          {image && (
+            <figure className="about-page-photo">
+              <img src={image.src} alt={image.alt} width={image.width} height={image.height} />
+              {image.caption && <figcaption>{image.caption}</figcaption>}
+            </figure>
+          )}
+          {standalone ? (
+            <h2 id="story-about-title" className="story-about-name">{aboutData.name}</h2>
+          ) : (
+            <p className="story-about-name">{aboutData.name}</p>
+          )}
+          {!standalone && <p className="story-about-location">{aboutData.location}</p>}
           {aboutData.bio.map((line, index) => (
             <p key={index} className="story-about-line">{line}</p>
           ))}

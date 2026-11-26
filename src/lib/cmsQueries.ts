@@ -79,6 +79,13 @@ export type CmsSiteSettings = {
   aboutName?: string;
   aboutLocation?: string;
   aboutBio?: PortableTextBlock[];
+  aboutImage?: {
+    src?: string;
+    alt?: string;
+    caption?: string;
+    width?: number;
+    height?: number;
+  } | null;
   gear?: { name?: string; value?: string }[];
   socialLinks?: { label?: string; value?: string; href?: string }[];
 };
@@ -363,6 +370,13 @@ export const cmsSiteSettingsQuery = `*[_type == "siteSettings"][0] {
   aboutName,
   aboutLocation,
   aboutBio,
+  aboutImage {
+    "src": asset->url,
+    alt,
+    caption,
+    "width": asset->metadata.dimensions.width,
+    "height": asset->metadata.dimensions.height
+  },
   gear,
   socialLinks
 }`;

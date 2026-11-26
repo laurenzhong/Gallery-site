@@ -74,6 +74,20 @@ button {
   box-shadow: none;
 }
 
+.site-header:has(.site-header-about-title) {
+  background: var(--black);
+}
+
+.site-header-about-title {
+  margin: 0;
+  color: #fff;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(40px, 5.2vw, 68px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
 .brand-lockup,
 .menu-toggle {
   pointer-events: auto;
@@ -1346,16 +1360,12 @@ main {
 
 .footer-column a {
   width: fit-content;
+  overflow-wrap: anywhere;
 }
 
 .footer-column a:hover,
 .footer-column a:focus-visible {
   color: var(--aqua);
-}
-
-.footer-sub {
-  color: rgba(232, 230, 230, 0.55);
-  font-size: 13px;
 }
 
 .footer-socials {
@@ -2175,6 +2185,10 @@ main {
     align-items: flex-start;
   }
 
+  .site-header-about-title {
+    margin-top: 10px;
+  }
+
   .brand-mark {
     width: 54px;
     height: 54px;
@@ -2510,6 +2524,29 @@ main {
   padding-top: calc(var(--header-h) + clamp(40px, 6vw, 80px));
 }
 
+.about-page-photo {
+  justify-self: center;
+  width: min(60%, 260px);
+  margin: 0;
+}
+
+.about-page-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.about-page-photo figcaption {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.story-about-bio:has(> .about-page-photo) > .story-about-name {
+  text-align: center;
+}
+
 .story-banner {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -2664,6 +2701,7 @@ main {
 .story-about-list-row dd {
   margin: 0;
   color: var(--soft-white);
+  overflow-wrap: anywhere;
 }
 
 .story-about-list-row a {

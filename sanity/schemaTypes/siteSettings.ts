@@ -86,6 +86,27 @@ export const siteSettingsType = defineType({
       description: "/about 页的正文，多个段落会按顺序渲染。",
     }),
     defineField({
+      name: "aboutImage",
+      title: "关于页照片",
+      type: "image",
+      fieldset: "about",
+      description: "为 /about 页上传照片，横图和竖图都可使用。",
+      fields: [
+        defineField({
+          name: "alt",
+          title: "替代文字",
+          type: "string",
+          description: "用一句话描述照片中能看到的内容。",
+          validation: (Rule) => Rule.required(),
+        }),
+        defineField({
+          name: "caption",
+          title: "照片图注",
+          type: "string",
+        }),
+      ],
+    }),
+    defineField({
       name: "gear",
       title: "器材清单",
       type: "array",
