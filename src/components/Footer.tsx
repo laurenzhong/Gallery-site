@@ -57,7 +57,7 @@ type FooterProps = {
   showPreview?: boolean;
   variant?: "default" | "photo";
   deferPhoto?: boolean;
-  floatingBackToTop?: boolean;
+  floatingBackToTop?: "after-header" | "after-viewport";
 };
 
 export function Footer({
@@ -65,7 +65,7 @@ export function Footer({
   showPreview = false,
   variant = "default",
   deferPhoto = false,
-  floatingBackToTop = false,
+  floatingBackToTop,
 }: FooterProps) {
   const footerRef = useRef<HTMLElement>(null);
   const [showTop, setShowTop] = useState(false);
@@ -73,12 +73,13 @@ export function Footer({
   const photoDeferred = variant === "photo" && deferPhoto && !photoInView && typeof IntersectionObserver !== "undefined";
 
   useEffect(() => {
-    const header = floatingBackToTop ? document.querySelector(".site-header") : null;
+    const header = floatingBackToTop === "after-header" ? document.querySelector(".site-header") : null;
     const updateTopVisibility = () => {
-      setShowTop(header ? header.getBoundingClientRect().bottom <= 0 : window.scrollY > 400);
+      const threshold = floatingBackToTop === "after-viewport" ? window.innerHeight : 400;
+      setShowTop(header ? header.getBoundingClientRect().bottom <= 0 : window.scrollY > threshold);
     };
     window.addEventListener("scroll", updateTopVisibility, { passive: true });
-    if (header) window.addEventListener("resize", updateTopVisibility);
+    if (floatingBackToTop) window.addEventListener("resize", updateTopVisibility);
     updateTopVisibility();
     return () => {
       window.removeEventListener("scroll", updateTopVisibility);

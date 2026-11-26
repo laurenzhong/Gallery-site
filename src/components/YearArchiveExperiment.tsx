@@ -159,7 +159,10 @@ export default function YearArchiveExperiment({ includeLocal, photoMeta, photoSt
               }
             }}
             onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+              // Safari can blur the summary without focusing a tapped month link.
+              if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+                event.currentTarget.open = false;
+              }
             }}>
             <summary aria-label="Jump to month">Month <ChevronDown size={14} aria-hidden="true" /></summary>
             <nav className="chronicle-month-menu" aria-label="Jump to month">

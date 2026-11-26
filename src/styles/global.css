@@ -82,6 +82,12 @@ button {
   position: relative;
 }
 
+@media (max-width: 640px), (max-width: 960px) and (max-height: 640px) and (pointer: coarse) {
+  .site-header--scroll-with-page-mobile {
+    position: relative;
+  }
+}
+
 .site-header-page-title {
   margin: 0;
   color: #fff;
@@ -2234,7 +2240,7 @@ main:has(> .journal-page) {
     align-items: flex-start;
   }
 
-  .site-header--scroll-with-page {
+  :is(.site-header--scroll-with-page, .site-header--scroll-with-page-mobile) {
     width: 100%;
   }
 
@@ -2267,7 +2273,7 @@ main:has(> .journal-page) {
     padding: 0 12px;
   }
 
-  .site-header--scroll-with-page .menu-toggle {
+  :is(.site-header--scroll-with-page, .site-header--scroll-with-page-mobile) .menu-toggle {
     position: absolute;
   }
 

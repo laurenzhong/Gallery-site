@@ -57,6 +57,7 @@ function App() {
   const pathname = currentPath;
   const isBalconyPage = pathname === "/photobalcony";
   const isPhotographyPage = pathname === "/" || pathname === "/photography";
+  const isLongGalleryPage = isPhotographyPage || isBalconyPage;
   const isStoryPage = pathname === "/photostory";
   const isAboutPage = pathname === "/about";
   const isJournalPage = pathname === "/journal";
@@ -72,7 +73,8 @@ function App() {
   const isPhotographyArchivePage = pathname === "/experiments/photography-archive";
   const isSashaKurmazPage = pathname === "/experiments/sasha-kurmaz";
   const isLocalArchivePreview = pathname === "/experiments/year-archive";
-  const isYearArchivePage = pathname === "/archive" || isLocalArchivePreview;
+  const isArchivePage = pathname === "/archive";
+  const isYearArchivePage = isArchivePage || isLocalArchivePreview;
   const isAgarunAtlasPage = pathname === "/experiments/agarun-atlas";
   const isPhotoMapExperimentPage = pathname === "/experiments/photo-map";
   const isPhotoMapMapLibrePage = pathname === "/experiments/photo-map-maplibre";
@@ -294,7 +296,7 @@ function App() {
       <Header
         pageTitle={isAboutPage ? "About" : isJournalPage ? "Stories" : isYearArchivePage ? <>Photo <em>archive</em></> : undefined}
         pageTitleClassName={isAboutPage || isJournalPage ? "site-header-page-title" : undefined}
-        scrollWithPage={isJournalPage}
+        scrollWithPage={isJournalPage || isArchivePage ? "always" : isLongGalleryPage ? "mobile" : undefined}
       />
 
       {!isAboutPage && <CmsSourceBadge content={content} />}
@@ -454,7 +456,7 @@ function App() {
         showPreview={showPreview}
         variant="photo"
         deferPhoto={isYearArchivePage}
-        floatingBackToTop={isJournalPage}
+        floatingBackToTop={isJournalPage ? "after-header" : isLongGalleryPage || isArchivePage ? "after-viewport" : undefined}
       />
 
       {activeLightbox && (

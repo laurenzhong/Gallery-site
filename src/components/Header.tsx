@@ -1,17 +1,20 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { siteNavLinks } from "../lib/siteNavigation";
 
 export function Header({
   pageTitle,
   pageTitleClassName = "site-header-title",
-  scrollWithPage = false,
+  scrollWithPage,
 }: {
   pageTitle?: ReactNode;
   pageTitleClassName?: string;
-  scrollWithPage?: boolean;
+  scrollWithPage?: "always" | "mobile";
 }) {
+  const headerRef = useRef<HTMLElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const scrollClass = scrollWithPage === "always" ? " site-header--scroll-with-page"
+    : scrollWithPage === "mobile" ? " site-header--scroll-with-page-mobile" : "";
 
   useEffect(() => {
     document.body.classList.toggle("menu-is-open", menuOpen);
@@ -23,6 +26,10 @@ export function Header({
     if (!menuOpen) return undefined;
 
     const closeMenu = () => setMenuOpen(false);
+    const closeOnScroll = () => {
+      const header = headerRef.current;
+      if (header && getComputedStyle(header).position === "relative") closeMenu();
+    };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         closeMenu();
@@ -30,10 +37,10 @@ export function Header({
     };
 
     window.addEventListener("keydown", closeOnEscape);
-    if (scrollWithPage) window.addEventListener("scroll", closeMenu, { passive: true });
+    if (scrollWithPage) window.addEventListener("scroll", closeOnScroll, { passive: true });
     return () => {
       window.removeEventListener("keydown", closeOnEscape);
-      window.removeEventListener("scroll", closeMenu);
+      window.removeEventListener("scroll", closeOnScroll);
     };
   }, [menuOpen, scrollWithPage]);
 
@@ -47,7 +54,8 @@ export function Header({
   return (
     <>
       <header
-        className={`site-header${scrolled ? " site-header--scrolled" : ""}${scrollWithPage ? " site-header--scroll-with-page" : ""}`}
+        ref={headerRef}
+        className={`site-header${scrolled ? " site-header--scrolled" : ""}${scrollClass}`}
         aria-label="Site header"
       >
         {pageTitle ? <h1 className={pageTitleClassName}>{pageTitle}</h1> : (
