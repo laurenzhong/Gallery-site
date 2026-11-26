@@ -163,6 +163,7 @@ export function MapRouteStatsInput(props: ObjectInputProps<RouteStatsValue>) {
   useEffect(() => {
     const manualPoints = trackPointsFromCoordinates(trackPoints ?? []);
     if (!assetId) {
+      setLoading(false);
       setSummary(manualPoints.length >= 2 ? calculateMapRouteStats(manualPoints) : undefined);
       setSource(manualPoints.length >= 2 ? "manual" : undefined);
       setError(undefined);
@@ -206,17 +207,20 @@ export function MapRouteStatsInput(props: ObjectInputProps<RouteStatsValue>) {
     ...(summary.ascentM === undefined ? {} : { ascent: formatRouteAscent(summary.ascentM) }),
     ...(formatRouteDuration(summary.durationSeconds) ? { duration: formatRouteDuration(summary.durationSeconds) } : {}),
   } : undefined;
+  const summaryText = summary && calculatedValues
+    ? `自动计算：${summary.pointCount.toLocaleString("en-US")} 个轨迹点 · ${calculatedValues.distance} km · ${calculatedValues.ascent ?? "—"} m 爬升${calculatedValues.duration ? ` · ${calculatedValues.duration} 用时` : ""}（${source === "gpx" ? "GPX" : "手动轨迹点"}）`
+    : "上传 GPX 后会自动计算距离、累计爬升和记录用时；没有 GPX 时也会根据手动轨迹点计算距离。";
   const applyCalculated = () => {
-    if (!calculatedValues || props.readOnly) return;
+    if (loading || !calculatedValues || props.readOnly) return;
     props.onChange(set({ ...(props.value ?? {}), ...calculatedValues }));
   };
 
   return (
     <div>
-      <div style={{ marginBottom: 10, padding: 10, border: "1px solid #dbeafe", borderRadius: 7, background: "#eff6ff", color: "#1e3a8a", fontSize: 12, lineHeight: 1.6 }}>
-        {loading ? "正在读取 GPX 并计算路线统计…" : calculatedValues ? <><strong>自动计算：</strong> {summary?.pointCount.toLocaleString("en-US")} 个轨迹点 · {calculatedValues.distance} km · {calculatedValues.ascent ?? "—"} m 爬升{calculatedValues.duration ? ` · ${calculatedValues.duration} 用时` : ""}（{source === "gpx" ? "GPX" : "手动轨迹点"}）</> : "上传 GPX 后会自动计算距离、累计爬升和记录用时；没有 GPX 时也会根据手动轨迹点计算距离。"}
+      <div lang="zh-CN" translate="no" style={{ marginBottom: 10, padding: 10, border: "1px solid #dbeafe", borderRadius: 7, background: "#eff6ff", color: "#1e3a8a", fontSize: 12, lineHeight: 1.6 }}>
+        <div role="status">{loading ? "正在读取 GPX 并计算路线统计…" : summaryText}</div>
         {error ? <div style={{ marginTop: 5, color: "#9a3412" }}>{error}</div> : null}
-        {calculatedValues && !props.readOnly ? <button type="button" onClick={applyCalculated} style={{ display: "block", marginTop: 8, minHeight: 30, padding: "0 9px", border: "1px solid #2563eb", borderRadius: 5, background: "#fff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}>将计算值写入下方统计字段</button> : null}
+        {calculatedValues && !loading && !props.readOnly ? <button type="button" onClick={applyCalculated} style={{ display: "block", marginTop: 8, minHeight: 30, padding: "0 9px", border: "1px solid #2563eb", borderRadius: 5, background: "#fff", color: "#1d4ed8", cursor: "pointer", fontWeight: 600 }}>将计算值写入下方统计字段</button> : null}
       </div>
       {props.renderDefault(props)}
     </div>
