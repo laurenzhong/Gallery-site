@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import type { Photo } from "../data/photos";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 
@@ -201,7 +201,7 @@ export function LandscapeSection({
           ref={mainRef}
           type="button"
           className={`landscape-main${active.width < active.height ? " landscape-main--portrait" : ""}`}
-          style={{ aspectRatio: `${active.width} / ${active.height}` }}
+          style={{ "--landscape-photo-ratio": active.width / active.height } as CSSProperties}
           onClick={handleOpen}
           onBlur={() => setIsPaused(false)}
           onFocus={() => setIsPaused(true)}

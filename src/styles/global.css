@@ -535,7 +535,7 @@ main {
   position: relative;
   display: block;
   width: min(76.25vw, 1098px);
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--landscape-photo-ratio, 16 / 9);
   border: 0;
   padding: 0;
   background: transparent;
@@ -543,6 +543,10 @@ main {
   cursor: zoom-in;
   overflow: hidden;
   touch-action: pan-y;
+}
+
+.landscape-main--portrait {
+  width: min(76.25vw, 620px, calc(min(62vh, 700px) * var(--landscape-photo-ratio)));
 }
 
 .landscape-image {
@@ -779,7 +783,7 @@ main {
 @media (max-width: 640px) {
   .landscape-section .featured-title-bar {
     min-height: 60px;
-    padding-top: 14px;
+    padding-block: 8px;
   }
 
   .landscape-stage {
@@ -790,13 +794,10 @@ main {
 
   .landscape-main {
     width: 100%;
-    aspect-ratio: 16 / 9;
   }
 
   .landscape-main--portrait {
-    width: auto;
-    max-width: calc(100vw - 32px);
-    height: min(62vh, 620px);
+    width: min(100%, calc(min(62vh, 620px) * var(--landscape-photo-ratio)));
   }
 
   .landscape-arrow {
@@ -804,7 +805,8 @@ main {
   }
 
   .landscape-thumbs {
-    padding-right: 0;
+    height: auto;
+    padding-inline: 5px;
   }
 
   .landscape-thumb {
@@ -911,7 +913,7 @@ main {
 
 .wide-banner {
   width: 100%;
-  height: clamp(420px, 43.25vw, 565px);
+  height: min(43.25vw, 565px);
   padding: 0;
 }
 
@@ -952,7 +954,7 @@ main {
 
 .plants-reference-banner {
   width: 100%;
-  height: clamp(390px, 39.05vw, 510px);
+  height: min(39.05vw, 510px);
 }
 
 .plants-reference-banner img {
@@ -1728,12 +1730,6 @@ main {
   overflow: hidden;
 }
 
-.landscape-main--portrait {
-  width: auto;
-  max-width: min(76.25vw, 620px);
-  height: min(62vh, 700px);
-}
-
 .advanced-lightbox {
   position: fixed;
   z-index: 120;
@@ -2343,6 +2339,10 @@ main {
     min-height: 70px;
   }
 
+  .reference-content .section-title-row--compact {
+    min-height: 60px;
+  }
+
   .gallery-rail--cinema,
   .gallery-rail--mixed {
     height: 360px;
@@ -2363,10 +2363,6 @@ main {
 
   .gallery-rail--square .rail-photo {
     width: 265px;
-  }
-
-  .wide-banner {
-    height: 330px;
   }
 
   .yarl__toolbar {
@@ -2443,13 +2439,8 @@ main {
     font-size: 11.5px;
   }
 
-  .plants-reference-banner {
-    height: max(280px, 64vw);
-  }
-
   .plants-reference-stack {
     gap: 6px;
-    margin-top: 56px;
   }
 
   .plants-reference-full--portrait {
@@ -2457,8 +2448,7 @@ main {
   }
 
   .plants-reference-squares {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin-top: 10px;
+    margin-top: 6px;
   }
 
   .archive-wall {
