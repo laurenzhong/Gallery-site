@@ -1,4 +1,5 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
+import { GpxFileInput } from "../components/GpxFileInput";
 import { CollapsedTrackPointsInput, MapRoutePhotosInput, MapRouteStatsInput, MapRouteStopsInput } from "../components/MapRouteInputs";
 
 const coordinateFields = [
@@ -35,6 +36,7 @@ export const mapRouteType = defineType({
       title: "GPX 文件",
       type: "file",
       options: { accept: ".gpx,application/gpx+xml,application/xml,text/xml" },
+      components: { input: GpxFileInput },
       description: "上传徒步设备导出的 GPX，地图会自动读取其中的轨迹点。",
     }),
     defineField({
