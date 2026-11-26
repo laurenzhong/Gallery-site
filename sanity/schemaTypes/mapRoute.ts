@@ -1,6 +1,6 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
 import { GpxFileInput } from "../components/GpxFileInput";
-import { CollapsedTrackPointsInput, MapRoutePhotosInput, MapRouteStatsInput, MapRouteStopsInput } from "../components/MapRouteInputs";
+import { CollapsedTrackPointsInput, MapRoutePhotosInput, MapRouteStatsInput, MapRouteStopIndexInput, MapRouteStopsInput } from "../components/MapRouteInputs";
 import { MapRouteSlugInput, mapRouteSlugMaxLength, routeSlugFromTitle } from "../components/MapRouteSlugInput";
 import { MapRouteTitleInput } from "../components/MapRouteTitleInput";
 
@@ -79,8 +79,8 @@ export const mapRouteType = defineType({
           fields: [
             defineField({ name: "title", title: "标注名称", type: "string", validation: (Rule) => Rule.required() }),
             defineField({ name: "localTitle", title: "中文名称", type: "string" }),
-            defineField({ name: "coordinate", title: "坐标（可选）", type: "object", fields: coordinateFields.map((field) => ({ ...field, validation: undefined })), description: "填入经纬度可精确定位；如果填写了轨迹点索引，也可以留空。" }),
-            defineField({ name: "trackIndex", title: "轨迹点索引（推荐）", type: "number", validation: (Rule) => Rule.integer().min(0), description: "沿 GPX 路线从 0 开始计数，例如起点填 0；填写后系统自动把标注和照片放到该轨迹点。" }),
+            defineField({ name: "coordinate", title: "坐标（可选）", type: "object", fields: coordinateFields.map((field) => ({ ...field, validation: undefined })), description: "经纬度用于精确定位。替换 GPX 时，系统会保留这里的坐标，并按新轨迹重新匹配。" }),
+            defineField({ name: "trackIndex", title: "轨迹点索引", type: "number", components: { input: MapRouteStopIndexInput }, validation: (Rule) => Rule.integer().min(0), description: "沿当前 GPX 路线从 0 开始计数。在轨迹加载后更改此值，会同时更新坐标。" }),
             defineField({ name: "distanceKm", title: "距起点（km）", type: "number" }),
             defineField({ name: "time", title: "时间", type: "string" }),
             defineField({ name: "elevationM", title: "海拔（m）", type: "number" }),

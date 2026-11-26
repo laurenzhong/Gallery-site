@@ -1,3 +1,5 @@
+import type { RouteCoordinate } from "../data/storyRoutes";
+
 export type MapRouteTrackPoint = {
   latitude: number;
   longitude: number;
@@ -14,6 +16,32 @@ export type MapRouteStats = {
 
 function validCoordinate(latitude: unknown, longitude: unknown): latitude is number {
   return typeof latitude === "number" && Number.isFinite(latitude) && Math.abs(latitude) <= 90 && typeof longitude === "number" && Number.isFinite(longitude) && Math.abs(longitude) <= 180;
+}
+
+export function nearestTrackIndex(track: RouteCoordinate[], coordinate: RouteCoordinate, preferredIndex = 0) {
+  let nearest = preferredIndex;
+  let distance = Number.POSITIVE_INFINITY;
+  track.forEach(([latitude, longitude], index) => {
+    const next = (latitude - coordinate[0]) ** 2 + (longitude - coordinate[1]) ** 2;
+    if (next < distance || (next === distance && index === preferredIndex)) {
+      nearest = index;
+      distance = next;
+    }
+  });
+  return nearest;
+}
+
+export function resolveRouteStopPosition(track: RouteCoordinate[], coordinates?: readonly unknown[], savedIndex?: number) {
+  const index = Number.isInteger(savedIndex) && track.length
+    ? Math.min(track.length - 1, Math.max(0, savedIndex as number))
+    : 0;
+  const [latitude, longitude] = coordinates ?? [];
+  if (validCoordinate(latitude, longitude)) {
+    const coordinate: RouteCoordinate = [latitude, longitude as number];
+    return { coordinate, trackIndex: nearestTrackIndex(track, coordinate, index) };
+  }
+  const coordinate = Number.isInteger(savedIndex) ? track[index] : undefined;
+  return coordinate ? { coordinate, trackIndex: index } : undefined;
 }
 
 export function parseGpxTrack(xml: string): MapRouteTrackPoint[] {

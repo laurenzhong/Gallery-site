@@ -4,9 +4,10 @@ import "leaflet/dist/leaflet.css";
 import type { Photo } from "../data/photos";
 import type { ResolvedStoryRouteStop, RouteCoordinate, StoryRoute } from "../data/storyRoutes";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
-import { resolveRouteStopPhotos } from "../lib/routePhotos";
+import { getRouteStopPhotoCoordinate, resolveRouteStopPhotos } from "../lib/routePhotos";
 import { addMapBasemap } from "../lib/mapBasemap";
 import { mapRouteHref } from "../lib/mapRoutes";
+import { RouteStoryMinimap } from "./RouteStoryMinimap";
 
 type StoryRoutePageProps = {
   route: StoryRoute;
@@ -37,7 +38,7 @@ function getVisitedTrack(
   const segment = Math.min(Math.floor(safeProgress), breakpoints.length - 2);
   const localProgress = safeProgress - segment;
   const start = Math.max(0, Math.min(track.length - 1, breakpoints[segment]));
-  const end = Math.max(start, Math.min(track.length - 1, breakpoints[segment + 1]));
+  const end = Math.max(0, Math.min(track.length - 1, breakpoints[segment + 1]));
   const floatIndex = start + (end - start) * localProgress;
   const endIndex = Math.floor(floatIndex);
   const visited = track.slice(0, endIndex + 1);
@@ -95,10 +96,12 @@ export function StoryRoutePage({ route, photos, onOpen, publicStory = false, ini
   const [routeProgress, setRouteProgress] = useState(Math.max(0, initialStopIndex));
   const [mapZoom, setMapZoom] = useState(13);
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [showMinimap, setShowMinimap] = useState(false);
   const activeIndex = Math.min(Math.max(0, stops.length - 1), Math.floor(routeProgress));
   const activeStop = stops[activeIndex] ?? stops[0];
   const mapReturnHref = publicStory ? mapRouteHref(route.id, activeStop?.id) : undefined;
   const breakpoints = useMemo(() => route.stops.map((stop) => stop.trackIndex), [route]);
+  const visitedTrack = useMemo(() => getVisitedTrack(route.track, breakpoints, routeProgress), [breakpoints, route.track, routeProgress]);
   const profilePath = useMemo(() => elevationPath(stops), [stops]);
   const profilePoint = useMemo(() => elevationPoint(stops, activeIndex), [activeIndex, stops]);
   const mapPoints = useMemo(() => route.points ?? [], [route]);
@@ -152,39 +155,53 @@ export function StoryRoutePage({ route, photos, onOpen, publicStory = false, ini
     const story = storyElement.current;
     const sections = story ? Array.from(story.querySelectorAll<HTMLElement>(".trail-route-chapter")) : [];
     if (!sections.length) return undefined;
+    const mobile = window.matchMedia("(max-width: 980px)");
     let frame = 0;
     let lastProgress = -1;
     const measure = () => {
-      const focusY = 56;
-      if (sections[0].getBoundingClientRect().top > focusY) return;
+      const compact = publicStory && mobile.matches;
+      const focusY = compact ? window.innerHeight * 0.36 : 56;
+      const anchor = compact ? sections[anchoredChapter.current] : undefined;
+      const atAnchor = anchor && Math.abs(anchor.getBoundingClientRect().top - parseFloat(getComputedStyle(anchor).scrollMarginTop)) < 2;
       let nextProgress = 0;
-      sections.forEach((section, index) => {
-        const rect = section.getBoundingClientRect();
-        if (focusY >= rect.top) {
+      if (atAnchor) {
+        nextProgress = anchoredChapter.current;
+      } else {
+        for (const [index, section] of sections.entries()) {
+          const rect = section.getBoundingClientRect();
+          if (rect.top > focusY) break;
           nextProgress = index + Math.min(0.999, (focusY - rect.top) / Math.max(1, rect.height));
         }
-      });
-      if (Math.abs(lastProgress - nextProgress) >= 0.012) {
+      }
+      nextProgress = Math.min(nextProgress, sections.length - 1);
+      if (Math.floor(lastProgress) !== Math.floor(nextProgress) || Math.abs(lastProgress - nextProgress) >= 0.012) {
         lastProgress = nextProgress;
-        setRouteProgress(Math.min(Math.max(0, nextProgress), Math.max(0, stops.length - 1)));
+        setRouteProgress(nextProgress);
       }
     };
     const updateFromScroll = () => {
       if (frame) return;
       frame = window.requestAnimationFrame(() => { frame = 0; measure(); });
     };
+    const updateCompactLayout = () => {
+      setShowMinimap(publicStory && mobile.matches);
+      updateFromScroll();
+    };
+    setShowMinimap(publicStory && mobile.matches);
     measure();
     window.addEventListener("scroll", updateFromScroll, { passive: true });
     window.addEventListener("resize", updateFromScroll);
+    mobile.addEventListener("change", updateCompactLayout);
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateFromScroll) : null;
     observer?.observe(document.body);
     return () => {
       window.removeEventListener("scroll", updateFromScroll);
       window.removeEventListener("resize", updateFromScroll);
+      mobile.removeEventListener("change", updateCompactLayout);
       observer?.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [stops.length]);
+  }, [publicStory, route.stops]);
 
   useEffect(() => {
     const element = mapElement.current;
@@ -303,11 +320,13 @@ export function StoryRoutePage({ route, photos, onOpen, publicStory = false, ini
   }, [activeIndex, mapZoom, onOpen, photoPoints, photos, scrollToStop, stops, visibleMapPoints]);
 
   useEffect(() => {
-    visitedLineRef.current?.setLatLngs(getVisitedTrack(route.track, breakpoints, routeProgress));
-  }, [breakpoints, route.track, routeProgress]);
+    visitedLineRef.current?.setLatLngs(visitedTrack);
+  }, [route, visitedTrack]);
 
   if (!stops.length) return null;
 
+  const activePhoto = activeStop.photos[0];
+  const photoCoordinate = showMinimap ? getRouteStopPhotoCoordinate(route, activeIndex, activePhoto) : undefined;
   const currentStop = (
     <div className="trail-route-map-panel__current">
       <span>Stop {activeIndex + 1} of {stops.length}</span>
@@ -420,6 +439,14 @@ export function StoryRoutePage({ route, photos, onOpen, publicStory = false, ini
             );
           })}
         </div>
+        {showMinimap && (
+          <RouteStoryMinimap
+            route={route}
+            visitedTrack={visitedTrack}
+            coordinate={photoCoordinate ?? activeStop.coordinate}
+            locationLabel={photoCoordinate ? activePhoto.title : activeStop.title}
+          />
+        )}
       </div>
 
       <footer className="trail-route-footer">

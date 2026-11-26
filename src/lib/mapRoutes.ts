@@ -2,12 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { storyRoutes } from "../data/routes";
 import type { RouteCoordinate, StoryRoute, StoryRouteStop } from "../data/storyRoutes";
 import { cmsMapRoutesQuery, type CmsMapRoute } from "./cmsQueries";
-import { calculateMapRouteStats, formatRouteAscent, formatRouteDistance, formatRouteDuration, parseGpxTrack, trackPointsFromCoordinates, type MapRouteTrackPoint } from "./mapRouteStats";
+import { calculateMapRouteStats, formatRouteAscent, formatRouteDistance, formatRouteDuration, parseGpxTrack, resolveRouteStopPosition, trackPointsFromCoordinates, type MapRouteTrackPoint } from "./mapRouteStats";
 import { fetchCms, isSanityConfigured } from "./sanity";
-
-function validCoordinate(latitude: unknown, longitude: unknown): latitude is number {
-  return typeof latitude === "number" && Number.isFinite(latitude) && Math.abs(latitude) <= 90 && typeof longitude === "number" && Number.isFinite(longitude) && Math.abs(longitude) <= 180;
-}
 
 type LoadedRouteTrack = { coordinates: RouteCoordinate[]; points: MapRouteTrackPoint[] };
 
@@ -40,50 +36,33 @@ async function routeTrack(route: CmsMapRoute): Promise<LoadedRouteTrack> {
   return loadedTrack(fallbackTrack.map(([latitude, longitude]) => ({ latitude, longitude })));
 }
 
-function boundsFor(track: RouteCoordinate[], stops: NonNullable<CmsMapRoute["stops"]>): [[number, number], [number, number]] {
-  const stopCoordinates = stops.flatMap((stop) => stop.coordinate ? [stop.coordinate] : []) as RouteCoordinate[];
-  const coordinates = [...track, ...stopCoordinates];
-  if (!coordinates.length) return [[0, 0], [0, 0]];
-  const latitudes = coordinates.map(([latitude]) => latitude);
-  const longitudes = coordinates.map(([, longitude]) => longitude);
-  return [[Math.min(...latitudes), Math.min(...longitudes)], [Math.max(...latitudes), Math.max(...longitudes)]];
-}
-
-function nearestTrackIndex(track: RouteCoordinate[], coordinate: RouteCoordinate) {
-  let nearest = 0;
-  let distance = Number.POSITIVE_INFINITY;
-  track.forEach(([latitude, longitude], index) => {
-    const next = (latitude - coordinate[0]) ** 2 + (longitude - coordinate[1]) ** 2;
-    if (next < distance) {
-      nearest = index;
-      distance = next;
-    }
-  });
-  return nearest;
+function boundsFor(track: RouteCoordinate[], stops: StoryRouteStop[]): [[number, number], [number, number]] {
+  const coordinates = [...track, ...stops.map((stop) => stop.coordinate)];
+  let [south, west] = coordinates[0] ?? [0, 0];
+  let [north, east] = [south, west];
+  for (const [latitude, longitude] of coordinates) {
+    south = Math.min(south, latitude);
+    north = Math.max(north, latitude);
+    west = Math.min(west, longitude);
+    east = Math.max(east, longitude);
+  }
+  return [[south, west], [north, east]];
 }
 
 async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
   const editorialRoute = storyRoutes.find((candidate) => candidate.id === route.sourceRouteId);
   const loaded = await routeTrack(route);
   const track = loaded.coordinates;
-  const rawStops = (route.stops ?? []).filter((stop) => stop.title?.trim() && stop.title.trim() !== "新标注点" && (
-    (stop.coordinate?.length === 2 && validCoordinate(stop.coordinate[0], stop.coordinate[1])) ||
-    (Number.isInteger(stop.trackIndex) && track.length > 0)
-  ));
-  const namedStops = rawStops.flatMap((stop, index): StoryRouteStop[] => {
-    const explicitCoordinate = stop.coordinate?.length === 2 && validCoordinate(stop.coordinate[0], stop.coordinate[1])
-      ? stop.coordinate as RouteCoordinate
-      : undefined;
-    const trackIndex = stop.trackIndex ?? -1;
-    const indexedCoordinate = Number.isInteger(trackIndex) ? track[trackIndex] : undefined;
-    const coordinate = indexedCoordinate ?? explicitCoordinate;
-    if (!coordinate) return [];
+  const namedStops = (route.stops ?? []).flatMap((stop, index): StoryRouteStop[] => {
+    const title = stop.title?.trim();
+    if (!title || title === "新标注点") return [];
+    const position = resolveRouteStopPosition(track, stop.coordinate, stop.trackIndex);
+    if (!position) return [];
     return [{
       id: stop.id ?? `${route.id}-stop-${index + 1}`,
-      title: stop.title as string,
+      title,
       localTitle: stop.localTitle,
-      coordinate,
-      trackIndex: indexedCoordinate ? trackIndex : nearestTrackIndex(track, coordinate),
+      ...position,
       distanceKm: stop.distanceKm,
       time: stop.time,
       elevationM: stop.elevationM,
@@ -100,6 +79,7 @@ async function toStoryRoute(route: CmsMapRoute): Promise<StoryRoute | null> {
     elevationM: loaded.points[trackIndex].elevationM,
   }));
   const safeTrack = track.length >= 2 ? track : stops.map((stop) => stop.coordinate);
+  if (track.length < 2) stops.forEach((stop, index) => { stop.trackIndex = index; });
   const calculated = loaded.points.length >= 2 ? calculateMapRouteStats(loaded.points) : undefined;
   const calculatedDuration = formatRouteDuration(calculated?.durationSeconds);
   const durationLabel = route.stats?.duration

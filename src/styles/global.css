@@ -6206,6 +6206,7 @@ main:has(> .trail-route-experiment) { margin-top: 0; }
 .trail-route-map-panel__list button[aria-current] { background: #f2eee4; }
 .trail-route-map-panel__list button:focus-visible { outline: 2px solid var(--trail-route); outline-offset: -2px; }
 .trail-route-footer { padding-bottom: 24px; }
+.trail-route-minimap { display: none; }
 
 @media (min-width: 981px) and (min-height: 480px) {
   .trail-route-experiment--public .trail-route-map-panel {
@@ -6231,6 +6232,41 @@ main:has(> .trail-route-experiment) { margin-top: 0; }
   .trail-route-story, .trail-route-map-panel { grid-area: auto; }
   .trail-route-map-panel:not(.is-expanded) { display: none; }
   .trail-route-map-panel__map-wrap { height: clamp(230px, 42svh, 380px); }
+
+  body:has(.trail-route-experiment--public) { overflow-x: clip; }
+  .trail-route-body:has(> .trail-route-minimap) { grid-template-areas: "story"; }
+  .trail-route-body:has(> .trail-route-minimap):has(> .trail-route-map-panel.is-expanded) {
+    grid-template-areas: "map" "story";
+  }
+  .trail-route-body:has(> .trail-route-minimap) > .trail-route-map-panel.is-expanded { grid-area: map; }
+  .trail-route-body:has(> .trail-route-minimap) > .trail-route-story { grid-area: story; }
+  .trail-route-minimap {
+    position: sticky;
+    z-index: 2;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    grid-area: story;
+    justify-self: end;
+    display: block;
+    width: clamp(104px, 30vw, 144px);
+    height: clamp(80px, 23vw, 108px);
+    margin-inline-end: max(0px, calc(env(safe-area-inset-right, 0px) - var(--trail-gutter)));
+    overflow: hidden;
+    border: 1px solid #a7b1a7;
+    border-radius: 8px;
+    background: #dfe5df;
+    box-shadow: 0 2px 10px #26313a26;
+    opacity: .84;
+    pointer-events: none;
+  }
+  .trail-route-minimap__map { width: 100%; height: 100%; background: #dfe5df; }
+  .trail-route-minimap .leaflet-control-attribution {
+    padding: 0 3px;
+    background: #f3eee5eb;
+    color: #354e47;
+    font: 7px/8px system-ui, sans-serif;
+    pointer-events: none;
+  }
+  .trail-route-minimap .leaflet-control-attribution a { color: inherit; pointer-events: auto; }
 }
 
 @media (max-width: 640px) {

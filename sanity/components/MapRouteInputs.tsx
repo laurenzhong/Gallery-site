@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import exifr from "exifr";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { set, useClient, useFormValue, type ArrayOfObjectsInputProps, type ObjectInputProps } from "sanity";
+import { PatchEvent, set, useClient, useFormValue, type ArrayOfObjectsInputProps, type NumberInputProps, type ObjectInputProps } from "sanity";
 import { addMapBasemap } from "../../src/lib/mapBasemap";
-import { calculateMapRouteStats, formatRouteAscent, formatRouteDistance, formatRouteDuration, parseGpxTrack, trackPointsFromCoordinates } from "../../src/lib/mapRouteStats";
+import { calculateMapRouteStats, formatRouteAscent, formatRouteDistance, formatRouteDuration, nearestTrackIndex, parseGpxTrack, resolveRouteStopPosition, trackPointsFromCoordinates } from "../../src/lib/mapRouteStats";
 
 type ReferenceItem = { _key: string; _ref?: string; _type?: string };
 type TrackPointItem = { _key: string; latitude?: number; longitude?: number; elevationM?: number };
@@ -22,6 +22,7 @@ type AlbumPreview = { _id: string; title: string; isVisible?: boolean };
 type RouteCoordinate = [number, number];
 type RouteStatsValue = { distance?: string; duration?: string; ascent?: string };
 type RoutePhotoIssue = { id: string; hidden: boolean };
+const RouteStopTrackContext = createContext<{ track: RouteCoordinate[]; onChange: ArrayOfObjectsInputProps<StopItem>["onChange"] } | null>(null);
 
 function keyFor(prefix: string, id = "item") {
   const random = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -32,14 +33,27 @@ function validCoordinate(latitude: unknown, longitude: unknown): latitude is num
   return typeof latitude === "number" && Number.isFinite(latitude) && Math.abs(latitude) <= 90 && typeof longitude === "number" && Number.isFinite(longitude) && Math.abs(longitude) <= 180;
 }
 
-function nearestTrackIndex(track: RouteCoordinate[], coordinate: RouteCoordinate) {
-  let nearest = 0;
-  let distance = Number.POSITIVE_INFINITY;
-  track.forEach(([latitude, longitude], index) => {
-    const next = (latitude - coordinate[0]) ** 2 + (longitude - coordinate[1]) ** 2;
-    if (next < distance) { nearest = index; distance = next; }
-  });
-  return nearest;
+function stopPosition(track: RouteCoordinate[], stop: StopItem) {
+  return resolveRouteStopPosition(track, [stop.coordinate?.latitude, stop.coordinate?.longitude], stop.trackIndex);
+}
+
+export function MapRouteStopIndexInput(props: NumberInputProps) {
+  const route = useContext(RouteStopTrackContext);
+  const stopKey = props.path.at(-2);
+  const handleChange: NumberInputProps["onChange"] = (event) => {
+    const changes = PatchEvent.from(event);
+    const patch = changes.patches.findLast((candidate) => candidate.path.length === 0);
+    const index = patch?.type === "set" ? patch.value : undefined;
+    const point = typeof index === "number" && Number.isInteger(index) ? route?.track[index] : undefined;
+    if (!route || !point || typeof stopKey !== "object" || !("_key" in stopKey)) {
+      props.onChange(event);
+      return;
+    }
+    const [latitude, longitude] = point;
+    const coordinate = set({ latitude, longitude }, [stopKey, "coordinate"]);
+    route.onChange(changes.prefixAll("trackIndex").prefixAll(stopKey).append(coordinate));
+  };
+  return props.renderDefault({ ...props, onChange: handleChange });
 }
 
 export function MapRoutePhotosInput(props: ArrayOfObjectsInputProps<ReferenceItem>) {
@@ -258,7 +272,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
   useEffect(() => {
     const manualTrack = (trackPoints ?? []).flatMap((point) => validCoordinate(point.latitude, point.longitude) ? [[point.latitude, point.longitude] as RouteCoordinate] : []);
     const assetId = trackFile?.asset?._ref;
-    if (!assetId) { setTrackError(undefined); setTrack(manualTrack); return undefined; }
+    if (!assetId) { setTrackLoading(false); setTrackError(undefined); setTrack(manualTrack); return undefined; }
     let active = true;
     setTrackLoading(true);
     setTrackError(undefined);
@@ -294,7 +308,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
   const addStop = useCallback(() => addStopAt(0), [addStopAt]);
   const invalidTrackIndexCount = (props.value ?? []).filter((stop) => Number.isInteger(stop.trackIndex) && track.length > 0 && (stop.trackIndex as number) >= track.length).length;
   const negativeTrackIndexCount = (props.value ?? []).filter((stop) => Number.isInteger(stop.trackIndex) && (stop.trackIndex as number) < 0).length;
-  const indexedStops = (props.value ?? []).filter((stop): stop is StopItem & { trackIndex: number } => Number.isInteger(stop.trackIndex));
+  const indexedStops = (props.value ?? []).flatMap((stop) => stopPosition(track, stop) ?? []);
   const outOfOrderStopCount = indexedStops.reduce((count, stop, index) => index > 0 && stop.trackIndex < indexedStops[index - 1].trackIndex ? count + 1 : count, 0);
   const distantStopCount = track.length >= 2 ? (props.value ?? []).filter((stop) => {
     if (Number.isInteger(stop.trackIndex) || !validCoordinate(stop.coordinate?.latitude, stop.coordinate?.longitude)) return false;
@@ -333,9 +347,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
     try {
       const gps = await exifr.gps(file).catch(() => undefined) as { latitude?: number; longitude?: number } | undefined;
       const gpsCoordinate = validCoordinate(gps?.latitude, gps?.longitude) ? [gps.latitude, gps.longitude] as RouteCoordinate : undefined;
-      const clickedCoordinate = validCoordinate(stop.coordinate?.latitude, stop.coordinate?.longitude)
-        ? [stop.coordinate.latitude, stop.coordinate.longitude] as RouteCoordinate
-        : Number.isInteger(stop.trackIndex) && track.length ? track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)] : undefined;
+      const clickedCoordinate = stopPosition(track, stop)?.coordinate;
       const coordinate = gpsCoordinate ?? clickedCoordinate;
       if (!coordinate) throw new Error("当前标注点没有有效地图位置，请先点击路线设置位置。");
       const asset = await client.assets.upload("image", file, { filename: file.name, contentType: file.type || "image/jpeg" });
@@ -343,7 +355,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
       const baseSlug = sourceFilename.replace(/\.[^.]+$/, "").normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "map-photo";
       const duplicateSlug = await client.fetch<number>(`count(*[_type == "photo" && slug.current == $slug])`, { slug: baseSlug });
       const slug = duplicateSlug ? `${baseSlug}-${Date.now().toString(36)}` : baseSlug;
-      const created = await client.create<{ _id: string }>({
+      const created = await client.create({
         _type: "photo",
         title: sourceFilename.replace(/\.[^.]+$/, "") || "地图照片",
         slug: { _type: "slug", current: slug },
@@ -402,9 +414,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
     if (!markers || !track.length) return;
     markers.clearLayers();
     (props.value ?? []).forEach((stop, index) => {
-      const point = Number.isInteger(stop.trackIndex)
-        ? track[Math.min(Math.max(0, stop.trackIndex as number), track.length - 1)]
-        : validCoordinate(stop.coordinate?.latitude, stop.coordinate?.longitude) ? [stop.coordinate.latitude, stop.coordinate.longitude] as RouteCoordinate : undefined;
+      const point = stopPosition(track, stop)?.coordinate;
       if (!point) return;
       const marker = L.circleMarker(point, { radius: 8, color: "#fff", weight: 2, fillColor: "#b42318", fillOpacity: 1 }).bindTooltip(`${index + 1}. ${stop.title || "未命名标注点"}`);
       marker.on("click", () => setActiveStopKey(stop._key));
@@ -419,7 +429,7 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
       </div>
       {trackLoading ? <p style={{ margin: "0 0 10px", color: "#6b7280", fontSize: 12 }}>正在读取 GPX 路线…</p> : null}
       {trackError ? <p role="alert" style={{ margin: "0 0 10px", padding: 10, border: "1px solid #fed7aa", borderRadius: 7, background: "#fff7ed", color: "#9a3412", fontSize: 12, lineHeight: 1.5 }}>{trackError}</p> : null}
-      {invalidTrackIndexCount || negativeTrackIndexCount ? <p role="alert" style={{ margin: "0 0 10px", padding: 10, border: "1px solid #fecaca", borderRadius: 7, background: "#fef2f2", color: "#b42318", fontSize: 12, lineHeight: 1.5 }}>{invalidTrackIndexCount + negativeTrackIndexCount} 个标注点的轨迹索引超出当前轨迹范围；地图会暂时贴到最近的端点，请修改索引后再发布。</p> : null}
+      {invalidTrackIndexCount || negativeTrackIndexCount ? <p role="alert" style={{ margin: "0 0 10px", padding: 10, border: "1px solid #fecaca", borderRadius: 7, background: "#fef2f2", color: "#b42318", fontSize: 12, lineHeight: 1.5 }}>{invalidTrackIndexCount + negativeTrackIndexCount} 个标注点的轨迹索引超出当前轨迹范围。地图会优先使用已保存的坐标，仅有索引的标注点会暂时贴到最近的端点。</p> : null}
       {outOfOrderStopCount ? <p role="alert" style={{ margin: "0 0 10px", padding: 10, border: "1px solid #fed7aa", borderRadius: 7, background: "#fff7ed", color: "#9a3412", fontSize: 12, lineHeight: 1.5 }}>{outOfOrderStopCount} 处标注点顺序与路线方向不一致；请按轨迹点索引从小到大排列。第一处和最后一处标注也可帮助确认 GPX 起点与终点方向。</p> : null}
       {distantStopCount ? <p role="alert" style={{ margin: "0 0 10px", padding: 10, border: "1px solid #fed7aa", borderRadius: 7, background: "#fff7ed", color: "#9a3412", fontSize: 12, lineHeight: 1.5 }}>{distantStopCount} 个未绑定轨迹索引的标注点距离路线较远；请点击路线重新放置，或填写正确的轨迹点索引。</p> : null}
       {photoIssues.missing || photoIssues.hidden ? <p role="alert" style={{ margin: "0 0 10px", padding: 10, border: "1px solid #fed7aa", borderRadius: 7, background: "#fff7ed", color: "#9a3412", fontSize: 12, lineHeight: 1.5 }}>{photoIssues.missing ? `${photoIssues.missing} 个照片引用已失效` : ""}{photoIssues.missing && photoIssues.hidden ? "；" : ""}{photoIssues.hidden ? `${photoIssues.hidden} 张关联照片已隐藏` : ""}。请检查标注点中的照片引用后再发布。</p> : null}
@@ -442,7 +452,9 @@ export function MapRouteStopsInput(props: ArrayOfObjectsInputProps<StopItem>) {
         {uploadError ? <p style={{ margin: "8px 0 0", color: "#b42318", fontSize: 12 }}>{uploadError}</p> : null}
       </div> : null}
       {readOnly ? <p style={{ margin: "0 0 10px", color: "#92400e", fontSize: 12 }}>当前是已发布只读视图，不能新增标注点。请打开不带 <code>?perspective=published</code> 的 Studio 地址进行编辑。</p> : <button type="button" onClick={addStop} style={{ minHeight: 38, marginBottom: 10, padding: "0 13px", border: 0, borderRadius: 5, background: "#166534", color: "#fff", cursor: "pointer", fontWeight: 700 }}>＋ 新增标注点</button>}
-      {props.renderDefault(props)}
+      <RouteStopTrackContext.Provider value={{ track: trackLoading ? [] : track, onChange: props.onChange }}>
+        {props.renderDefault(props)}
+      </RouteStopTrackContext.Provider>
     </div>
   );
 }
