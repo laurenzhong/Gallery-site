@@ -74,11 +74,11 @@ button {
   box-shadow: none;
 }
 
-.site-header:has(.site-header-about-title) {
+.site-header:has(.site-header-page-title) {
   background: var(--black);
 }
 
-.site-header-about-title {
+.site-header-page-title {
   margin: 0;
   color: #fff;
   font-family: "Playfair Display", Georgia, serif;
@@ -324,6 +324,10 @@ button {
 
 main {
   margin-top: calc(var(--header-h) * -1);
+}
+
+main:has(> .journal-page) {
+  margin-top: 0;
 }
 
 .page-title-band {
@@ -2209,7 +2213,7 @@ main {
     align-items: flex-start;
   }
 
-  .site-header-about-title {
+  .site-header-page-title {
     margin-top: 10px;
   }
 

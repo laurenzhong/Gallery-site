@@ -207,7 +207,11 @@ export function MetadataSection({ photos, photoMeta = staticPhotoMeta }: PhotoSt
   );
 }
 
-export function JournalSection({ photos, photoStories = staticPhotoStories }: PhotoStoryProps) {
+export function JournalSection({
+  photos,
+  photoStories = staticPhotoStories,
+  showHeading = true,
+}: PhotoStoryProps & { showHeading?: boolean }) {
   const storyEntries = Object.entries(photoStories)
     .flatMap(([filename, storyList]) => {
       const photo = findPhoto(photos, filename);
@@ -218,14 +222,20 @@ export function JournalSection({ photos, photoStories = staticPhotoStories }: Ph
     .sort((a, b) => compareStories(a.story, b.story));
 
   return (
-    <section className="story-section story-entries-section" aria-labelledby="story-entries-title">
-      <div className="story-section-head">
-        <span className="story-section-kicker">Stories</span>
-        <h1 id="story-entries-title">创作手记</h1>
-        <p className="story-section-sub">
-          每张照片背后都有当时的场景、天气、心情。下面是几篇示例。
-        </p>
-      </div>
+    <section
+      className="story-section story-entries-section"
+      aria-labelledby={showHeading ? "story-entries-title" : undefined}
+      aria-label={showHeading ? undefined : "Stories"}
+    >
+      {showHeading && (
+        <div className="story-section-head">
+          <span className="story-section-kicker">Stories</span>
+          <h1 id="story-entries-title">创作手记</h1>
+          <p className="story-section-sub">
+            每张照片背后都有当时的场景、天气、心情。下面是几篇示例。
+          </p>
+        </div>
+      )}
 
       <div className="story-entries">
         {storyEntries.map(({ photo, story }, index) => (

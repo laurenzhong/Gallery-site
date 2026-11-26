@@ -214,7 +214,7 @@ function App() {
   }, [photos]);
 
   useEffect(() => {
-    const title = activePhoto?.title ?? activeStory?.story.title;
+    const title = activePhoto?.title ?? activeStory?.story.title ?? (isJournalPage ? "Stories" : undefined);
     const description =
       activeStory?.story.excerpt ??
       (activePhoto ? `${activePhoto.category} / ${activePhoto.filename}`
@@ -269,6 +269,7 @@ function App() {
     heroPhoto,
     isAgarunAtlasPage,
     isExperimentsPage,
+    isJournalPage,
     isJourneyExperimentPage,
     isMapPage,
     isMapRoutePage,
@@ -291,8 +292,8 @@ function App() {
     <>
       <VisualEditingBridge enabled={showPreview} />
       <Header
-        pageTitle={isAboutPage ? "About" : isYearArchivePage ? <>Photo <em>archive</em></> : undefined}
-        pageTitleClassName={isAboutPage ? "site-header-about-title" : undefined}
+        pageTitle={isAboutPage ? "About" : isJournalPage ? "Stories" : isYearArchivePage ? <>Photo <em>archive</em></> : undefined}
+        pageTitleClassName={isAboutPage || isJournalPage ? "site-header-page-title" : undefined}
       />
 
       {!isAboutPage && <CmsSourceBadge content={content} />}

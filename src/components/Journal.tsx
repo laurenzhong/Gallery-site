@@ -9,8 +9,8 @@ type JournalProps = {
 
 export function Journal({ photos, photoStories }: JournalProps) {
   return (
-    <article className="story-page">
-      <JournalSection photos={photos} photoStories={photoStories} />
+    <article className="story-page journal-page">
+      <JournalSection photos={photos} photoStories={photoStories} showHeading={false} />
     </article>
   );
 }
