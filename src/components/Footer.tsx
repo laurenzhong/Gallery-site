@@ -57,20 +57,34 @@ type FooterProps = {
   showPreview?: boolean;
   variant?: "default" | "photo";
   deferPhoto?: boolean;
+  floatingBackToTop?: boolean;
 };
 
-export function Footer({ aboutData = defaultAboutData, showPreview = false, variant = "default", deferPhoto = false }: FooterProps) {
+export function Footer({
+  aboutData = defaultAboutData,
+  showPreview = false,
+  variant = "default",
+  deferPhoto = false,
+  floatingBackToTop = false,
+}: FooterProps) {
   const footerRef = useRef<HTMLElement>(null);
   const [showTop, setShowTop] = useState(false);
   const [photoInView, setPhotoInView] = useState(false);
   const photoDeferred = variant === "photo" && deferPhoto && !photoInView && typeof IntersectionObserver !== "undefined";
 
   useEffect(() => {
-    const onScroll = () => setShowTop(window.scrollY > 400);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    const header = floatingBackToTop ? document.querySelector(".site-header") : null;
+    const updateTopVisibility = () => {
+      setShowTop(header ? header.getBoundingClientRect().bottom <= 0 : window.scrollY > 400);
+    };
+    window.addEventListener("scroll", updateTopVisibility, { passive: true });
+    if (header) window.addEventListener("resize", updateTopVisibility);
+    updateTopVisibility();
+    return () => {
+      window.removeEventListener("scroll", updateTopVisibility);
+      window.removeEventListener("resize", updateTopVisibility);
+    };
+  }, [floatingBackToTop]);
 
   useEffect(() => {
     const footer = footerRef.current;
@@ -86,7 +100,13 @@ export function Footer({ aboutData = defaultAboutData, showPreview = false, vari
     return () => observer.disconnect();
   }, [photoDeferred]);
 
-  const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+  const scrollTop = () => {
+    if (floatingBackToTop) {
+      document.querySelector<HTMLButtonElement>(".site-header .menu-toggle")?.focus({ preventScroll: true });
+    }
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "instant" : "smooth" });
+  };
   const year = new Date().getFullYear();
   const lastUpdate = formatLastUpdate(__LAST_UPDATE__);
   const navLinks = import.meta.env.DEV || showPreview ? [...siteNavLinks, previewNavLink] : siteNavLinks;
@@ -106,7 +126,7 @@ export function Footer({ aboutData = defaultAboutData, showPreview = false, vari
           <a className="footer-brand" href="/" aria-label="Queenstown home">Queenstown.top</a>
           <button
             type="button"
-            className={`footer-top-btn ${showTop ? "is-visible" : ""}`}
+            className={`footer-top-btn${floatingBackToTop ? " footer-top-btn--floating" : ""}${showTop ? " is-visible" : ""}`}
             onClick={scrollTop}
             aria-label="Back to top"
           >
@@ -116,7 +136,7 @@ export function Footer({ aboutData = defaultAboutData, showPreview = false, vari
                 fill="currentColor"
               />
             </svg>
-            <span>Top</span>
+            {!floatingBackToTop && <span>Top</span>}
           </button>
         </div>
 

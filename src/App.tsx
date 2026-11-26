@@ -449,7 +449,13 @@ function App() {
         )}
       </main>
 
-      <Footer aboutData={aboutData} showPreview={showPreview} variant="photo" deferPhoto={isYearArchivePage} />
+      <Footer
+        aboutData={aboutData}
+        showPreview={showPreview}
+        variant="photo"
+        deferPhoto={isYearArchivePage}
+        floatingBackToTop={isJournalPage}
+      />
 
       {activeLightbox && (
         <AdvancedPhotoLightbox
