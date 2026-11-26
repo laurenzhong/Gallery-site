@@ -39,6 +39,7 @@
     "@fontsource/playfair-display": "^5.2.8",
     "@fontsource/poppins": "^5.2.7",
     "@sanity/client": "^6.29.1",
+    "@sanity/locale-zh-hans": "^2.1.40",
     "@sanity/orderable-document-list": "^1.5.1",
     "@sanity/vision": "^3.99.0",
     "@sanity/visual-editing": "2.0.0",

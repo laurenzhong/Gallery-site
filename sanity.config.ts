@@ -1,3 +1,4 @@
+import { zhHansLocale } from "@sanity/locale-zh-hans";
 import { visionTool } from "@sanity/vision";
 import { defineConfig } from "sanity";
 import { presentationTool } from "sanity/presentation";
@@ -20,6 +21,7 @@ export default defineConfig({
   basePath: "/studio",
   // Env vars SANITY_STUDIO_PROJECT_ID + SANITY_STUDIO_DATASET must be present at build time
   plugins: [
+    zhHansLocale(),
     structureTool({ structure }),
     visionTool(),
     presentationTool({
