@@ -353,7 +353,7 @@ function OrderedHomepageSections({
               key={section.id}
               title={section.title ?? "Gallery"}
               photos={section.photos}
-              showTitle={Boolean(section.title)}
+              showTitle={Boolean(section.title && section.title.trim().toLowerCase() !== "carousel")}
               filterLandscape={false}
               onOpen={(photo, carouselPhotos) => onOpen(photoIndex(photos, photo), carouselPhotos)}
             />
