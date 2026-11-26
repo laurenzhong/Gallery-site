@@ -321,7 +321,7 @@ button {
 
 @media (max-width: 640px) {
   .menu-panel {
-    --menu-panel-top: 96px;
+    --menu-panel-top: 84px;
     right: 20px;
   }
 }
@@ -2256,8 +2256,8 @@ main:has(> .journal-page) {
   }
 
   .brand-mark {
-    width: 54px;
-    height: 54px;
+    width: 48px;
+    height: 48px;
     border-width: 1.5px;
   }
 
@@ -2270,14 +2270,14 @@ main:has(> .journal-page) {
 
   .menu-toggle {
     position: fixed;
-    top: 34px;
+    top: 29px;
     right: 22px;
     z-index: 50;
-    width: 54px;
-    height: 54px;
-    border-radius: 14px;
-    gap: 8px;
-    padding: 0 15px;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    gap: 6px;
+    padding: 0 12px;
   }
 
   .site-header--scroll-with-page .menu-toggle {
@@ -2285,22 +2285,22 @@ main:has(> .journal-page) {
   }
 
   .menu-toggle span {
-    width: 26px;
+    width: 22px;
     height: 3px;
   }
 
   .menu-toggle span:nth-child(3) {
-    width: 16px;
+    width: 14px;
   }
 
   .menu-toggle[aria-expanded="true"] span:nth-child(1) {
-    width: 26px;
-    transform: translateY(11px) rotate(45deg);
+    width: 22px;
+    transform: translateY(9px) rotate(45deg);
   }
 
   .menu-toggle[aria-expanded="true"] span:nth-child(3) {
-    width: 26px;
-    transform: translateY(-11px) rotate(-45deg);
+    width: 22px;
+    transform: translateY(-9px) rotate(-45deg);
   }
 
   .footer-preview-stage h1 {
@@ -2326,19 +2326,11 @@ main:has(> .journal-page) {
 
   .page-title-band {
     position: absolute;
-    top: 142px;
-    right: 0;
-    left: 0;
-    z-index: 24;
-    height: auto;
-    margin-top: 0;
-    pointer-events: none;
-  }
-
-  .page-title-band h1 {
-    color: var(--soft-white);
-    font-size: 38px;
-    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 
   .hero {
