@@ -162,18 +162,6 @@ main:has(.chronicle-loading) + .site-footer { display: none; }
   .chronicle-year-label > span { margin: 0; }
   .chronicle-month-links { width: 100%; display: flex; flex-wrap: wrap; gap: 0; margin-top: 0; }
   .chronicle-grid { --grid-columns: 2; }
-  .photo-chronicle .advanced-lightbox-nav {
-    position: fixed;
-    display: inline-grid;
-    top: 6px;
-    width: 44px;
-    height: 44px;
-    transform: none;
-    background: rgba(5, 5, 5, 0.85);
-  }
-  .photo-chronicle .advanced-lightbox-nav--prev { left: 8px; }
-  .photo-chronicle .advanced-lightbox-nav--next { left: 60px; right: auto; }
-  .photo-chronicle .advanced-lightbox-nav:is(:hover, :focus-visible) { transform: none; }
 }
 @media (max-width: 360px) {
   .chronicle-all-years { display: none; }

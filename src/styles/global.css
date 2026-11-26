@@ -189,6 +189,22 @@ button {
   width: 18px;
 }
 
+.menu-toggle[aria-expanded="true"] {
+  background: transparent;
+  box-shadow: none;
+  color: #fff;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menu-toggle[aria-expanded="true"]:is(:hover, :focus-visible) {
+  color: var(--aqua);
+}
+
+.menu-toggle[aria-expanded="true"] span {
+  background: currentColor;
+}
+
 .menu-toggle[aria-expanded="true"] span:nth-child(1) {
   width: 30px;
   transform: translateY(14px) rotate(45deg);
@@ -1898,6 +1914,7 @@ main {
 
 .advanced-lightbox-close {
   appearance: none;
+  -webkit-tap-highlight-color: transparent;
   display: inline-grid;
   place-items: center;
   position: absolute;
@@ -1946,8 +1963,7 @@ main {
   outline: none;
 }
 
-.advanced-lightbox-close:hover,
-.advanced-lightbox-close:focus-visible {
+.advanced-lightbox .advanced-lightbox-close:is(:hover, :focus-visible) {
   color: var(--aqua);
   outline: none;
   transform: scale(1.06);
