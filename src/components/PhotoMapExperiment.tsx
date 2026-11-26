@@ -15,6 +15,20 @@ import { addMapBasemap } from "../lib/mapBasemap";
 import { AtlasPhotoCard, AtlasRouteCard, AtlasOverview } from "./AtlasCards";
 import { resolveRouteStopPhotos } from "../lib/routePhotos";
 
+function expandedPhotoPositions(count: number, center: L.Point) {
+  // Place pairs on opposite sides. A golden-angle spiral spreads larger groups
+  // around the pin, with the radius growing as more prints are added.
+  const angleStep = count === 2 ? Math.PI : Math.PI * (3 - Math.sqrt(5));
+  const firstRadius = 74;
+  const squaredRadiusStep = 2300;
+
+  return Array.from({ length: count }, (_, index) => {
+    const angle = Math.PI + index * angleStep;
+    const radius = Math.sqrt(firstRadius ** 2 + index * squaredRadiusStep);
+    return L.point(center.x + radius * Math.cos(angle), center.y + radius * Math.sin(angle)).round();
+  });
+}
+
 function printIcon(photo: Photo, count?: number) {
   const frame = document.createElement("span");
   frame.className = "atlas-pin__frame";
@@ -181,6 +195,7 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
     markerLayerRef.current = L.markerClusterGroup({
       maxClusterRadius: (zoom) => (zoom < 11 ? 72 : 48),
       spiderfyOnMaxZoom: true,
+      spiderfyShapePositions: atlas ? expandedPhotoPositions : undefined,
       spiderfyDistanceMultiplier: 1.35,
       showCoverageOnHover: false,
       zoomToBoundsOnClick: true,
