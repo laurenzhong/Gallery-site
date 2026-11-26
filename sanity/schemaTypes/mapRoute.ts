@@ -1,6 +1,7 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
 import { GpxFileInput } from "../components/GpxFileInput";
 import { CollapsedTrackPointsInput, MapRoutePhotosInput, MapRouteStatsInput, MapRouteStopsInput } from "../components/MapRouteInputs";
+import { MapRouteTitleInput } from "../components/MapRouteTitleInput";
 
 const coordinateFields = [
   defineField({ name: "latitude", title: "纬度", type: "number", validation: (Rule) => Rule.required().min(-90).max(90) }),
@@ -12,7 +13,14 @@ export const mapRouteType = defineType({
   title: "地图路线",
   type: "document",
   fields: [
-    defineField({ name: "title", title: "路线名称", type: "string", validation: (Rule) => Rule.required() }),
+    defineField({
+      name: "title",
+      title: "路线名称",
+      type: "string",
+      description: "上传 GPX 后默认采用文件名，可手动修改。",
+      components: { input: MapRouteTitleInput },
+      validation: (Rule) => Rule.required(),
+    }),
     defineField({ name: "slug", title: "URL 标识", type: "slug", options: { source: "title", maxLength: 96 }, validation: (Rule) => Rule.required() }),
     defineField({ name: "sourceRouteId", title: "原有路线 ID", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "subtitle", title: "路线简介", type: "text", rows: 3 }),
@@ -35,7 +43,7 @@ export const mapRouteType = defineType({
       name: "trackFile",
       title: "GPX 文件",
       type: "file",
-      options: { accept: ".gpx,application/gpx+xml,application/xml,text/xml" },
+      options: { accept: ".gpx,application/gpx+xml,application/xml,text/xml", storeOriginalFilename: true },
       components: { input: GpxFileInput },
       description: "上传徒步设备导出的 GPX，地图会自动读取其中的轨迹点。",
     }),
