@@ -104,7 +104,12 @@ export const structure: StructureResolver = (S, context) =>
               li(S, "photos.all")
                 .title("全部照片")
                 .schemaType("photo")
-                .child(S.component(PhotoLibraryDashboard).id("photos-all-dashboard").title("全部照片")),
+                .child(
+                  S.component(PhotoLibraryDashboard)
+                    .id("photos-all-dashboard")
+                    .title("全部照片")
+                    .child((documentId) => context.resolveDocumentNode({ schemaType: "photo", documentId })),
+                ),
               li(S, "photos.albums")
                 .title("相册")
                 .schemaType("album")
