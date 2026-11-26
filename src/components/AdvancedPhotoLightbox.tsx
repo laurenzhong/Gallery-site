@@ -30,6 +30,41 @@ function MetaRow({ label, value }: { label: string; value?: string | number }) {
   );
 }
 
+function LightboxPhoto({ photo, active }: { photo: Photo; active: boolean }) {
+  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
+  const isCdnImage = photo.src.includes("cdn.sanity.io");
+  const srcSet = isCdnImage
+    ? [imageSrcSet(photo.src, [480, 768, 960, 1200]), imageSrcSet(photo.src, [1400, 2200, 3000], 90)].join(", ")
+    : undefined;
+  const ratio = photo.width / photo.height;
+  const phoneWidth = ratio > 0 && ratio < 1
+    ? `min(calc(100vw - 36px), clamp(${260 * ratio}px, ${54 * ratio}vh, ${420 * ratio}px))`
+    : "calc(100vw - 36px)";
+
+  return (
+    <div hidden={!active}>
+      <img
+        src={sizedImageUrl(photo.src, 2200, 90)}
+        srcSet={srcSet}
+        sizes={`(max-width: 640px) ${phoneWidth}, (max-width: 1000px) calc(100vw - 80px), 100vw`}
+        alt={photo.altText || `${photo.category} ${photo.title}`}
+        width={photo.width}
+        height={photo.height}
+        decoding="async"
+        fetchPriority={active ? "high" : "low"}
+        hidden={status !== "loaded"}
+        onLoad={() => setStatus("loaded")}
+        onError={() => setStatus("error")}
+      />
+      {active && status !== "loaded" && (
+        <p className="advanced-lightbox-photo-status" role="status">
+          {status === "error" ? "Photo unavailable" : "Loading photo…"}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function AdvancedPhotoLightbox({
   photos,
   index,
@@ -70,6 +105,9 @@ export function AdvancedPhotoLightbox({
   }, [photo?.id]);
 
   if (!photo) return null;
+
+  // Keep nearby CDN images mounted so a swipe can reveal the same preloaded element.
+  const nearbyIndexes = [index, index + 1, index - 1];
 
   const copyLink = async () => {
     if (!navigator.clipboard || !shareUrl) return;
@@ -145,16 +183,12 @@ export function AdvancedPhotoLightbox({
         <div className={`advanced-lightbox-layout${hasStory ? "" : " advanced-lightbox-layout--no-story"}`}>
           <div className="advanced-lightbox-media-column">
             <figure className="advanced-lightbox-photo">
-              <img
-                src={sizedImageUrl(photo.src, 2200, 90)}
-                srcSet={imageSrcSet(photo.src, [1400, 2200, 3000], 90)}
-                sizes="100vw"
-                alt={`${photo.category} ${photo.title}`}
-                width={photo.width}
-                height={photo.height}
-                decoding="async"
-                fetchPriority="high"
-              />
+              {nearbyIndexes.map((photoIndex) => {
+                const candidate = photos[photoIndex];
+                const active = photoIndex === index;
+                if (!candidate || (!active && !candidate.src.includes("cdn.sanity.io"))) return null;
+                return <LightboxPhoto key={`${photoIndex}:${candidate.id}:${candidate.src}`} photo={candidate} active={active} />;
+              })}
             </figure>
 
             <section className="advanced-lightbox-meta" aria-labelledby="advanced-lightbox-meta-title">
