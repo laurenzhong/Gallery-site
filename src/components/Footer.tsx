@@ -119,25 +119,34 @@ export function Footer({
     return contact ? [{ ...social, href: contact.href }] : [];
   });
 
-  return (
+  const arrowSize = floatingBackToTop ? 24 : 14;
+  const backToTopButton = (
+    <button
+      type="button"
+      className={floatingBackToTop ? "floating-top-btn" : `footer-top-btn${showTop ? " is-visible" : ""}`}
+      onClick={scrollTop}
+      aria-label="Back to top"
+    >
+      <svg viewBox="0 0 24 24" width={arrowSize} height={arrowSize} aria-hidden="true">
+        <path
+          d="M12 4 L4 12 L6 14 L11 9 L11 20 L13 20 L13 9 L18 14 L20 12 Z"
+          fill="currentColor"
+          stroke={floatingBackToTop ? "#050505" : undefined}
+          strokeWidth={floatingBackToTop ? 2.5 : undefined}
+          strokeLinejoin="round"
+          paintOrder="stroke"
+        />
+      </svg>
+      {!floatingBackToTop && <span>Top</span>}
+    </button>
+  );
+
+  const footer = (
     <footer ref={footerRef} className={`site-footer${variant === "photo" ? " site-footer--photo" : ""}${photoDeferred ? " site-footer--photo-deferred" : ""}`}>
       <div className="site-footer__inner">
         <div className="footer-brand-row">
           <a className="footer-brand" href="/" aria-label="Queenstown home">Queenstown.top</a>
-          <button
-            type="button"
-            className={`footer-top-btn${floatingBackToTop ? " footer-top-btn--floating" : ""}${showTop ? " is-visible" : ""}`}
-            onClick={scrollTop}
-            aria-label="Back to top"
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-              <path
-                d="M12 4 L4 12 L6 14 L11 9 L11 20 L13 20 L13 9 L18 14 L20 12 Z"
-                fill="currentColor"
-              />
-            </svg>
-            {!floatingBackToTop && <span>Top</span>}
-          </button>
+          {!floatingBackToTop && backToTopButton}
         </div>
 
         <p className="footer-tagline">
@@ -220,5 +229,12 @@ export function Footer({
         </div>
       </div>
     </footer>
+  );
+
+  return (
+    <>
+      {footer}
+      {floatingBackToTop && showTop && backToTopButton}
+    </>
   );
 }
