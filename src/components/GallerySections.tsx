@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Photo } from "../data/photos";
 import type { HomepageContentSection, HomepageLayout } from "../lib/homepageLayout";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
@@ -262,6 +263,28 @@ function SectionTitle({ title }: { title?: string }) {
   );
 }
 
+function FeatureCardImage({ photo, title }: { photo: Photo; title: string }) {
+  const [loaded, setLoaded] = useState(false);
+
+  // Production uses Sanity and does not include the local source photos.
+  if (import.meta.env.PROD && photo.src.startsWith("/photos/")) return null;
+
+  return (
+    <img
+      src={sizedImageUrl(photo.src, 900, 82)}
+      srcSet={imageSrcSet(photo.src, [520, 820, 1100], 82)}
+      sizes="(max-width: 640px) 100vw, 33vw"
+      alt={`${title} ${photo.title}`}
+      loading="eager"
+      fetchPriority="low"
+      decoding="async"
+      data-loaded={loaded}
+      onLoad={() => setLoaded(true)}
+      onError={() => setLoaded(false)}
+    />
+  );
+}
+
 function OrderedHomepageSections({
   sections,
   photos,
@@ -280,15 +303,7 @@ function OrderedHomepageSections({
               {section.cards.map((card) => {
                 const cardContent = (
                   <>
-                    <img
-                      src={sizedImageUrl(card.photo.src, 900, 82)}
-                      srcSet={imageSrcSet(card.photo.src, [520, 820, 1100], 82)}
-                      sizes="(max-width: 640px) 100vw, 33vw"
-                      alt={`${card.title} ${card.photo.title}`}
-                      loading="eager"
-                      fetchPriority="low"
-                      decoding="async"
-                    />
+                    <FeatureCardImage key={card.photo.src} photo={card.photo} title={card.title} />
                     <span>{card.title}</span>
                   </>
                 );
@@ -512,15 +527,7 @@ export function GallerySections({ photos, homepageLayout, onOpen }: GallerySecti
         {featureCards.map(({ id, title, photo, href }) => {
           const cardContent = (
             <>
-              <img
-                src={sizedImageUrl(photo.src, 900, 82)}
-                srcSet={imageSrcSet(photo.src, [520, 820, 1100], 82)}
-                sizes="(max-width: 640px) 100vw, 33vw"
-                alt={`${title} ${photo.title}`}
-                loading="eager"
-                fetchPriority="low"
-                decoding="async"
-              />
+              <FeatureCardImage key={photo.src} photo={photo} title={title} />
               <span>{title}</span>
             </>
           );

@@ -434,6 +434,10 @@ main {
   transition: transform 360ms ease, filter 260ms ease;
 }
 
+.feature-card img[data-loaded="false"] {
+  visibility: hidden;
+}
+
 .feature-card::after {
   position: absolute;
   inset: 0;
@@ -2125,8 +2129,6 @@ main {
 @media (max-width: 640px) {
   :root {
     --header-h: 100px;
-    --title-h: 92px;
-    --hero-h: calc(100vw + 90px);
     --rail-gap: 10px;
   }
 
@@ -2277,25 +2279,19 @@ main {
   }
 
   .page-title-band {
-    position: absolute;
-    top: 142px;
-    right: 0;
-    left: 0;
-    z-index: 24;
     height: auto;
-    margin-top: 0;
-    place-items: start center;
-    pointer-events: none;
+    padding: 24px 16px 20px;
   }
 
   .page-title-band h1 {
+    color: var(--soft-white);
     font-size: 38px;
+    text-shadow: none;
   }
 
   .hero {
-    margin-top: 0;
-    min-height: calc(100vw + 90px);
-    overflow: hidden;
+    height: auto;
+    min-height: 0;
   }
 
   .hero::after {
@@ -2304,11 +2300,10 @@ main {
   }
 
   .hero-image {
-    top: 0;
-    height: 100%;
-    width: 100%;
+    position: static;
+    height: auto;
     min-height: 0;
-    object-position: center;
+    object-fit: contain;
   }
 
   .feature-grid {

@@ -313,6 +313,8 @@ function App() {
                   src={sizedImageUrl(heroPhoto.src, 2400, 88)}
                   srcSet={imageSrcSet(heroPhoto.src, [1400, 2000, 2800], 88)}
                   sizes="100vw"
+                  width={heroPhoto.width}
+                  height={heroPhoto.height}
                   alt=""
                   aria-hidden="true"
                   loading="eager"
@@ -415,6 +417,8 @@ function App() {
                   src={sizedImageUrl(heroPhoto.src, 2400, 88)}
                   srcSet={imageSrcSet(heroPhoto.src, [1400, 2000, 2800], 88)}
                   sizes="100vw"
+                  width={heroPhoto.width}
+                  height={heroPhoto.height}
                   alt=""
                   aria-hidden="true"
                   loading="eager"
