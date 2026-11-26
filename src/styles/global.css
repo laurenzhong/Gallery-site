@@ -2308,16 +2308,78 @@ main:has(> .journal-page) {
   }
 
   main:has(> .hero) {
+    position: relative;
     margin-top: -98px;
+  }
+
+  body:has(main > .hero) .site-header {
+    padding-top: 18px;
+    padding-left: 16px;
+  }
+
+  body:has(main > .hero) .brand-mark {
+    width: 40px;
+    height: 40px;
+  }
+
+  body:has(main > .hero) .brand-word {
+    margin-left: 8px;
+  }
+
+  body:has(main > .hero) .menu-toggle {
+    top: 15px;
+    right: 13px;
+    gap: 5px;
+    padding: 0 13px;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body:has(main > .hero) .menu-toggle[aria-expanded="false"]::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 3px;
+    border-radius: 11px;
+    background: var(--aqua);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  }
+
+  body:has(main > .hero) .menu-toggle[aria-expanded="false"]:is(:hover, :focus-visible)::before {
+    background: #96fff8;
+  }
+
+  body:has(main > .hero) .menu-toggle span {
+    width: 20px;
+  }
+
+  body:has(main > .hero) .menu-toggle[aria-expanded="false"] span:nth-child(3) {
+    width: 12px;
+  }
+
+  body:has(main > .hero) .menu-toggle[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+  }
+
+  body:has(main > .hero) .menu-toggle[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+  }
+
+  body:has(main > .hero) .menu-panel {
+    --menu-panel-top: 70px;
+    right: 16px;
   }
 
   .page-title-band {
     position: absolute;
-    width: 1px;
-    height: 1px;
+    inset: clamp(56px, 15.3vw, 82px) 0 auto;
+    height: auto;
     margin: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
+    pointer-events: none;
+  }
+
+  .page-title-band h1 {
+    font-size: clamp(19px, 5.65vw, 26px);
   }
 
   .hero {
