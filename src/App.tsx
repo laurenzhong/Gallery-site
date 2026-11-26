@@ -294,6 +294,7 @@ function App() {
       <Header
         pageTitle={isAboutPage ? "About" : isJournalPage ? "Stories" : isYearArchivePage ? <>Photo <em>archive</em></> : undefined}
         pageTitleClassName={isAboutPage || isJournalPage ? "site-header-page-title" : undefined}
+        scrollWithPage={isJournalPage}
       />
 
       {!isAboutPage && <CmsSourceBadge content={content} />}

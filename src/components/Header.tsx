@@ -4,9 +4,11 @@ import { siteNavLinks } from "../lib/siteNavigation";
 export function Header({
   pageTitle,
   pageTitleClassName = "site-header-title",
+  scrollWithPage = false,
 }: {
   pageTitle?: ReactNode;
   pageTitleClassName?: string;
+  scrollWithPage?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -20,15 +22,20 @@ export function Header({
   useEffect(() => {
     if (!menuOpen) return undefined;
 
+    const closeMenu = () => setMenuOpen(false);
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setMenuOpen(false);
+        closeMenu();
       }
     };
 
     window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [menuOpen]);
+    if (scrollWithPage) window.addEventListener("scroll", closeMenu, { passive: true });
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("scroll", closeMenu);
+    };
+  }, [menuOpen, scrollWithPage]);
 
   useEffect(() => {
     const updateScrolled = () => setScrolled(window.scrollY > 24);
@@ -39,7 +46,10 @@ export function Header({
 
   return (
     <>
-      <header className={`site-header${scrolled ? " site-header--scrolled" : ""}`} aria-label="Site header">
+      <header
+        className={`site-header${scrolled ? " site-header--scrolled" : ""}${scrollWithPage ? " site-header--scroll-with-page" : ""}`}
+        aria-label="Site header"
+      >
         {pageTitle ? <h1 className={pageTitleClassName}>{pageTitle}</h1> : (
         <a className="brand-lockup" href="/" aria-label="Queenstown home">
           <span className="brand-mark" aria-hidden="true">

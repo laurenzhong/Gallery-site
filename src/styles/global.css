@@ -56,7 +56,6 @@ button {
 }
 
 .site-header {
-  --header-right-padding: 60px;
   position: sticky;
   z-index: 30;
   top: 0;
@@ -65,7 +64,7 @@ button {
   justify-content: space-between;
   width: 100%;
   height: var(--header-h);
-  padding: 0 var(--header-right-padding) 0 37px;
+  padding: 0 60px 0 37px;
   pointer-events: none;
   transition: background 180ms ease, box-shadow 180ms ease;
 }
@@ -79,17 +78,8 @@ button {
   background: var(--black);
 }
 
-.site-header:has(~ main > .journal-page) {
+.site-header--scroll-with-page {
   position: relative;
-}
-
-@media (width > 640px) {
-  .site-header:has(~ main > .journal-page) .menu-toggle {
-    position: fixed;
-    top: calc(var(--header-h) / 2);
-    right: var(--header-right-padding);
-    translate: 0 -50%;
-  }
 }
 
 .site-header-page-title {
@@ -2083,7 +2073,7 @@ main:has(> .journal-page) {
   }
 
   .site-header {
-    --header-right-padding: 34px;
+    padding-right: 34px;
     padding-left: 28px;
   }
 
@@ -2227,6 +2217,10 @@ main:has(> .journal-page) {
     align-items: flex-start;
   }
 
+  .site-header--scroll-with-page {
+    width: 100%;
+  }
+
   .site-header-page-title {
     margin-top: 10px;
   }
@@ -2254,6 +2248,10 @@ main:has(> .journal-page) {
     border-radius: 14px;
     gap: 8px;
     padding: 0 15px;
+  }
+
+  .site-header--scroll-with-page .menu-toggle {
+    position: absolute;
   }
 
   .menu-toggle span {
