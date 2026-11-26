@@ -56,6 +56,7 @@ button {
 }
 
 .site-header {
+  --header-right-padding: 60px;
   position: sticky;
   z-index: 30;
   top: 0;
@@ -64,7 +65,7 @@ button {
   justify-content: space-between;
   width: 100%;
   height: var(--header-h);
-  padding: 0 60px 0 37px;
+  padding: 0 var(--header-right-padding) 0 37px;
   pointer-events: none;
   transition: background 180ms ease, box-shadow 180ms ease;
 }
@@ -76,6 +77,19 @@ button {
 
 .site-header:has(.site-header-page-title) {
   background: var(--black);
+}
+
+.site-header:has(~ main > .journal-page) {
+  position: relative;
+}
+
+@media (width > 640px) {
+  .site-header:has(~ main > .journal-page) .menu-toggle {
+    position: fixed;
+    top: calc(var(--header-h) / 2);
+    right: var(--header-right-padding);
+    translate: 0 -50%;
+  }
 }
 
 .site-header-page-title {
@@ -2069,7 +2083,7 @@ main:has(> .journal-page) {
   }
 
   .site-header {
-    padding-right: 34px;
+    --header-right-padding: 34px;
     padding-left: 28px;
   }
 
