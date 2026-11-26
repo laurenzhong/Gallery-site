@@ -1,6 +1,7 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
 import { GpxFileInput } from "../components/GpxFileInput";
 import { CollapsedTrackPointsInput, MapRoutePhotosInput, MapRouteStatsInput, MapRouteStopsInput } from "../components/MapRouteInputs";
+import { MapRouteSlugInput, mapRouteSlugMaxLength, routeSlugFromTitle } from "../components/MapRouteSlugInput";
 import { MapRouteTitleInput } from "../components/MapRouteTitleInput";
 
 const coordinateFields = [
@@ -21,7 +22,19 @@ export const mapRouteType = defineType({
       components: { input: MapRouteTitleInput },
       validation: (Rule) => Rule.required(),
     }),
-    defineField({ name: "slug", title: "URL 标识", type: "slug", options: { source: "title", maxLength: 96 }, validation: (Rule) => Rule.required() }),
+    defineField({
+      name: "slug",
+      title: "URL 标识",
+      type: "slug",
+      description: "上传 GPX 后根据路线名称自动生成，可手动修改。",
+      options: {
+        source: "title",
+        maxLength: mapRouteSlugMaxLength,
+        slugify: (title, _type, { parent }) => routeSlugFromTitle(title, "_id" in parent ? parent._id : undefined),
+      },
+      components: { input: MapRouteSlugInput },
+      validation: (Rule) => Rule.required(),
+    }),
     defineField({ name: "sourceRouteId", title: "原有路线 ID", type: "string", readOnly: true, hidden: true }),
     defineField({ name: "subtitle", title: "路线简介", type: "text", rows: 3 }),
     defineField({ name: "sourceLabel", title: "来源说明", type: "string", description: "例如：个人 GPX · 2026-11-06。" }),
