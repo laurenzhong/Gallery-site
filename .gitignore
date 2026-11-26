@@ -24,6 +24,7 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+xcuserdata/
 *.suo
 *.ntvs*
 *.njsproj

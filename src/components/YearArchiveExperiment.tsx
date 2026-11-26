@@ -9,14 +9,23 @@ import { AdvancedPhotoLightbox } from "./AdvancedPhotoLightbox";
 type ArchivePhoto = Photo & { hash: string };
 type Month = { key: string; label: string; photos: ArchivePhoto[] };
 type Year = { label: string; count: number; months: Map<string, Month> };
-type Props = { includeLocal: boolean; photoMeta: Record<string, PhotoMeta>; photoStories: Record<string, PhotoStory[]> };
+type Props = { includeLocal: boolean; cmsPhotos?: Photo[]; photoMeta: Record<string, PhotoMeta>; photoStories: Record<string, PhotoStory[]> };
 
 const gridSizes = "(max-width: 640px) 54vw, (max-width: 1000px) 33vw, (max-width: 1680px) 22vw, 340px";
 const singleSizes = "(max-width: 640px) min(66vw, 360px), (max-width: 1000px) min(36vw, 360px), 360px";
 
-function collectArchive(includeLocal: boolean) {
+function collectArchive(includeLocal: boolean, cmsPhotos: Photo[] | undefined) {
   const originals = new Map<string, ArchivePhoto>();
-  for (const photo of published) originals.set(photo.hash, photo);
+  for (const photo of published) {
+    // Native uploads use the current CMS record so hiding or updating them takes effect on reload.
+    if (cmsPhotos && photo.id.startsWith("photo-live-")) continue;
+    originals.set(photo.hash, photo);
+  }
+  for (const photo of cmsPhotos ?? []) {
+    if (!photo.liveVideoUrl || !photo.hash) continue;
+    const cached = originals.get(photo.hash);
+    originals.set(photo.hash, { ...photo, hash: photo.hash, capturedAt: cached?.capturedAt ?? photo.capturedAt });
+  }
   // Private migration folders are available only in the local preview.
   if (includeLocal && ["localhost", "127.0.0.1", "[::1]"].includes(window.location.hostname)) {
     for (const photo of localPhotos) {
@@ -52,8 +61,8 @@ function readSelection() {
   return { year: params.get("year"), frame: params.get("frame") };
 }
 
-export default function YearArchiveExperiment({ includeLocal, photoMeta, photoStories }: Props) {
-  const archive = useMemo(() => collectArchive(includeLocal), [includeLocal]);
+export default function YearArchiveExperiment({ includeLocal, cmsPhotos, photoMeta, photoStories }: Props) {
+  const archive = useMemo(() => collectArchive(includeLocal, cmsPhotos), [includeLocal, cmsPhotos]);
   const [selection, setSelection] = useState(readSelection);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLDetailsElement>(null);

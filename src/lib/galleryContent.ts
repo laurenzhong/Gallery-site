@@ -145,6 +145,9 @@ function toPhoto(photo: CmsPhoto): Photo | null {
     id: photo.id,
     ...(photo.legacyId ? { legacyId: photo.legacyId } : {}),
     src,
+    liveVideoUrl: photo.liveVideoUrl ?? undefined,
+    ...(photo.archiveHash ? { hash: photo.archiveHash } : {}),
+    ...(photo.liveVideoUrl && photo.date ? { capturedAt: `${photo.date}T00:00:00` } : {}),
     title: photo.title,
     slug: photo.slug,
     category: photo.category ?? "未分类",
@@ -215,6 +218,7 @@ function toReferencedPhoto(photo: CmsSiteSettings["heroPhoto"], options: { allow
   return {
     id: photo.id,
     src,
+    liveVideoUrl: photo.liveVideoUrl ?? undefined,
     title: photo.title,
     slug: photo.slug,
     category: photo.category ?? "",

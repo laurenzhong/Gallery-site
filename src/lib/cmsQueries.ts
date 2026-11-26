@@ -2,6 +2,8 @@ export type CmsPhoto = {
   id: string;
   legacyId?: string;
   src: string;
+  liveVideoUrl?: string | null;
+  archiveHash?: string | null;
   legacyPublicPath?: string;
   title: string;
   slug?: string;
@@ -204,6 +206,7 @@ export type CmsStoryPhoto = {
   title?: string;
   slug?: string;
   src?: string;
+  liveVideoUrl?: string | null;
   isHidden?: boolean;
   legacyPublicPath?: string;
   filename?: string;
@@ -222,6 +225,7 @@ const cmsReferencedPhotoFields = `
     title,
     "slug": slug.current,
     "src": image.asset->url,
+    "liveVideoUrl": liveVideo.asset->url,
     isHidden,
     "legacyPublicPath": legacyPublicPath,
     "category": category->title,
@@ -243,6 +247,8 @@ export const cmsPhotosQuery = `*[
   "id": _id,
   "legacyId": legacyId,
   "src": image.asset->url,
+  "liveVideoUrl": liveVideo.asset->url,
+  "archiveHash": select(defined(liveVideo.asset) => image.asset->sha1hash),
   "legacyPublicPath": legacyPublicPath,
   title,
   "slug": slug.current,

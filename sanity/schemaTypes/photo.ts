@@ -108,6 +108,14 @@ export const photoType = defineType({
         "在此上传或替换照片资源。是否出现在网站，由页面实际引用和下方的「是否隐藏」共同决定。",
     }),
     defineField({
+      name: "liveVideo",
+      title: "实况视频",
+      type: "file",
+      fieldset: "identity",
+      options: { accept: "video/mp4" },
+      description: "由 iPhone 上传端随封面一同导入。网站在大图中播放这段视频。",
+    }),
+    defineField({
       name: "altText",
       title: "替代文本",
       type: "string",

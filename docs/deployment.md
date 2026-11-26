@@ -23,7 +23,7 @@ Vercel should detect this as a Vite project.
 
 ## Vercel Environment Variables
 
-Only add public frontend variables:
+Set the public frontend variables:
 
 ```text
 VITE_SANITY_PROJECT_ID=zj2ik922
@@ -47,13 +47,7 @@ attribution visible. A provider URL is public data; it does not belong in a
 secret variable. With these values blank, the site uses the built-in
 OSM/Esri sources in production, preview, and local builds.
 
-Do not add this to Vercel:
-
-```text
-SANITY_WRITE_TOKEN
-```
-
-`SANITY_WRITE_TOKEN` is only for local migration and asset upload scripts.
+The public site reads Sanity without a token. The optional AI worker and iPhone Live Photo uploader use `SANITY_WRITE_TOKEN` on the server. Configure it as a server-side Vercel variable when enabling those features. See `ios/README.md` for uploader setup.
 
 ## Sanity CORS
 

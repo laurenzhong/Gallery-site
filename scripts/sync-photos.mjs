@@ -432,6 +432,7 @@ function serializeData(photos, initialHeroPhoto) {
   id: string;
   legacyId?: string;
   src: string;
+  liveVideoUrl?: string;
   title: string;
   slug?: string;
   category: string;

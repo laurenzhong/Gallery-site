@@ -389,7 +389,7 @@ function App() {
           <SashaKurmazExperiment photos={photos} onOpen={openPhoto} />
         ) : isYearArchivePage ? (
           <Suspense fallback={<p className="chronicle-loading" role="status">Loading photo archive…</p>}>
-            <YearArchiveExperiment includeLocal={isLocalArchivePreview} photoMeta={photoMeta} photoStories={photoStories} />
+            <YearArchiveExperiment includeLocal={isLocalArchivePreview} cmsPhotos={content.source === "cms" ? photos : undefined} photoMeta={photoMeta} photoStories={photoStories} />
           </Suspense>
         ) : isAgarunAtlasPage ? (
           <AgarunAtlasExperiment photos={photos} onOpen={openPhoto} />

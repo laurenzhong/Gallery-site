@@ -8,6 +8,7 @@ import {
   type PhotoStory,
 } from "../data/stories";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
+import { LivePhotoPlayer } from "./LivePhotoPlayer";
 
 type AdvancedPhotoLightboxProps = {
   photos: Photo[];
@@ -56,6 +57,9 @@ function LightboxPhoto({ photo, active }: { photo: Photo; active: boolean }) {
         onLoad={() => setStatus("loaded")}
         onError={() => setStatus("error")}
       />
+      {active && status === "loaded" && photo.liveVideoUrl && (
+        <LivePhotoPlayer key={photo.liveVideoUrl} src={photo.liveVideoUrl} />
+      )}
       {active && status !== "loaded" && (
         <p className="advanced-lightbox-photo-status" role="status">
           {status === "error" ? "Photo unavailable" : "Loading photo…"}
