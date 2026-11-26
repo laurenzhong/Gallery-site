@@ -3,7 +3,12 @@
   --atlas-line: var(--map-demo-line);
   --atlas-paper: #f2eee4;
 }
+.map-hub-demo .map-hub-demo__map-column--photos {
+  --photo-map-stage-extra-height: 38px;
+  grid-template-rows: minmax(0, 1fr);
+}
 @media (max-width: 560px) {
+  .map-hub-demo .map-hub-demo__map-column--photos { --photo-map-stage-extra-height: 52px; }
   .map-hub-demo .map-hub-demo__sidebar { margin-top: 0; }
 }
 .map-hub-demo .photo-map-experiment--compact { padding: 0; }
@@ -74,15 +79,15 @@
 }
 .map-hub-demo .photo-map-experiment__controls {
   gap: 0; right: 14px; top: 14px; padding: 2px;
-  background: #fffdf8f5; border: 1px solid #42524331; border-radius: 13px; box-shadow: 0 3px 12px #20362b22;
+  background: rgb(255 253 248 / 60%); border-radius: 13px; box-shadow: 0 3px 12px #20362b22;
 }
 .map-hub-demo .photo-map-experiment__controls button { width: 42px; height: 42px; border: 0; border-radius: 10px; background: transparent; font: 22px/1 Arial, sans-serif; }
 .map-hub-demo .photo-map-experiment__controls button:hover { transform: none; background: #e5e9df; }
 .map-hub-demo .leaflet-control-scale { margin: 0 0 8px 12px; }
 .atlas-pin { display: flex; justify-content: center; align-items: flex-end; padding-bottom: 11px; background: none; border: 0; }
-.atlas-pin__frame { position: relative; display: block; border: 3px solid white; border-radius: 4px; background: white; box-shadow: 0 2px 7px #27322865; }
+.atlas-pin__frame { position: relative; display: block; border: 1px solid #fffdf8; border-radius: 2px; background: #fffdf8; box-shadow: 0 2px 7px #27322865; }
 .map-hub-demo .leaflet-marker-pane .atlas-pin__frame img { display: block; width: auto; height: auto; max-width: 50px !important; max-height: 40px !important; object-fit: contain; border-radius: 1px; }
-.atlas-pin--stack .atlas-pin__frame { box-shadow: 2px -2px #aab1a9, 4px -4px white, 0 3px 8px #27322865; }
+.atlas-pin--stack .atlas-pin__frame { box-shadow: 2px -2px #aab1a9, 4px -4px rgb(255 253 248 / 55%), 0 3px 8px #27322865; }
 .atlas-pin b { position: absolute; right: -10px; bottom: -6px; min-width: 20px; padding: 1px 4px; border: 1px solid white; border-radius: 12px; background: #304439; color: white; font: 600 11px/16px system-ui,sans-serif; text-align: center; }
 .atlas-pin::after { position: absolute; bottom: -2px; left: calc(50% - 3px); width: 6px; height: 6px; content: ""; border-radius: 50%; background: #304439; box-shadow: 0 0 0 1px white; }
 .atlas-pin::before { position: absolute; width: 1px; height: 12px; bottom: 1px; background: #304439; content: ""; }

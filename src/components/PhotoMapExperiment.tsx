@@ -476,9 +476,9 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
       </header> : null}
 
       <section className={atlas ? "map-hub-demo__workspace" : "photo-map-experiment__stage"} aria-label={showRoutesOnly ? "Route map" : "Photo map"}>
-        {atlas ? <div className="map-hub-demo__map-column">
-          <div className="map-hub-demo__map-label">
-            {showRoutesOnly && routes.length > 0 ? (
+        {atlas ? <div className={`map-hub-demo__map-column${showRoutesOnly ? "" : " map-hub-demo__map-column--photos"}`}>
+          {showRoutesOnly && <div className="map-hub-demo__map-label">
+            {routes.length > 0 ? (
               <>
                 <select className="atlas-route-picker" aria-label="Walking route" value={selectedRouteId ?? ""}
                   onChange={(event) => selectRoute(event.currentTarget.value || null)}>
@@ -492,9 +492,9 @@ export function PhotoMapCanvas({ photos, onOpen, compact = false, atlas = false,
                   </a>
                 )}
               </>
-            ) : <span>{showRoutesOnly ? "Routes / field records" : "Archive / field map"}</span>}
-            {!(showRoutesOnly && selectedRoute) && <small>OpenStreetMap</small>}
-          </div>
+            ) : <span>Routes / field records</span>}
+            {!selectedRoute && <small>OpenStreetMap</small>}
+          </div>}
           <div className="map-hub-demo__map-frame"><div className="photo-map-experiment__stage">{mapCanvas}</div></div>
         </div> : mapCanvas}
 

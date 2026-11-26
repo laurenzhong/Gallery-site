@@ -6167,8 +6167,9 @@ main:has(> .trail-route-experiment) { margin-top: 0; }
 }
 
 .photo-map-experiment--compact .photo-map-experiment__stage {
+  --compact-map-stage-height: clamp(390px, 54vw, 620px);
   width: min(1320px, 100%);
-  height: clamp(390px, 54vw, 620px);
+  height: calc(var(--compact-map-stage-height) + var(--photo-map-stage-extra-height, 0px));
   margin-inline: auto;
   grid-template-columns: 1fr;
 }
@@ -6764,7 +6765,7 @@ main:has(> .trail-route-experiment) { margin-top: 0; }
   .photo-map-experiment__list { max-height: 270px; }
 
   .photo-map-experiment--compact .photo-map-experiment__stage {
-    height: min(560px, 72svh);
+    --compact-map-stage-height: min(560px, 72svh);
     min-height: 360px;
     margin-inline: 0;
   }
