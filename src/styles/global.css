@@ -2278,15 +2278,25 @@ main {
     margin-left: auto;
   }
 
+  main:has(> .hero) {
+    margin-top: -98px;
+  }
+
   .page-title-band {
+    position: absolute;
+    top: 142px;
+    right: 0;
+    left: 0;
+    z-index: 24;
     height: auto;
-    padding: 24px 16px 20px;
+    margin-top: 0;
+    pointer-events: none;
   }
 
   .page-title-band h1 {
     color: var(--soft-white);
     font-size: 38px;
-    text-shadow: none;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
   }
 
   .hero {
