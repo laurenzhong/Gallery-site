@@ -2,18 +2,35 @@ import { useEffect, useMemo, useState } from "react";
 import type { Photo } from "../data/photos";
 import { cmsPageContentQuery, type CmsPageContent } from "./cmsQueries";
 import { adaptPageContent, type PageContentAdapterResult } from "./pageContentAdapter";
-import { fetchCms, isSanityConfigured } from "./sanity";
+import { fetchPreloadedCms, isSanityConfigured } from "./sanity";
 
 export type PageContentPreviewState = {
   pages: Partial<Record<"home" | "photobalcony", PageContentAdapterResult>>;
+  publishedHomeHero?: Pick<Photo, "src" | "width" | "height"> | null;
   isLoading: boolean;
   error?: string;
 };
 
 const emptyState: PageContentPreviewState = {
   pages: {},
+  publishedHomeHero: null,
   isLoading: false,
 };
+
+function getPublishedHomeHero(documents: CmsPageContent[]) {
+  const home = documents.findLast((document) => document.pageKey === "home");
+  const slotPhotos = home?.sections?.flatMap((section) =>
+    section.type === "heroSlot" && section.isVisible !== false ? [section.photo] : [],
+  ) ?? [];
+  const reference = [home?.heroPhoto, ...slotPhotos].find((photo) => photo?.id && !photo.isHidden);
+  if (!reference) return null;
+
+  // References outside the public photo catalog need the full gallery lookup.
+  if (!reference.src || !reference.title || !reference.filename || reference.categoryIsVisible === false) {
+    return undefined;
+  }
+  return { src: reference.src, width: reference.width || 1, height: reference.height || 1 };
+}
 
 export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageContentPreviewState {
   const shouldFetch = enabled && isSanityConfigured();
@@ -27,7 +44,7 @@ export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageCo
 
     let isMounted = true;
 
-    fetchCms<CmsPageContent[]>(cmsPageContentQuery)
+    fetchPreloadedCms<CmsPageContent[]>(cmsPageContentQuery)
       .then((documents) => {
         if (isMounted) setResult({ documents });
       })
@@ -47,12 +64,14 @@ export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageCo
   const error = result?.error;
   return useMemo(() => {
     if (!shouldFetch) return emptyState;
-    if (!documents) return { ...emptyState, isLoading: error === undefined, error };
+    if (!documents) {
+      return error === undefined ? { pages: {}, isLoading: true } : { ...emptyState, error };
+    }
 
     const pages: PageContentPreviewState["pages"] = {};
     for (const document of documents) {
       pages[document.pageKey] = adaptPageContent(document, photos);
     }
-    return { pages, isLoading: false };
+    return { pages, publishedHomeHero: getPublishedHomeHero(documents), isLoading: false };
   }, [shouldFetch, documents, error, photos]);
 }

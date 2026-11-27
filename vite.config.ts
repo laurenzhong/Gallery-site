@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { Agent } from 'node:https'
-import { siteSettingsQueryUrl } from './src/lib/cmsQueries.ts'
+import { cmsPageContentQuery, cmsSiteSettingsQuery, sanityReadQueryUrl } from './src/lib/cmsQueries.ts'
 
 function dropWoffFallback(): Plugin {
   return {
@@ -81,13 +81,15 @@ function fontPreloadPlugin(): Plugin {
   }
 }
 
-function siteSettingsPreloadPlugin(projectId: string | undefined, dataset: string): Plugin {
+function photographyPreloadPlugin(projectId: string | undefined, dataset: string, pageContentMode: string | undefined): Plugin {
   return {
-    name: 'site-settings-preload',
+    name: 'photography-preload',
     apply: 'build',
     transformIndexHtml() {
       if (!projectId) return
-      const settingsUrl = JSON.stringify(siteSettingsQueryUrl(projectId, dataset))
+      const settingsUrl = JSON.stringify(sanityReadQueryUrl(projectId, dataset, cmsSiteSettingsQuery))
+      const pageContentUrl = JSON.stringify(sanityReadQueryUrl(projectId, dataset, cmsPageContentQuery))
+      const usePageContent = pageContentMode === 'production' || pageContentMode === 'preview'
       return [
         { tag: 'link', attrs: { rel: 'preconnect', href: 'https://cdn.sanity.io' }, injectTo: 'head-prepend' },
         {
@@ -95,12 +97,17 @@ function siteSettingsPreloadPlugin(projectId: string | undefined, dataset: strin
           injectTo: 'head-prepend',
           children: `
     if (['/', '/photography', '/photography/'].includes(location.pathname)) {
-      const settings = document.createElement('link');
-      settings.rel = 'preload';
-      settings.as = 'fetch';
-      settings.crossOrigin = 'anonymous';
-      settings.href = ${settingsUrl};
-      document.head.append(settings);
+      const preload = (url) => {
+        const request = document.createElement('link');
+        request.rel = 'preload';
+        request.as = 'fetch';
+        request.crossOrigin = 'anonymous';
+        request.href = url;
+        document.head.append(request);
+      };
+      preload(${settingsUrl});
+      const preview = new URLSearchParams(location.search).get('page-content-preview');
+      if (${usePageContent} || preview === '1' || preview === 'true') preload(${pageContentUrl});
     }
   `,
         },
@@ -123,7 +130,7 @@ export default defineConfig(({ mode }) => {
       react(),
       dropWoffFallback(),
       fontPreloadPlugin(),
-      siteSettingsPreloadPlugin(env.VITE_SANITY_PROJECT_ID, env.VITE_SANITY_DATASET ?? 'production'),
+      photographyPreloadPlugin(env.VITE_SANITY_PROJECT_ID, env.VITE_SANITY_DATASET ?? 'production', env.VITE_PAGE_CONTENT_MODE),
     ],
     server: {
       proxy: {

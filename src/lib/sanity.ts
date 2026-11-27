@@ -1,5 +1,5 @@
 import { createClient, type SanityClient } from "@sanity/client";
-import { cmsSiteSettingsQuery, sanityApiVersion, siteSettingsQueryUrl, type CmsSiteSettings } from "./cmsQueries";
+import { sanityApiVersion, sanityReadQueryUrl } from "./cmsQueries";
 
 const projectId = import.meta.env.VITE_SANITY_PROJECT_ID;
 const dataset = import.meta.env.VITE_SANITY_DATASET ?? "production";
@@ -56,14 +56,14 @@ export async function fetchCms<T>(query: string): Promise<T> {
   }
 }
 
-export async function fetchCmsSiteSettings(): Promise<CmsSiteSettings | null> {
+export async function fetchPreloadedCms<T>(query: string): Promise<T> {
   if (import.meta.env.DEV || !projectId) {
-    return fetchCms<CmsSiteSettings | null>(cmsSiteSettingsQuery);
+    return fetchCms<T>(query);
   }
 
-  // Match the URL and request mode used by the homepage's fetch preload.
-  const response = await window.fetch(siteSettingsQueryUrl(projectId, dataset));
-  if (!response.ok) throw new Error(`Sanity site settings request failed (${response.status})`);
-  const { result } = (await response.json()) as { result: CmsSiteSettings | null };
+  // Match the URL and request mode used by the homepage's fetch preloads.
+  const response = await window.fetch(sanityReadQueryUrl(projectId, dataset, query));
+  if (!response.ok) throw new Error(`Sanity request failed (${response.status})`);
+  const { result } = (await response.json()) as { result: T };
   return result;
 }

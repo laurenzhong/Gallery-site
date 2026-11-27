@@ -23,7 +23,7 @@ import {
 } from "./cmsQueries";
 import type { HomepageLayout } from "./homepageLayout";
 import type { PhotobalconyLayout } from "./photobalconyLayout";
-import { fetchCms, fetchCmsSiteSettings, isSanityConfigured } from "./sanity";
+import { fetchCms, fetchPreloadedCms, isSanityConfigured } from "./sanity";
 
 export type GalleryContent = {
   photos: Photo[];
@@ -443,7 +443,7 @@ function toPhotobalconyLayout(
 
 async function loadCmsContent(onPublishedHero?: (photo: Photo | undefined) => void): Promise<GalleryContent> {
   const siteSettings = onPublishedHero
-    ? fetchCmsSiteSettings().then(
+    ? fetchPreloadedCms<CmsSiteSettings | null>(cmsSiteSettingsQuery).then(
         (settings) => {
           onPublishedHero(toReferencedPhoto(settings?.heroPhoto));
           return settings;

@@ -112,9 +112,13 @@ function App() {
       ?? photos[0];
   }, [content.heroPhoto, content.isLoading, content.source, photos, previewHome?.heroPhoto]);
 
-  const usePublishedHero = isPhotographyPage && !showPageContentPreview;
-  const earlyPhotographyHero = usePublishedHero ? publishedHeroPhoto : undefined;
-  const isPhotographyHeroLoading = !earlyPhotographyHero && (isPhotographyLoading || (usePublishedHero && isPublishedHeroLoading));
+  const useSiteSettingsHero = pageContentPreview.publishedHomeHero === null;
+  const earlyPhotographyHero = isPhotographyPage
+    ? useSiteSettingsHero ? publishedHeroPhoto : pageContentPreview.publishedHomeHero
+    : undefined;
+  const isPhotographyHeroLoading = !earlyPhotographyHero && (
+    isPhotographyLoading || (isPhotographyPage && useSiteSettingsHero && isPublishedHeroLoading)
+  );
   const photographyHero = earlyPhotographyHero ?? (isPhotographyHeroLoading ? undefined : heroPhoto);
 
   const activePhoto = useMemo(() => {

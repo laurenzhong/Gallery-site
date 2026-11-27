@@ -211,6 +211,7 @@ export type CmsStoryPhoto = {
   legacyPublicPath?: string;
   filename?: string;
   category?: string;
+  categoryIsVisible?: boolean | null;
   subjects?: string[];
   conditions?: string[];
   place?: { id?: string; title?: string };
@@ -389,9 +390,9 @@ export const cmsSiteSettingsQuery = `*[_type == "siteSettings"][0] {
 
 export const sanityApiVersion = "2025-02-19";
 
-export function siteSettingsQueryUrl(projectId: string, dataset: string) {
+export function sanityReadQueryUrl(projectId: string, dataset: string, query: string) {
   const url = new URL(`/v${sanityApiVersion}/data/query/${encodeURIComponent(dataset)}`, `https://${projectId}.apicdn.sanity.io`);
-  url.searchParams.set("query", cmsSiteSettingsQuery);
+  url.searchParams.set("query", query);
   url.searchParams.set("returnQuery", "false");
   return url.href;
 }
@@ -453,7 +454,7 @@ export const cmsPageContentQuery = `*[_type == "pageContent" && pageKey in ["hom
   pageKey,
   title,
   subtitle,
-  "heroPhoto": heroPhoto->{${cmsReferencedPhotoFields}},
+  "heroPhoto": heroPhoto->{${cmsReferencedPhotoFields}, "categoryIsVisible": category->isVisible},
   "sections": sections[] {
     "id": _key,
     "type": _type,
@@ -467,7 +468,7 @@ export const cmsPageContentQuery = `*[_type == "pageContent" && pageKey in ["hom
     linkLabel,
     linkTarget,
     periodKey,
-    "photo": photo->{${cmsReferencedPhotoFields}},
+    "photo": photo->{${cmsReferencedPhotoFields}, "categoryIsVisible": category->isVisible},
     "photos": photos[]->{${cmsReferencedPhotoFields}},
     "category": category->{"id": _id, title},
     "heroPhoto": heroPhoto->{${cmsReferencedPhotoFields}},
