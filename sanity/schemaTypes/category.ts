@@ -1,4 +1,5 @@
 import { defineField, defineType } from "sanity";
+import { photoReference } from "./photoReference";
 
 export const categoryType = defineType({
   name: "category",
@@ -28,11 +29,9 @@ export const categoryType = defineType({
     defineField({
       name: "coverPhoto",
       title: "封面照片",
-      type: "reference",
-      to: [{ type: "photo" }],
+      ...photoReference,
       description:
         "分类卡片的主图。隐藏照片仍会在这里显示；除非正在准备新栏目，否则请优先使用可见照片。",
-      options: { disableNew: true },
     }),
     defineField({
       name: "sortOrder",

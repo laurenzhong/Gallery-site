@@ -1,5 +1,6 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
 import { orderRankField, orderRankOrdering } from "@sanity/orderable-document-list";
+import { photoReference, photoReferenceArray } from "./photoReference";
 
 export const storyType = defineType({
   name: "story",
@@ -89,26 +90,17 @@ export const storyType = defineType({
     defineField({
       name: "coverPhoto",
       title: "封面照片",
-      type: "reference",
-      to: [{ type: "photo" }],
+      ...photoReference,
       fieldset: "cover",
       description:
         "在 /journal 中作为主图以及手记页的头图。公开手记必须设置封面照片。",
-      options: { disableNew: true },
       validation: (Rule) => Rule.required().error("公开手记必须设置封面照片。"),
     }),
     defineField({
       name: "relatedPhotos",
       title: "关联照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "cover",
-      of: [
-        defineArrayMember({
-          type: "reference",
-          to: [{ type: "photo" }],
-          options: { disableNew: true },
-        }),
-      ],
       description: "可选的相册，会出现在手记底部。已被隐藏的照片被引用时仍会显示在这里。",
     }),
     defineField({

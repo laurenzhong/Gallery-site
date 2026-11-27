@@ -1,12 +1,5 @@
-import { defineArrayMember, defineField, defineType } from "sanity";
-
-const photoReference = defineArrayMember({
-  type: "reference",
-  to: [{ type: "photo" }],
-  options: {
-    disableNew: true,
-  },
-});
+import { defineField, defineType } from "sanity";
+import { photoReference, photoReferenceArray } from "./photoReference";
 
 const countItems = (items: unknown[] | undefined) => items?.length ?? 0;
 
@@ -47,10 +40,8 @@ export const photobalconyLayoutType = defineType({
     defineField({
       name: "heroPhoto",
       title: "主视觉照片",
-      type: "reference",
+      ...photoReference,
       fieldset: "hero",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
       description: "/photobalcony 顶部的全宽图片。",
     }),
     defineField({
@@ -64,9 +55,8 @@ export const photobalconyLayoutType = defineType({
     defineField({
       name: "mayPhotos",
       title: "第一组轮播照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "spring",
-      of: [photoReference],
       description: "位于第一组标题下方的主轮播。",
       validation: (Rule) => Rule.max(12).warning("建议最多 12 张照片。"),
     }),
@@ -81,18 +71,16 @@ export const photobalconyLayoutType = defineType({
     defineField({
       name: "marchPortraitPhotos",
       title: "第二组竖幅照片行",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "spring",
-      of: [photoReference],
       description: "位于第二组标题下方的横向竖幅照片行。",
       validation: (Rule) => Rule.max(12).warning("建议最多 12 张照片。"),
     }),
     defineField({
       name: "marchWidePhotos",
       title: "第二组宽幅轮播",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "spring",
-      of: [photoReference],
       description: "位于第二组竖幅照片行之后的宽幅轮播。",
       validation: (Rule) => Rule.max(12).warning("建议最多 12 张照片。"),
     }),
@@ -107,9 +95,8 @@ export const photobalconyLayoutType = defineType({
     defineField({
       name: "februaryPhotos",
       title: "第三组轮播照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "winter",
-      of: [photoReference],
       description: "位于第三组标题下方的轮播。",
       validation: (Rule) => Rule.max(12).warning("建议最多 12 张照片。"),
     }),
@@ -124,9 +111,8 @@ export const photobalconyLayoutType = defineType({
     defineField({
       name: "januaryPhotos",
       title: "第四组网格照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "winter",
-      of: [photoReference],
       description: "位于第四组标题下方的网格。",
       validation: (Rule) => Rule.max(12).warning("建议最多 12 张照片。"),
     }),
@@ -141,9 +127,8 @@ export const photobalconyLayoutType = defineType({
     defineField({
       name: "winterPhotos",
       title: "第五组网格照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "winter",
-      of: [photoReference],
       description: "位于第五组标题下方的宽幅网格。",
       validation: (Rule) => Rule.max(12).warning("建议最多 12 张照片。"),
     }),
@@ -158,9 +143,8 @@ export const photobalconyLayoutType = defineType({
     defineField({
       name: "summerPhotos",
       title: "第六组堆叠照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "summer",
-      of: [photoReference],
       description: "/photobalcony 底部的最终纵向堆叠。",
       validation: (Rule) => Rule.max(12).warning("建议最多 12 张照片。"),
     }),

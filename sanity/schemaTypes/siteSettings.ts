@@ -1,4 +1,5 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
+import { photoReference } from "./photoReference";
 
 export const siteSettingsType = defineType({
   name: "siteSettings",
@@ -38,12 +39,10 @@ export const siteSettingsType = defineType({
     defineField({
       name: "heroPhoto",
       title: "首页主视觉照片",
-      type: "reference",
-      to: [{ type: "photo" }],
+      ...photoReference,
       fieldset: "hero",
       description:
         "首页首屏显示的主图，优先级高于任何「主视觉备选」标记。引用已被隐藏的照片时会显示校验提示，但仍可保存。",
-      options: { disableNew: true },
       validation: (Rule) =>
         Rule.custom(async (value, context) => {
           if (!value?._ref) return true;

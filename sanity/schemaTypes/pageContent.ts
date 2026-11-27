@@ -1,10 +1,5 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
-
-const photoReference = defineArrayMember({
-  type: "reference",
-  to: [{ type: "photo" }],
-  options: { disableNew: true },
-});
+import { photoReference, photoReferenceArray } from "./photoReference";
 
 const linkValidation = (Rule: any) =>
   Rule.custom((value: unknown) => {
@@ -42,9 +37,7 @@ const heroSection = defineArrayMember({
     defineField({
       name: "photo",
       title: "主视觉照片",
-      type: "reference",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
+      ...photoReference,
       validation: (Rule) => Rule.required(),
     }),
     defineField({
@@ -88,9 +81,7 @@ const featureCardsSection = defineArrayMember({
             defineField({
               name: "photo",
               title: "照片",
-              type: "reference",
-              to: [{ type: "photo" }],
-              options: { disableNew: true },
+              ...photoReference,
               validation: (Rule) => Rule.required(),
             }),
             defineField({ name: "linkLabel", title: "链接文字", type: "string" }),
@@ -167,8 +158,7 @@ const gallerySection = defineArrayMember({
     defineField({
       name: "photos",
       title: "手动照片",
-      type: "array",
-      of: [photoReference],
+      ...photoReferenceArray,
       hidden: ({ parent }) => parent?.sourceMode === "category",
     }),
     defineField({
@@ -230,9 +220,7 @@ const bannerSection = defineArrayMember({
     defineField({
       name: "photo",
       title: "横幅照片",
-      type: "reference",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
+      ...photoReference,
       validation: (Rule) => Rule.required(),
     }),
     defineField({ name: "linkLabel", title: "链接文字", type: "string" }),
@@ -278,8 +266,7 @@ const balconyPeriodSection = defineArrayMember({
     defineField({
       name: "photos",
       title: "照片",
-      type: "array",
-      of: [photoReference],
+      ...photoReferenceArray,
       validation: (Rule) => Rule.min(1),
     }),
   ],
@@ -314,9 +301,7 @@ export const pageContentType = defineType({
     defineField({
       name: "heroPhoto",
       title: "页面主视觉照片",
-      type: "reference",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
+      ...photoReference,
     }),
     defineField({
       name: "sections",

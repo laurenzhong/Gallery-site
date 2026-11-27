@@ -1,10 +1,5 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
-
-const photoReference = defineArrayMember({
-  type: "reference",
-  to: [{ type: "photo" }],
-  options: { disableNew: true },
-});
+import { photoReference, photoReferenceArray } from "./photoReference";
 
 const sectionStyles = [
   { title: "Hero 主视觉", value: "hero" },
@@ -51,16 +46,13 @@ const sectionFields = [
   defineField({
     name: "photos",
     title: "模块图片",
-    type: "array",
-    of: [photoReference],
+    ...photoReferenceArray,
     description: "手动选择图片；如果填写分类来源，则优先使用分类筛选结果。",
   }),
   defineField({
     name: "coverPhoto",
     title: "封面图片",
-    type: "reference",
-    to: [{ type: "photo" }],
-    options: { disableNew: true },
+    ...photoReference,
     description: "Hero、Banner、Split 等单图样式使用。",
   }),
   defineField({
@@ -163,9 +155,7 @@ export const pageLayoutType = defineType({
     defineField({
       name: "heroPhoto",
       title: "页面主视觉图片",
-      type: "reference",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
+      ...photoReference,
     }),
     defineField({
       name: "sections",

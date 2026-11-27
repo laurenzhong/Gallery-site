@@ -1,12 +1,5 @@
 import { defineArrayMember, defineField, defineType } from "sanity";
-
-const photoReference = defineArrayMember({
-  type: "reference",
-  to: [{ type: "photo" }],
-  options: {
-    disableNew: true,
-  },
-});
+import { photoReference, photoReferenceArray } from "./photoReference";
 
 const countItems = (items: unknown[] | undefined) => items?.length ?? 0;
 
@@ -59,9 +52,7 @@ export const homepageLayoutType = defineType({
             defineField({
               name: "photo",
               title: "卡片照片",
-              type: "reference",
-              to: [{ type: "photo" }],
-              options: { disableNew: true },
+              ...photoReference,
               validation: (Rule) => Rule.required(),
             }),
             defineField({
@@ -85,81 +76,69 @@ export const homepageLayoutType = defineType({
     defineField({
       name: "landscapePhotos",
       title: "山野轮播照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "main",
-      of: [photoReference],
       description: "第一个山野轮播。建议使用 8–24 张照片；留空时使用分类回退内容。",
       validation: (Rule) => Rule.max(24).warning("建议最多 24 张照片。"),
     }),
     defineField({
       name: "quietPhotos",
       title: "静谧方格照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "main",
-      of: [photoReference],
       description: "山野轮播后的方格模块。建议使用 4–8 张照片；留空时使用方图回退内容。",
       validation: (Rule) => Rule.max(8).warning("建议最多 8 张照片。"),
     }),
     defineField({
       name: "bannerOnePhoto",
       title: "第一张宽幅横图",
-      type: "reference",
+      ...photoReference,
       fieldset: "main",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
       description: "位于方格模块与城市轮播之间的宽幅横图。",
     }),
     defineField({
       name: "cityPhotos",
       title: "城市轮播照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "main",
-      of: [photoReference],
       description: "城市轮播。建议使用 8–22 张照片；留空时使用分类回退内容。",
       validation: (Rule) => Rule.max(22).warning("建议最多 22 张照片。"),
     }),
     defineField({
       name: "plantsHeroPhoto",
       title: "Harbor 横幅",
-      type: "reference",
+      ...photoReference,
       fieldset: "plants",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
       description: "Harbor 模块开头的宽幅横图。",
     }),
     defineField({
       name: "plantsCarouselPhotos",
       title: "Harbor 轮播照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "plants",
-      of: [photoReference],
       description: "Harbor 轮播。建议使用 8–18 张照片；留空时使用分类回退内容。",
       validation: (Rule) => Rule.max(18).warning("建议最多 18 张照片。"),
     }),
     defineField({
       name: "plantsFeaturePhoto",
       title: "Harbor 特色照片",
-      type: "reference",
+      ...photoReference,
       fieldset: "plants",
-      to: [{ type: "photo" }],
-      options: { disableNew: true },
       description: "Harbor 模块内的单张特色照片，可选。",
     }),
     defineField({
       name: "plantsStackPhotos",
       title: "Harbor 全宽堆叠照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "plants",
-      of: [photoReference],
       description: "Harbor 模块内的全宽照片堆叠。建议使用 3–6 张照片。",
       validation: (Rule) => Rule.max(8).warning("建议最多 8 张照片。"),
     }),
     defineField({
       name: "plantsSquarePhotos",
       title: "Harbor 方格照片",
-      type: "array",
+      ...photoReferenceArray,
       fieldset: "plants",
-      of: [photoReference],
       description: "Harbor 模块底部的方格组。建议使用 4–8 张照片。",
       validation: (Rule) => Rule.max(8).warning("建议最多 8 张照片。"),
     }),
