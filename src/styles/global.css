@@ -399,6 +399,15 @@ main:has(> .journal-page) {
   filter: brightness(1.08) saturate(1.04);
 }
 
+.photography-loading {
+  min-height: 100svh;
+}
+
+.hero-placeholder {
+  aspect-ratio: 3 / 2;
+  background: #d9dedb;
+}
+
 .reference-content {
   position: relative;
   z-index: 3;

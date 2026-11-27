@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Photo } from "../data/photos";
 import { cmsPageContentQuery, type CmsPageContent } from "./cmsQueries";
 import { adaptPageContent, type PageContentAdapterResult } from "./pageContentAdapter";
@@ -16,33 +16,24 @@ const emptyState: PageContentPreviewState = {
 };
 
 export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageContentPreviewState {
-  const [state, setState] = useState<PageContentPreviewState>(() => ({
-    ...emptyState,
-    isLoading: enabled && isSanityConfigured(),
-  }));
+  const shouldFetch = enabled && isSanityConfigured();
+  const [result, setResult] = useState<{ documents?: CmsPageContent[]; error?: string }>();
 
   useEffect(() => {
-    if (!enabled || !isSanityConfigured() || photos.length === 0) {
-      setState(emptyState);
-      return undefined;
+    if (!shouldFetch) {
+      setResult(undefined);
+      return;
     }
 
     let isMounted = true;
-    setState({ ...emptyState, isLoading: true });
 
     fetchCms<CmsPageContent[]>(cmsPageContentQuery)
       .then((documents) => {
-        if (!isMounted) return;
-        const pages: PageContentPreviewState["pages"] = {};
-        for (const document of documents) {
-          pages[document.pageKey] = adaptPageContent(document, photos);
-        }
-        setState({ pages, isLoading: false });
+        if (isMounted) setResult({ documents });
       })
       .catch((error: unknown) => {
         if (!isMounted) return;
-        setState({
-          ...emptyState,
+        setResult({
           error: error instanceof Error ? error.message : "Failed to load page content preview",
         });
       });
@@ -50,7 +41,18 @@ export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageCo
     return () => {
       isMounted = false;
     };
-  }, [enabled, photos]);
+  }, [shouldFetch]);
 
-  return state;
+  const documents = result?.documents;
+  const error = result?.error;
+  return useMemo(() => {
+    if (!shouldFetch) return emptyState;
+    if (!documents) return { ...emptyState, isLoading: error === undefined, error };
+
+    const pages: PageContentPreviewState["pages"] = {};
+    for (const document of documents) {
+      pages[document.pageKey] = adaptPageContent(document, photos);
+    }
+    return { pages, isLoading: false };
+  }, [shouldFetch, documents, error, photos]);
 }

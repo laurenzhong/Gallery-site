@@ -93,6 +93,7 @@ function App() {
   const pageContentPreview = usePageContentPreview(showPageContentPreview, photos);
   const previewHome = pageContentPreview.pages.home;
   const previewBalcony = pageContentPreview.pages.photobalcony;
+  const isPhotographyLoading = content.isLoading || pageContentPreview.isLoading;
 
   const heroPhoto = useMemo(() => {
     if (content.isLoading && content.source === "static") {
@@ -301,7 +302,7 @@ function App() {
 
       {!isAboutPage && <CmsSourceBadge content={content} />}
 
-      <main>
+      <main className={isPhotographyPage && isPhotographyLoading ? "photography-loading" : undefined}>
         {activeStory ? (
           <StoryDetail photo={activeStory.photo} story={activeStory.story} />
         ) : photoRouteSlug && activePhoto ? (
@@ -414,8 +415,10 @@ function App() {
               <h1 id="page-title">Photography</h1>
             </section>
 
-            <section className="hero" aria-label="Featured photograph">
-              {heroPhoto ? (
+            <section className="hero" aria-label="Featured photograph" aria-busy={isPhotographyLoading}>
+              {isPhotographyLoading ? (
+                <div className="hero-image hero-placeholder" aria-hidden="true" />
+              ) : heroPhoto ? (
                 <img
                   className="hero-image"
                   src={sizedImageUrl(heroPhoto.src, 2400, 88)}
@@ -442,11 +445,15 @@ function App() {
               </a>
             )}
 
-            <GallerySections
-              photos={photos}
-              homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
-              onOpen={openPhoto}
-            />
+            {isPhotographyLoading ? (
+              <p className="sr-only" role="status">Loading photographs…</p>
+            ) : (
+              <GallerySections
+                photos={photos}
+                homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
+                onOpen={openPhoto}
+              />
+            )}
           </>
         )}
       </main>
