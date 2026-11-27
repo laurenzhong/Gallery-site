@@ -23,7 +23,7 @@ import {
 } from "./cmsQueries";
 import type { HomepageLayout } from "./homepageLayout";
 import type { PhotobalconyLayout } from "./photobalconyLayout";
-import { fetchCms, isSanityConfigured } from "./sanity";
+import { fetchCms, fetchCmsSiteSettings, isSanityConfigured } from "./sanity";
 
 export type GalleryContent = {
   photos: Photo[];
@@ -441,11 +441,23 @@ function toPhotobalconyLayout(
   };
 }
 
-async function loadCmsContent(): Promise<GalleryContent> {
+async function loadCmsContent(onPublishedHero?: (photo: Photo | undefined) => void): Promise<GalleryContent> {
+  const siteSettings = onPublishedHero
+    ? fetchCmsSiteSettings().then(
+        (settings) => {
+          onPublishedHero(toReferencedPhoto(settings?.heroPhoto));
+          return settings;
+        },
+        (error: unknown) => {
+          onPublishedHero(undefined);
+          throw error;
+        },
+      )
+    : fetchCms<CmsSiteSettings | null>(cmsSiteSettingsQuery);
   const [cmsPhotos, cmsStories, cmsSiteSettings, cmsHomepageLayout, cmsPhotobalconyLayout] = await Promise.all([
     fetchCms<CmsPhoto[]>(cmsPhotosQuery),
     fetchCms<CmsStory[]>(cmsStoriesQuery),
-    fetchCms<CmsSiteSettings | null>(cmsSiteSettingsQuery),
+    siteSettings,
     fetchCms<CmsHomepageLayout | null>(cmsHomepageLayoutQuery),
     fetchCms<CmsPhotobalconyLayout | null>(cmsPhotobalconyLayoutQuery),
   ]);
@@ -540,11 +552,13 @@ function writeCachedCmsContent(content: GalleryContent) {
   }
 }
 
-export function useGalleryContent({ useCacheInDevelopment = false } = {}) {
+export function useGalleryContent({ useCacheInDevelopment = false, loadPublishedHeroEarly = false } = {}) {
+  const [loadHeroOnMount] = useState(loadPublishedHeroEarly);
   const [content, setContent] = useState<GalleryContent>(() => ({
     ...(isSanityConfigured() ? (readCachedCmsContent(useCacheInDevelopment) ?? staticContent) : staticContent),
     isLoading: isSanityConfigured(),
   }));
+  const [publishedHero, setPublishedHero] = useState<{ photo?: Photo }>();
 
   useEffect(() => {
     if (!isSanityConfigured()) {
@@ -552,8 +566,11 @@ export function useGalleryContent({ useCacheInDevelopment = false } = {}) {
     }
 
     let isMounted = true;
+    const onPublishedHero = loadHeroOnMount ? (photo: Photo | undefined) => {
+      if (isMounted) setPublishedHero({ photo });
+    } : undefined;
 
-    loadCmsContent()
+    loadCmsContent(onPublishedHero)
       .then((cmsContent) => {
         if (isMounted) {
           writeCachedCmsContent(cmsContent);
@@ -574,7 +591,11 @@ export function useGalleryContent({ useCacheInDevelopment = false } = {}) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [loadHeroOnMount]);
 
-  return content;
+  return {
+    content,
+    publishedHeroPhoto: publishedHero?.photo,
+    isPublishedHeroLoading: loadHeroOnMount && isSanityConfigured() && publishedHero === undefined,
+  };
 }

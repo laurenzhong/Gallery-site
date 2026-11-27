@@ -1,26 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { createClient } from '@sanity/client'
 import { Agent } from 'node:https'
-
-const IMAGE_CDN_SUFFIX = '?w=2560&q=90&auto=format&fit=max'
-
-async function fetchHeroUrlFromSanity(): Promise<string | null> {
-  try {
-    const client = createClient({
-      projectId: 'zj2ik922',
-      dataset: 'production',
-      apiVersion: '2025-02-19',
-      useCdn: true,
-    })
-    const result = await client.fetch<{ s?: string }>(
-      `coalesce(*[_type=="siteSettings"][0].heroPhoto->{"s":image.asset->url}, *[_type=="photo"&&isHero==true][0]{"s":image.asset->url})`
-    )
-    return result?.s ?? null
-  } catch {
-    return null
-  }
-}
+import { siteSettingsQueryUrl } from './src/lib/cmsQueries.ts'
 
 function dropWoffFallback(): Plugin {
   return {
@@ -100,48 +81,30 @@ function fontPreloadPlugin(): Plugin {
   }
 }
 
-/**
- * Ask Sanity which photo is the homepage hero and preload it on home visits
- * while the app bundle is still loading. All routes share the same HTML.
- *
- * At build time this queries Sanity for the hero photo's CDN URL. If the
- * query fails (no network, proxy issue), the preload is silently skipped
- * but the preconnect to cdn.sanity.io is still added — a smaller but
- * still useful optimisation.
- *
- * When the hero changes in Sanity (isHero flag moved or uploaded),
- * the next build automatically picks up the new URL. No manual edit
- * needed.
- */
-function heroPreloadPlugin(): Plugin {
+function siteSettingsPreloadPlugin(projectId: string | undefined, dataset: string): Plugin {
   return {
-    name: 'hero-preload',
+    name: 'site-settings-preload',
     apply: 'build',
-    enforce: 'pre',
-    async transformIndexHtml(html) {
-      const preconnect = '  <link rel="preconnect" href="https://cdn.sanity.io">\n'
-      let preload = ''
-
-      const src = await fetchHeroUrlFromSanity()
-      if (src) {
-        const heroUrl = JSON.stringify(src + IMAGE_CDN_SUFFIX).replaceAll('<', '\\u003c')
-        preload = `  <script>
-    if (location.pathname === '/') {
-      const hero = document.createElement('link');
-      hero.rel = 'preload';
-      hero.as = 'image';
-      hero.fetchPriority = 'high';
-      hero.href = ${heroUrl};
-      document.head.append(hero);
+    transformIndexHtml() {
+      if (!projectId) return
+      const settingsUrl = JSON.stringify(siteSettingsQueryUrl(projectId, dataset))
+      return [
+        { tag: 'link', attrs: { rel: 'preconnect', href: 'https://cdn.sanity.io' }, injectTo: 'head-prepend' },
+        {
+          tag: 'script',
+          injectTo: 'head-prepend',
+          children: `
+    if (['/', '/photography', '/photography/'].includes(location.pathname)) {
+      const settings = document.createElement('link');
+      settings.rel = 'preload';
+      settings.as = 'fetch';
+      settings.crossOrigin = 'anonymous';
+      settings.href = ${settingsUrl};
+      document.head.append(settings);
     }
-  </script>\n`
-      }
-
-      if (!html.includes('cdn.sanity.io')) {
-        html = html.replace('</head>', `${preconnect}${preload}  </head>`)
-      }
-
-      return html
+  `,
+        },
+      ]
     },
   }
 }
@@ -156,7 +119,12 @@ export default defineConfig(({ mode }) => {
     define: {
       __LAST_UPDATE__: JSON.stringify(new Date().toISOString()),
     },
-    plugins: [react(), dropWoffFallback(), fontPreloadPlugin(), heroPreloadPlugin()],
+    plugins: [
+      react(),
+      dropWoffFallback(),
+      fontPreloadPlugin(),
+      siteSettingsPreloadPlugin(env.VITE_SANITY_PROJECT_ID, env.VITE_SANITY_DATASET ?? 'production'),
+    ],
     server: {
       proxy: {
         "/sanity": {

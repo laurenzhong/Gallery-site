@@ -35,6 +35,7 @@ const PhotoMapMapLibreExperiment = lazy(() =>
 const YearArchiveExperiment = lazy(() => import("./components/YearArchiveExperiment"));
 
 const SITE_TITLE = "Queenstown.top | Photography";
+const PHOTOGRAPHY_HERO_WIDTHS = [640, 960, 1400, 2000, 2800];
 const DEFAULT_DESCRIPTION =
   "Queenstown.top 是 JiaKaiZhong 的摄影档案，记录山野、海港、森林、城市边缘与旅行片段。";
 
@@ -52,11 +53,14 @@ function App() {
   const [lightboxState, setLightboxState] = useState<{ photos: Photo[]; index: number } | null>(null);
   const lightboxReturnPath = useRef<string | null>(null);
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/$/, "") || "/");
-  const content = useGalleryContent({ useCacheInDevelopment: currentPath === "/about" });
-  const { photos, photoMeta, photoStories, aboutData, homepageLayout, photobalconyLayout } = content;
   const pathname = currentPath;
   const isBalconyPage = pathname === "/photobalcony";
   const isPhotographyPage = pathname === "/" || pathname === "/photography";
+  const { content, publishedHeroPhoto, isPublishedHeroLoading } = useGalleryContent({
+    useCacheInDevelopment: pathname === "/about",
+    loadPublishedHeroEarly: isPhotographyPage,
+  });
+  const { photos, photoMeta, photoStories, aboutData, homepageLayout, photobalconyLayout } = content;
   const isLongGalleryPage = isPhotographyPage || isBalconyPage;
   const isStoryPage = pathname === "/photostory";
   const isAboutPage = pathname === "/about";
@@ -107,6 +111,11 @@ function App() {
       ?? photos.find((photo) => photo.filename === "DSC_0257.JPG")
       ?? photos[0];
   }, [content.heroPhoto, content.isLoading, content.source, photos, previewHome?.heroPhoto]);
+
+  const usePublishedHero = isPhotographyPage && !showPageContentPreview;
+  const earlyPhotographyHero = usePublishedHero ? publishedHeroPhoto : undefined;
+  const isPhotographyHeroLoading = !earlyPhotographyHero && (isPhotographyLoading || (usePublishedHero && isPublishedHeroLoading));
+  const photographyHero = earlyPhotographyHero ?? (isPhotographyHeroLoading ? undefined : heroPhoto);
 
   const activePhoto = useMemo(() => {
     if (!photoRouteSlug) return undefined;
@@ -415,17 +424,17 @@ function App() {
               <h1 id="page-title">Photography</h1>
             </section>
 
-            <section className="hero" aria-label="Featured photograph" aria-busy={isPhotographyLoading}>
-              {isPhotographyLoading ? (
+            <section className="hero" aria-label="Featured photograph" aria-busy={isPhotographyHeroLoading}>
+              {isPhotographyHeroLoading ? (
                 <div className="hero-image hero-placeholder" aria-hidden="true" />
-              ) : heroPhoto ? (
+              ) : photographyHero ? (
                 <img
                   className="hero-image"
-                  src={sizedImageUrl(heroPhoto.src, 2400, 88)}
-                  srcSet={imageSrcSet(heroPhoto.src, [1400, 2000, 2800], 88)}
+                  src={sizedImageUrl(photographyHero.src, 2400, 88)}
+                  srcSet={imageSrcSet(photographyHero.src, PHOTOGRAPHY_HERO_WIDTHS, 88)}
                   sizes="100vw"
-                  width={heroPhoto.width}
-                  height={heroPhoto.height}
+                  width={photographyHero.width}
+                  height={photographyHero.height}
                   alt=""
                   aria-hidden="true"
                   loading="eager"

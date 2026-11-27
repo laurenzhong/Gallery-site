@@ -387,6 +387,15 @@ export const cmsSiteSettingsQuery = `*[_type == "siteSettings"][0] {
   socialLinks
 }`;
 
+export const sanityApiVersion = "2025-02-19";
+
+export function siteSettingsQueryUrl(projectId: string, dataset: string) {
+  const url = new URL(`/v${sanityApiVersion}/data/query/${encodeURIComponent(dataset)}`, `https://${projectId}.apicdn.sanity.io`);
+  url.searchParams.set("query", cmsSiteSettingsQuery);
+  url.searchParams.set("returnQuery", "false");
+  return url.href;
+}
+
 export const cmsHomepageLayoutQuery = `*[_type == "homepageLayout"][0] {
   featureCards[]{
     title,
