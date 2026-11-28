@@ -1,3 +1,4 @@
+import CryptoKit
 import PhotosUI
 import SwiftUI
 
@@ -9,57 +10,51 @@ struct GalleryUploaderApp: App {
 }
 
 private struct UploadView: View {
-    @AppStorage("uploadEndpoint") private var endpoint = "https://www.queenstown.top/api/live-photo"
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
     @State private var key = UploadKey.read() ?? ""
-    @State private var showingSettings = false
+    @State private var authorized = false
     @State private var showingPicker = false
     @State private var retryPhoto: PHPickerResult?
     @State private var status: String?
     @State private var error: String?
     @State private var publishedURL: URL?
+    private let site = URL(string: "https://www.queenstown.top")!
+
+    private var fingerprint: String {
+        SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Button {
-                        if key.isEmpty { showingSettings = true } else { showingPicker = true }
-                    } label: {
-                        Label("选择并上传实况照片", systemImage: "livephoto")
+                    if authorized {
+                        Button { showingPicker = true } label: {
+                            Label("选择并上传实况照片", systemImage: "livephoto")
+                        }
+                        .disabled(status != nil)
+                    } else if !key.isEmpty {
+                        LabeledContent("本机识别码", value: String(fingerprint.prefix(8)).uppercased())
+                        Button("打开 CMS 授权这台 iPhone") {
+                            openURL(site.appendingPathComponent("studio/iphone/\(fingerprint)"))
+                        }
+                        Button("检查授权状态") { Task { await checkAuthorization() } }
                     }
-                    .disabled(status != nil)
-
                     if let status { ProgressView(status) }
-
                     if let error {
                         Text(error).foregroundStyle(.red)
-                        if let retryPhoto {
-                            Button("重试上传") { upload(retryPhoto) }
-                        }
+                        if let retryPhoto, authorized { Button("重试上传") { upload(retryPhoto) } }
                     }
-
                     if let publishedURL {
                         Label("已发布", systemImage: "checkmark.circle.fill")
                         Link("在网站查看实况照片", destination: publishedURL)
                     }
                 } footer: {
-                    Text(key.isEmpty ? "首次使用时输入网站的上传密钥。" : "选中后会直接发布到网站。")
+                    Text(authorized ? "选中后会直接发布到网站。" : "首次使用请在 CMS 登录，核对识别码并点授权，然后返回 App。")
                 }
             }
             .navigationTitle("Gallery 上传")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("设置", systemImage: "gearshape") { showingSettings = true }
-                        .labelStyle(.iconOnly)
-                        .disabled(status != nil)
-                }
-            }
-            .sheet(isPresented: $showingSettings) {
-                ConnectionSettings(endpoint: endpoint, key: key) { newEndpoint, newKey in
-                    endpoint = newEndpoint
-                    key = newKey
-                }
-            }
             .sheet(isPresented: $showingPicker) {
                 LivePhotoPicker { result in
                     showingPicker = false
@@ -67,11 +62,39 @@ private struct UploadView: View {
                 }
                 .ignoresSafeArea()
             }
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                if key.isEmpty {
+                    guard let newKey = UploadKey.generate() else {
+                        error = "无法保存本机授权信息，请解锁 iPhone 后重新打开 App。"
+                        return
+                    }
+                    key = newKey
+                }
+                await checkAuthorization()
+            }
+        }
+    }
+
+    @MainActor private func checkAuthorization() async {
+        var request = URLRequest(url: site.appendingPathComponent("api/iphone-device"))
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request, delegate: NoRedirects())
+            try Task.checkCancellation()
+            switch (response as? HTTPURLResponse)?.statusCode {
+            case 200: authorized = true
+            case 401: authorized = false
+            default: throw UploadError.server("暂时无法检查 CMS 授权，请稍后重试。")
+            }
+            if retryPhoto == nil { error = nil }
+        } catch {
+            if !Task.isCancelled { self.error = error.localizedDescription }
         }
     }
 
     private func upload(_ photo: PHPickerResult) {
-        guard status == nil, let uploadURL = URL(string: endpoint) else { return }
+        guard status == nil else { return }
         publishedURL = nil
         error = nil
         retryPhoto = photo
@@ -81,74 +104,17 @@ private struct UploadView: View {
             do {
                 let prepared = try await LivePhotoUpload.prepare(photo.itemProvider)
                 status = "正在上传到 Gallery…"
-                publishedURL = try await prepared.publish(to: uploadURL, key: key)
+                publishedURL = try await prepared.publish(to: site.appendingPathComponent("api/live-photo"), key: key)
                 retryPhoto = nil
+            } catch UploadError.unauthorized {
+                authorized = false
+                self.error = UploadError.unauthorized.localizedDescription
             } catch {
                 self.error = error.localizedDescription
             }
         }
     }
 }
-
-private struct ConnectionSettings: View {
-    @Environment(\.dismiss) private var dismiss
-    @State var endpoint: String
-    @State var key: String
-    @State private var error: String?
-    let onSave: (String, String) -> Void
-
-    init(endpoint: String, key: String, onSave: @escaping (String, String) -> Void) {
-        _endpoint = State(initialValue: endpoint)
-        _key = State(initialValue: key)
-        self.onSave = onSave
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Gallery 网站") {
-                    TextField("HTTPS 上传地址", text: $endpoint)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                }
-                Section("上传密钥") {
-                    SecureField("上传密钥", text: $key)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                }
-                if let error { Text(error).foregroundStyle(.red) }
-            }
-            .navigationTitle("设置")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("保存", action: save) }
-            }
-        }
-    }
-
-    private func save() {
-        let address = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        let secret = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URLComponents(string: address), url.scheme == "https", let host = url.host, !host.isEmpty,
-              url.user == nil, url.password == nil, url.path == "/api/live-photo", url.fragment == nil else {
-            error = "请输入以 /api/live-photo 结尾的 HTTPS 上传地址。"
-            return
-        }
-        guard !secret.isEmpty else {
-            error = "请输入上传密钥。"
-            return
-        }
-        guard UploadKey.save(secret) else {
-            error = "无法将上传密钥存入 iPhone 钥匙串。"
-            return
-        }
-        onSave(address, secret)
-        dismiss()
-    }
-}
-
 private struct LivePhotoPicker: UIViewControllerRepresentable {
     let onSelect: (PHPickerResult?) -> Void
 

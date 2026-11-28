@@ -9,6 +9,7 @@ enum UploadError: LocalizedError {
     case invalidPhoto
     case tooLarge
     case invalidResponse
+    case unauthorized
     case server(String)
 
     var errorDescription: String? {
@@ -16,6 +17,7 @@ enum UploadError: LocalizedError {
         case .livePhotoUnavailable: "无法读取这张实况照片的封面或视频。"
         case .invalidPhoto: "无法生成实况照片的网页封面。"
         case .tooLarge: "实况照片处理后仍超过上传大小限制。"
+        case .unauthorized: "这台 iPhone 尚未授权或授权已撤销，请在 CMS 重新授权。"
         case .invalidResponse: "网站返回了无法识别的上传结果。"
         case .server(let message): message
         }
@@ -158,6 +160,7 @@ struct LivePhotoUpload {
 
         let (data, response) = try await URLSession.shared.upload(for: request, from: body, delegate: NoRedirects())
         guard let http = response as? HTTPURLResponse else { throw UploadError.invalidResponse }
+        if http.statusCode == 401 { throw UploadError.unauthorized }
         let reply = try? JSONDecoder().decode(UploadReply.self, from: data)
         guard (200..<300).contains(http.statusCode) else {
             throw UploadError.server(reply?.error ?? "上传失败（HTTP \(http.statusCode)）。")
@@ -175,7 +178,7 @@ private struct UploadReply: Decodable {
     let error: String?
 }
 
-private final class NoRedirects: NSObject, URLSessionTaskDelegate {
+final class NoRedirects: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask,
                     willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest,

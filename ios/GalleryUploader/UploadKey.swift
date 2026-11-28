@@ -5,7 +5,7 @@ enum UploadKey {
     private static let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: "top.queenstown.gallery.live-photo",
-        kSecAttrAccount as String: "owner",
+        kSecAttrAccount as String: "cms-device-v1",
     ]
 
     static func read() -> String? {
@@ -18,7 +18,14 @@ enum UploadKey {
         return String(data: data, encoding: .utf8)
     }
 
-    static func save(_ key: String) -> Bool {
+    static func generate() -> String? {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { return nil }
+        let key = "gd1_" + bytes.map { String(format: "%02x", $0) }.joined()
+        return save(key) ? key : nil
+    }
+
+    private static func save(_ key: String) -> Bool {
         let data = Data(key.utf8)
         let changes = [kSecValueData as String: data]
         let status = SecItemUpdate(query as CFDictionary, changes as CFDictionary)
