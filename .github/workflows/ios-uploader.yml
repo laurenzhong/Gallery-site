@@ -1,0 +1,39 @@
+name: Build Gallery iPhone uploader
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ios/GalleryUploader/**'
+      - 'ios/GalleryUploader.xcodeproj/**'
+      - '.github/workflows/ios-uploader.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build for iPhone
+        run: |
+          xcodebuild -version
+          xcodebuild -project ios/GalleryUploader.xcodeproj -target GalleryUploader \
+            -configuration Release -sdk iphoneos ARCHS=arm64 CODE_SIGNING_ALLOWED=NO \
+            CONFIGURATION_BUILD_DIR="$RUNNER_TEMP/product" build
+      - name: Package for personal signing
+        run: |
+          app="$RUNNER_TEMP/product/GalleryUploader.app"
+          plutil -lint "$app/Info.plist"
+          lipo -verify_arch arm64 "$app/GalleryUploader"
+          mkdir -p "$RUNNER_TEMP/package/Payload"
+          ditto "$app" "$RUNNER_TEMP/package/Payload/GalleryUploader.app"
+          cd "$RUNNER_TEMP/package"
+          /usr/bin/zip -qry "$GITHUB_WORKSPACE/GalleryUploader.ipa" Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GalleryUploader-iPhone
+          path: GalleryUploader.ipa
+          if-no-files-found: error
