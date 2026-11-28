@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { aboutData as defaultAboutData, type AboutData } from "../data/stories";
 
 import { siteNavLinks } from "../lib/siteNavigation";
+import { BackToTop } from "./BackToTop";
 
 const previewNavLink = { label: "Photo Notes", href: "/photostory" };
 
@@ -58,7 +59,7 @@ type FooterProps = {
   variant?: "default" | "photo";
   deferPhoto?: boolean;
   photoPreloadDistance?: number | null;
-  floatingBackToTop?: "after-header" | "after-viewport";
+  backToTop?: "footer" | "floating" | "hidden";
 };
 
 export function Footer({
@@ -67,7 +68,7 @@ export function Footer({
   variant = "default",
   deferPhoto = false,
   photoPreloadDistance = 0,
-  floatingBackToTop,
+  backToTop = "footer",
 }: FooterProps) {
   const footerRef = useRef<HTMLElement>(null);
   const [showTop, setShowTop] = useState(false);
@@ -75,19 +76,19 @@ export function Footer({
   const photoDeferred = variant === "photo" && deferPhoto && !photoInView && typeof IntersectionObserver !== "undefined";
 
   useEffect(() => {
-    const header = floatingBackToTop === "after-header" ? document.querySelector(".site-header") : null;
+    if (backToTop === "hidden") return;
+    const header = backToTop === "floating" ? document.querySelector(".site-header") : null;
     const updateTopVisibility = () => {
-      const threshold = floatingBackToTop === "after-viewport" ? window.innerHeight : 400;
-      setShowTop(header ? header.getBoundingClientRect().bottom <= 0 : window.scrollY > threshold);
+      setShowTop(header ? header.getBoundingClientRect().bottom <= 0 : window.scrollY > 400);
     };
     window.addEventListener("scroll", updateTopVisibility, { passive: true });
-    if (floatingBackToTop) window.addEventListener("resize", updateTopVisibility);
+    if (header) window.addEventListener("resize", updateTopVisibility);
     updateTopVisibility();
     return () => {
       window.removeEventListener("scroll", updateTopVisibility);
       window.removeEventListener("resize", updateTopVisibility);
     };
-  }, [floatingBackToTop]);
+  }, [backToTop]);
 
   useEffect(() => {
     const footer = footerRef.current;
@@ -106,13 +107,6 @@ export function Footer({
     return () => observer.disconnect();
   }, [photoDeferred, photoPreloadDistance]);
 
-  const scrollTop = () => {
-    if (floatingBackToTop) {
-      document.querySelector<HTMLButtonElement>(".site-header .menu-toggle")?.focus({ preventScroll: true });
-    }
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: 0, behavior: reduceMotion ? "instant" : "smooth" });
-  };
   const year = new Date().getFullYear();
   const lastUpdate = formatLastUpdate(__LAST_UPDATE__);
   const navLinks = import.meta.env.DEV || showPreview ? [...siteNavLinks, previewNavLink] : siteNavLinks;
@@ -125,34 +119,14 @@ export function Footer({
     return contact ? [{ ...social, href: contact.href }] : [];
   });
 
-  const arrowSize = floatingBackToTop ? 24 : 14;
-  const backToTopButton = (
-    <button
-      type="button"
-      className={floatingBackToTop ? "floating-top-btn" : `footer-top-btn${showTop ? " is-visible" : ""}`}
-      onClick={scrollTop}
-      aria-label="Back to top"
-    >
-      <svg viewBox="0 0 24 24" width={arrowSize} height={arrowSize} aria-hidden="true">
-        <path
-          d="M12 4 L4 12 L6 14 L11 9 L11 20 L13 20 L13 9 L18 14 L20 12 Z"
-          fill="currentColor"
-          stroke={floatingBackToTop ? "#050505" : undefined}
-          strokeWidth={floatingBackToTop ? 2.5 : undefined}
-          strokeLinejoin="round"
-          paintOrder="stroke"
-        />
-      </svg>
-      {!floatingBackToTop && <span>Top</span>}
-    </button>
-  );
+  const footerTopClass = `footer-top-btn${showTop ? " is-visible" : ""}`;
 
   const footer = (
     <footer ref={footerRef} className={`site-footer${variant === "photo" ? " site-footer--photo" : ""}${photoDeferred ? " site-footer--photo-deferred" : ""}`}>
       <div className="site-footer__inner">
         <div className="footer-brand-row">
           <a className="footer-brand" href="/" aria-label="Queenstown home">Queenstown.top</a>
-          {!floatingBackToTop && backToTopButton}
+          {backToTop === "footer" && <BackToTop className={footerTopClass} />}
         </div>
 
         <p className="footer-tagline">
@@ -232,6 +206,7 @@ export function Footer({
               <span>Last update · {lastUpdate}</span>
             </div>
           </div>
+          {backToTop === "footer" && <BackToTop className={`${footerTopClass} footer-top-btn--mobile`} />}
         </div>
       </div>
     </footer>
@@ -240,7 +215,7 @@ export function Footer({
   return (
     <>
       {footer}
-      {floatingBackToTop && showTop && backToTopButton}
+      {backToTop === "floating" && showTop && <BackToTop className="floating-top-btn" iconOnly />}
     </>
   );
 }

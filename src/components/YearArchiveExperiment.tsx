@@ -5,14 +5,42 @@ import type { PhotoMeta, PhotoStory } from "../data/stories";
 import published from "../data/yearArchive.json";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { AdvancedPhotoLightbox } from "./AdvancedPhotoLightbox";
+import { BackToTop } from "./BackToTop";
 
 type ArchivePhoto = Photo & { hash: string };
 type Month = { key: string; label: string; photos: ArchivePhoto[] };
 type Year = { label: string; count: number; months: Map<string, Month> };
-type Props = { includeLocal: boolean; cmsPhotos?: Photo[]; photoMeta: Record<string, PhotoMeta>; photoStories: Record<string, PhotoStory[]> };
+type Props = {
+  includeLocal: boolean;
+  cmsPhotos?: Photo[];
+  photoMeta: Record<string, PhotoMeta>;
+  photoStories: Record<string, PhotoStory[]>;
+  showBackToTop?: boolean;
+};
 
 const gridSizes = "(max-width: 640px) 54vw, (max-width: 1000px) 33vw, (max-width: 1680px) 22vw, 340px";
 const singleSizes = "(max-width: 640px) min(66vw, 360px), (max-width: 1000px) min(36vw, 360px), 360px";
+
+function ArchiveBackToTop() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const update = () => setVisible(window.scrollY > window.innerHeight);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  return (
+    <span className="chronicle-top-slot">
+      {visible && <BackToTop className="floating-top-btn chronicle-top-btn" iconOnly />}
+    </span>
+  );
+}
 
 function collectArchive(includeLocal: boolean, cmsPhotos: Photo[] | undefined) {
   const originals = new Map<string, ArchivePhoto>();
@@ -61,7 +89,7 @@ function readSelection() {
   return { year: params.get("year"), frame: params.get("frame") };
 }
 
-export default function YearArchiveExperiment({ includeLocal, cmsPhotos, photoMeta, photoStories }: Props) {
+export default function YearArchiveExperiment({ includeLocal, cmsPhotos, photoMeta, photoStories, showBackToTop }: Props) {
   const archive = useMemo(() => collectArchive(includeLocal, cmsPhotos), [includeLocal, cmsPhotos]);
   const [selection, setSelection] = useState(readSelection);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -159,38 +187,41 @@ export default function YearArchiveExperiment({ includeLocal, cmsPhotos, photoMe
               }}>{year ?? <>All<span className="chronicle-all-years"> years</span></>}</button>
           ))}
         </nav>
-        {!!monthYears.length && (
-          <details className="chronicle-month-picker" ref={pickerRef}
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && event.currentTarget.open) {
-                event.preventDefault();
-                closeMonthPicker();
-              }
-            }}
-            onBlur={(event) => {
-              // Safari can blur the summary without focusing a tapped month link.
-              if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
-                event.currentTarget.open = false;
-              }
-            }}>
-            <summary aria-label="Jump to month">Month <ChevronDown size={14} aria-hidden="true" /></summary>
-            <nav className="chronicle-month-menu" aria-label="Jump to month">
-              {monthYears.map((year) => (
-                <div className="chronicle-menu-year" key={year.label}>
-                  <strong>{year.label}</strong>
-                  <ul>
-                    {[...year.months.values()].map((month) => (
-                      <li key={month.key}>
-                        <a href={"#month-" + month.key} aria-label={month.label + " " + year.label}
-                          onClick={closeMonthPicker}>{month.label.slice(0, 3)}</a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </nav>
-          </details>
-        )}
+        <div className="chronicle-toolbar-actions">
+          {!!monthYears.length && (
+            <details className="chronicle-month-picker" ref={pickerRef}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && event.currentTarget.open) {
+                  event.preventDefault();
+                  closeMonthPicker();
+                }
+              }}
+              onBlur={(event) => {
+                // Safari can blur the summary without focusing a tapped month link.
+                if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+                  event.currentTarget.open = false;
+                }
+              }}>
+              <summary aria-label="Jump to month">Month <ChevronDown size={14} aria-hidden="true" /></summary>
+              <nav className="chronicle-month-menu" aria-label="Jump to month">
+                {monthYears.map((year) => (
+                  <div className="chronicle-menu-year" key={year.label}>
+                    <strong>{year.label}</strong>
+                    <ul>
+                      {[...year.months.values()].map((month) => (
+                        <li key={month.key}>
+                          <a href={"#month-" + month.key} aria-label={month.label + " " + year.label}
+                            onClick={closeMonthPicker}>{month.label.slice(0, 3)}</a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </nav>
+            </details>
+          )}
+          {showBackToTop && <ArchiveBackToTop />}
+        </div>
       </div>
       <div className="chronicle-collection" id="archive-years">
         {visibleYears.map((year) => (

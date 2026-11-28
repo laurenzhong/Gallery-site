@@ -422,7 +422,13 @@ function App() {
             <SashaKurmazExperiment photos={photos} onOpen={openPhoto} />
           ) : isYearArchivePage ? (
             <Suspense fallback={<p className="chronicle-loading" role="status">Loading photo archive…</p>}>
-              <YearArchiveExperiment includeLocal={isLocalArchivePreview} cmsPhotos={content.source === "cms" ? photos : undefined} photoMeta={photoMeta} photoStories={photoStories} />
+              <YearArchiveExperiment
+                includeLocal={isLocalArchivePreview}
+                cmsPhotos={content.source === "cms" ? photos : undefined}
+                photoMeta={photoMeta}
+                photoStories={photoStories}
+                showBackToTop={isArchivePage}
+              />
             </Suspense>
           ) : isAgarunAtlasPage ? (
             <AgarunAtlasExperiment photos={photos} onOpen={openPhoto} />
@@ -497,7 +503,7 @@ function App() {
         variant="photo"
         deferPhoto={isPhotographyPage || isYearArchivePage}
         photoPreloadDistance={isPhotographyPage ? (isPhotographyGalleryLoading ? null : 1500) : 0}
-        floatingBackToTop={isJournalPage ? "after-header" : isArchivePage ? "after-viewport" : undefined}
+        backToTop={isJournalPage ? "floating" : isArchivePage ? "hidden" : "footer"}
       />
 
       {activeLightbox && (
