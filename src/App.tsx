@@ -497,7 +497,7 @@ function App() {
         variant="photo"
         deferPhoto={isPhotographyPage || isYearArchivePage}
         photoPreloadDistance={isPhotographyPage ? (isPhotographyGalleryLoading ? null : 1500) : 0}
-        floatingBackToTop={isJournalPage ? "after-header" : isLongGalleryPage || isArchivePage ? "after-viewport" : undefined}
+        floatingBackToTop={isJournalPage ? "after-header" : isArchivePage ? "after-viewport" : undefined}
       />
 
       {activeLightbox && (
