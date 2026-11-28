@@ -18,6 +18,7 @@ type AdvancedPhotoLightboxProps = {
   photoMeta?: Record<string, PhotoMeta>;
   photoStories?: Record<string, PhotoStory[]>;
   shareUrl?: string;
+  openingPreview?: { photoId: string; src: string };
 };
 
 function MetaRow({ label, value }: { label: string; value?: string | number }) {
@@ -31,7 +32,7 @@ function MetaRow({ label, value }: { label: string; value?: string | number }) {
   );
 }
 
-function LightboxPhoto({ photo, active }: { photo: Photo; active: boolean }) {
+function LightboxPhoto({ photo, active, preview }: { photo: Photo; active: boolean; preview?: string }) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   const isCdnImage = photo.src.includes("cdn.sanity.io");
   const srcSet = isCdnImage
@@ -44,6 +45,7 @@ function LightboxPhoto({ photo, active }: { photo: Photo; active: boolean }) {
 
   return (
     <div hidden={!active}>
+      {active && preview && status !== "loaded" && <img src={preview} alt={photo.altText || photo.title} />}
       <img
         src={sizedImageUrl(photo.src, 2200, 90)}
         srcSet={srcSet}
@@ -60,7 +62,7 @@ function LightboxPhoto({ photo, active }: { photo: Photo; active: boolean }) {
       {active && status === "loaded" && photo.liveVideoUrl && (
         <LivePhotoPlayer key={photo.liveVideoUrl} src={photo.liveVideoUrl} />
       )}
-      {active && status !== "loaded" && (
+      {active && !preview && status !== "loaded" && (
         <p className="advanced-lightbox-photo-status" role="status">
           {status === "error" ? "Photo unavailable" : "Loading photo…"}
         </p>
@@ -77,6 +79,7 @@ export function AdvancedPhotoLightbox({
   photoMeta = staticPhotoMeta,
   photoStories = staticPhotoStories,
   shareUrl: shareUrlOverride,
+  openingPreview,
 }: AdvancedPhotoLightboxProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
@@ -95,12 +98,14 @@ export function AdvancedPhotoLightbox({
     const dialog = dialogRef.current;
     if (!isOpen || !dialog) return;
 
+    const trigger = document.activeElement;
     dialog.showModal();
     document.body.classList.add("advanced-lightbox-is-open");
 
     return () => {
       document.body.classList.remove("advanced-lightbox-is-open");
       dialog.close();
+      if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus({ preventScroll: true });
     };
   }, [isOpen]);
 
@@ -191,7 +196,7 @@ export function AdvancedPhotoLightbox({
                 const candidate = photos[photoIndex];
                 const active = photoIndex === index;
                 if (!candidate || (!active && !candidate.src.includes("cdn.sanity.io"))) return null;
-                return <LightboxPhoto key={`${photoIndex}:${candidate.id}:${candidate.src}`} photo={candidate} active={active} />;
+                return <LightboxPhoto key={`${photoIndex}:${candidate.id}:${candidate.src}`} photo={candidate} active={active} preview={openingPreview?.photoId === candidate.id ? openingPreview.src : undefined} />;
               })}
             </figure>
 
@@ -201,6 +206,7 @@ export function AdvancedPhotoLightbox({
                 <h2 id="advanced-lightbox-meta-title">{photo.title}</h2>
               </div>
               <dl className="advanced-lightbox-meta-list">
+                <MetaRow label="File" value={photo.filename} />
                 <MetaRow label="Date" value={meta?.date} />
                 <MetaRow label="Location" value={meta?.location} />
                 <MetaRow label="Camera" value={meta?.camera} />

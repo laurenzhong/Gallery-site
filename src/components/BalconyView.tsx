@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Photo } from "../data/photos";
@@ -20,7 +20,7 @@ export const DEFAULT_BALCONY_TITLE = "Balcony View";
 type BalconyCarouselProps = {
   title: string;
   photos: Photo[];
-  onOpen: (photo: Photo) => void;
+  onOpen: (photo: Photo, trigger: HTMLButtonElement) => void;
 };
 
 type PhotoButtonProps = {
@@ -30,7 +30,7 @@ type PhotoButtonProps = {
   src?: string;
   srcSet?: string;
   loading?: "eager" | "lazy";
-  onOpen: (photo: Photo) => void;
+  onOpen: (photo: Photo, trigger: HTMLButtonElement) => void;
 };
 
 const CAROUSEL_TRANSITION_MS = 600;
@@ -63,7 +63,7 @@ function PhotoButton({
   onOpen,
 }: PhotoButtonProps) {
   return (
-    <button type="button" className={className} onClick={() => onOpen(photo)} aria-label={`Open ${photo.title}`}>
+    <button type="button" className={className} onClick={(event) => onOpen(photo, event.currentTarget)} aria-label={`Open ${photo.title}`}>
       <img
         src={src}
         srcSet={srcSet}
@@ -75,6 +75,38 @@ function PhotoButton({
         decoding="async"
       />
     </button>
+  );
+}
+
+function BalconyHero({ photo }: { photo: Photo }) {
+  const [ready, setReady] = useState(false);
+  const smallSrc = sizedImageUrl(photo.src, 96, 55);
+  const preview = smallSrc === photo.src ? photo.mapSrc ?? photo.previewSrc : smallSrc;
+  const showPreview = !ready && !!preview && preview !== photo.src;
+
+  return (
+    <div className="balcony-hero">
+      {showPreview && <img className="balcony-hero-preview" src={preview} alt="" fetchPriority="high" />}
+      <img
+        className="balcony-hero-detail"
+        style={{ opacity: showPreview ? 0 : 1 }}
+        src={sizedImageUrl(photo.src, 1800, 88)}
+        srcSet={imageSrcSet(photo.src, [1200, 2200], 88)}
+        sizes="100vw"
+        alt={photo.altText || `${photo.category} ${photo.title}`}
+        width={photo.width}
+        height={photo.height}
+        loading="eager"
+        fetchPriority="high"
+        decoding="async"
+        onLoad={(event) => {
+          const image = event.currentTarget;
+          void image.decode().then(() => setReady(true), () => {
+            if (image.complete && image.naturalWidth > 0) setReady(true);
+          });
+        }}
+      />
+    </div>
   );
 }
 
@@ -131,7 +163,7 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
       ignoreNextClickRef.current = false;
       return;
     }
-    onOpen(active);
+    onOpen(active, event.currentTarget);
   };
 
   return (
@@ -198,6 +230,8 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
 
 export function BalconyView({ photos, layout, photoMeta, photoStories }: BalconyViewProps) {
   const [lightboxState, setLightboxState] = useState<{ photos: Photo[]; index: number } | null>(null);
+  const pageRef = useRef<HTMLElement>(null);
+  const openingPreview = useRef<{ photoId: string; src: string } | undefined>(undefined);
 
   const content = useMemo(() => {
     const fallbackHero =
@@ -237,28 +271,35 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
     };
   }, [layout, photos]);
 
-  const openPhoto = (photo: Photo, lightboxPhotos: Photo[]) => {
+  useLayoutEffect(() => {
+    if (!window.IntersectionObserver || !pageRef.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.setAttribute("data-reveal", "shown");
+        observer.unobserve(entry.target);
+      }
+    });
+    for (const heading of pageRef.current.querySelectorAll(".balcony-month-title h2:not([data-reveal=shown])")) {
+      heading.setAttribute("data-reveal", "pending");
+      observer.observe(heading);
+    }
+    return () => observer.disconnect();
+  }, [content.chapters]);
+
+  const openPhoto = (photo: Photo, lightboxPhotos: Photo[], trigger: HTMLButtonElement) => {
     const index = lightboxPhotos.findIndex((item) => item.id === photo.id);
     if (index >= 0) {
+      trigger.focus({ preventScroll: true });
+      const thumbnail = trigger.querySelector<HTMLImageElement>("img:last-of-type");
+      openingPreview.current = thumbnail?.complete && thumbnail.naturalWidth ? { photoId: photo.id, src: thumbnail.currentSrc } : undefined;
       setLightboxState({ photos: lightboxPhotos, index });
     }
   };
 
   return (
-    <article className="balcony-page" aria-labelledby="balcony-title">
-      {content.hero && <div className="balcony-hero">
-        <img
-          src={sizedImageUrl(content.hero.src, 1800, 88)}
-          srcSet={imageSrcSet(content.hero.src, [1200, 2200], 88)}
-          sizes="100vw"
-          alt={content.hero.altText || `${content.hero.category} ${content.hero.title}`}
-          width={content.hero.width}
-          height={content.hero.height}
-          loading="eager"
-          fetchPriority="high"
-          decoding="async"
-        />
-      </div>}
+    <article ref={pageRef} className="balcony-page" aria-labelledby="balcony-title">
+      {content.hero && <BalconyHero key={content.hero.src} photo={content.hero} />}
 
       <header className="balcony-intro">
         <h1 id="balcony-title">{layout?.title?.trim() || DEFAULT_BALCONY_TITLE}</h1>
@@ -272,7 +313,7 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
           </header>
           {chapter.galleries.map((gallery) => (
             <div className="balcony-gallery" key={gallery.id}>
-              <BalconyPhotoGroup title={chapter.title} photos={gallery.photos} presentation={gallery.presentation} onOpen={(photo) => openPhoto(photo, gallery.photos)} />
+              <BalconyPhotoGroup title={chapter.title} photos={gallery.photos} presentation={gallery.presentation} onOpen={(photo, trigger) => openPhoto(photo, gallery.photos, trigger)} />
             </div>
           ))}
         </section>
@@ -281,6 +322,7 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
       <AdvancedPhotoLightbox
         photos={lightboxState?.photos ?? []}
         index={lightboxState?.index ?? -1}
+        openingPreview={openingPreview.current}
         onClose={() => setLightboxState(null)}
         onNavigate={(index) => {
           if (!lightboxState) return;
@@ -296,7 +338,7 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
 
 export function BalconyPhotoGroup({ photos, presentation, title, onOpen }: Pick<BalconyGallery<Photo>, "photos" | "presentation"> & {
   title: string;
-  onOpen: (photo: Photo) => void;
+  onOpen: (photo: Photo, trigger: HTMLButtonElement) => void;
 }) {
   if (photos.length === 1 && presentation === "carousel") {
     return (

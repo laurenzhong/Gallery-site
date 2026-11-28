@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { contentPageKey, type ContentPageKey } from "../lib/pageContentPages";
 import { siteNavLinks } from "../lib/siteNavigation";
 
 export function Header({
+  currentSection,
   pageTitle,
   pageTitleClassName = "site-header-title",
   scrollWithPage,
 }: {
+  currentSection?: ContentPageKey;
   pageTitle?: ReactNode;
   pageTitleClassName?: string;
   scrollWithPage?: "always" | "mobile";
@@ -110,7 +113,7 @@ export function Header({
           inert={!menuOpen}
         >
           {siteNavLinks.map((item) => (
-            <a key={item.label} href={item.href} onClick={() => setMenuOpen(false)}>
+            <a key={item.label} href={item.href} aria-current={contentPageKey(item.href) === currentSection ? "page" : undefined} onClick={() => setMenuOpen(false)}>
               {item.label}
             </a>
           ))}

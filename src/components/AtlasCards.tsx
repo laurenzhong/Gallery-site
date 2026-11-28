@@ -29,7 +29,7 @@ export function AtlasOverview({ photos, locatedCount }: { photos: Photo[]; locat
       <div><strong>{new Set(photos.map(photo => photo.category)).size}</strong><span>categories</span></div>
     </div>
     <p className="map-hub-demo__copy">Select a photograph to preview it, or select a numbered group to explore nearby photographs.</p>
-    <a className="map-hub-demo__text-link" href="/photography">Open the full archive <span aria-hidden="true">↗</span></a>
+    <a className="map-hub-demo__text-link" href="/archive">Open the full archive <span aria-hidden="true">↗</span></a>
   </aside>;
 }
 

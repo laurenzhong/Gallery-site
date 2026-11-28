@@ -141,7 +141,7 @@ export function JourneyMapExperiment({ photos, onOpen }: JourneyMapExperimentPro
         </aside>
       </div>
 
-      <footer className="journey-reference__footer"><span>End of field record</span><a href="/photography">Return to the archive <ArrowUpRight aria-hidden="true" size={16} /></a></footer>
+      <footer className="journey-reference__footer"><span>End of field record</span><a href="/archive">Return to the archive <ArrowUpRight aria-hidden="true" size={16} /></a></footer>
     </article>
   );
 }

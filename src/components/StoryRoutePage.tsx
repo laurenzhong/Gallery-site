@@ -450,7 +450,7 @@ export function StoryRoutePage({ route, photos, onOpen, publicStory = false, ini
       </div>
 
       <footer className="trail-route-footer">
-        <a href={mapReturnHref ?? "/photography"}>{mapReturnHref ? "← Back to map" : "Return to the archive ↗"}</a>
+        <a href={mapReturnHref ?? "/archive"}>{mapReturnHref ? "← Back to map" : "Return to the archive ↗"}</a>
       </footer>
     </article>
   );

@@ -8,6 +8,7 @@ import {
   type PhotoStory as PhotoStoryData,
 } from "../data/stories";
 import { photoPath, storyPath } from "../lib/routes";
+import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 
 type PhotoStoryProps = {
   photos: Photo[];
@@ -211,7 +212,8 @@ export function JournalSection({
   photos,
   photoStories = staticPhotoStories,
   showHeading = true,
-}: PhotoStoryProps & { showHeading?: boolean }) {
+  directory = false,
+}: PhotoStoryProps & { showHeading?: boolean; directory?: boolean }) {
   const storyEntries = Object.entries(photoStories)
     .flatMap(([filename, storyList]) => {
       const photo = findPhoto(photos, filename);
@@ -220,6 +222,36 @@ export function JournalSection({
     })
     .filter((entry): entry is { photo: Photo; story: PhotoStoryData } => entry !== null)
     .sort((a, b) => compareStories(a.story, b.story));
+
+  if (directory) {
+    return (
+      <div className="journal-directory">
+        {storyEntries.map(({ photo, story }, index) => {
+          const featured = index === 0;
+          const location = photo.spot || photo.place || (photo.category !== "未分类" ? photo.category : "");
+          return (
+            <article key={storyPath(story, photo.slug)} className={featured ? "journal-lead" : "journal-item"}>
+              <a href={storyPath(story, photo.slug)}>
+                <img
+                  src={sizedImageUrl(photo.src, featured ? 1200 : 240)}
+                  srcSet={imageSrcSet(photo.src, featured ? [640, 1000, 1600] : [120, 240, 360])}
+                  sizes={featured ? "(max-width: 700px) 100vw, 55vw" : "(max-width: 700px) 84px, 128px"}
+                  alt="" width={photo.width} height={photo.height}
+                  loading={featured ? "eager" : "lazy"} decoding="async"
+                />
+                <div>
+                  {location && <p className="journal-location">{location}</p>}
+                  <h2>{story.title}</h2>
+                  {(story.excerpt || story.body[0]) && <p className="journal-summary">{story.excerpt || story.body[0]}</p>}
+                </div>
+              </a>
+            </article>
+          );
+        })}
+        {!storyEntries.length && <p>No published stories yet.</p>}
+      </div>
+    );
+  }
 
   return (
     <section

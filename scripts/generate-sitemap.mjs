@@ -5,6 +5,8 @@ import { build, transform } from "esbuild";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const publicDir = path.join(projectRoot, "public");
+const built = process.argv.includes("--built");
+const outputDir = built ? path.join(projectRoot, "dist") : publicDir;
 const siteUrl = (process.env.VITE_SITE_URL || process.env.SITE_URL || "https://www.queenstown.top").replace(/\/$/, "");
 
 function slugify(value) {
@@ -191,8 +193,32 @@ Disallow: /studio/
 Sitemap: ${siteUrl}/sitemap.xml
 `;
 
-await mkdir(publicDir, { recursive: true });
-await writeFile(path.join(publicDir, "sitemap.xml"), sitemap, "utf8");
-await writeFile(path.join(publicDir, "robots.txt"), robots, "utf8");
+await mkdir(outputDir, { recursive: true });
+await writeFile(path.join(outputDir, "sitemap.xml"), sitemap, "utf8");
+await writeFile(path.join(outputDir, "robots.txt"), robots, "utf8");
+
+if (built) {
+  const shell = await readFile(path.join(outputDir, "index.html"), "utf8");
+  const directory = path.join(outputDir, "photo-pages");
+  await mkdir(directory, { recursive: true });
+  const seen = new Set();
+  for (const photo of entries.photos) {
+    const slug = filenameSlug(photo.filename);
+    if (!slug || seen.has(slug)) continue;
+    seen.add(slug);
+    const title = xmlEscape(photo.title + " | Queenstown Gallery");
+    const description = xmlEscape(photo.caption || (photo.altText !== photo.filename?.split(".")[0] && photo.altText) || photo.title);
+    const image = new URL(photo.src || photo.legacyPublicPath, siteUrl);
+    if (image.hostname === "cdn.sanity.io") image.searchParams.set("w", "1200");
+    const url = xmlEscape(new URL("/photos/" + slug, siteUrl).href);
+    const html = shell
+      .replace(/<title>.*?<\/title>/s, () => `<title>${title}</title>`)
+      .replace(/(<meta\s+property="og:title"\s+content=")[^"]*/i, (_, prefix) => prefix + title)
+      .replace(/(<meta\s+(?:property="og:description"|name="description")\s+content=")[^"]*/gi, (_, prefix) => prefix + description)
+      .replace(/(<meta\s+property="og:image"\s+content=")[^"]*/i, (_, prefix) => prefix + xmlEscape(image.href))
+      .replace("</head>", () => `<meta property="og:url" content="${url}"><link rel="canonical" href="${url}"></head>`);
+    await writeFile(path.join(directory, slug + ".html"), html);
+  }
+}
 
 console.log(`Generated sitemap.xml with ${uniqueRoutes.length} URLs`);

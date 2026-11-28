@@ -283,22 +283,22 @@ function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, [photos]);
 
+  const displayedPhoto = activeLightbox?.photos[activeLightbox.index] ?? activePhoto;
   useEffect(() => {
-    const title = activePhoto?.title ?? activeStory?.story.title ?? (isJournalPage ? "Stories" : isBalconyPage ? balconyLayout?.title : isPhotographyPage ? previewHome?.title : undefined);
+    const title = displayedPhoto?.title ?? activeStory?.story.title ?? (isAboutPage ? "About" : isJournalPage ? "Stories" : isBalconyPage ? balconyLayout?.title : isPhotographyPage ? previewHome?.title : undefined);
     const description =
-      activeStory?.story.excerpt ??
-      (activePhoto ? `${activePhoto.category} / ${activePhoto.filename}`
-        : isPhotographyPage && homeSubtitle ? homeSubtitle
+      (displayedPhoto ? displayedPhoto.caption || displayedPhoto.altText || displayedPhoto.title : activeStory?.story.excerpt) ??
+      (isPhotographyPage && homeSubtitle ? homeSubtitle
         : isBalconyPage && balconyLayout?.subtitle ? balconyLayout.subtitle
         : isYearArchivePage ? "Browse the Queenstown.top photo archive by capture year and month." : DEFAULT_DESCRIPTION);
-    const image = activePhoto?.src ?? activeStory?.photo.src ?? (isBalconyPage ? balconyLayout?.heroPhoto?.src : undefined) ?? heroPhoto?.src;
+    const image = displayedPhoto?.src ?? activeStory?.photo.src ?? (isBalconyPage ? balconyLayout?.heroPhoto?.src : undefined) ?? heroPhoto?.src;
 
     const pageTitle = title
       ? `${title} | ${siteTitle}`
       : isPhotographyPage
         ? "Photography | Queenstown.top"
         : isMapPage
-          ? "Map demo | Queenstown.top"
+          ? "Map | Queenstown.top"
         : isMapRoutePage
           ? "Route story | Queenstown.top"
         : isJourneyExperimentPage
@@ -336,7 +336,8 @@ function App() {
     setMeta("og:description", description, "property");
     if (image) setMeta("og:image", image, "property");
   }, [
-    activePhoto,
+    displayedPhoto,
+    isAboutPage,
     activeStory,
     balconyLayout,
     heroPhoto,
@@ -378,6 +379,7 @@ function App() {
         </Suspense>
       )}
       <Header
+        currentSection={pageKey ?? (isMapRoutePage ? "map" : storyRouteSlug ? "journal" : photoRouteSlug ? "home" : undefined)}
         pageTitle={isAboutPage ? "About" : isJournalPage ? "Stories" : isYearArchivePage ? <>Photo <em>archive</em></> : undefined}
         pageTitleClassName={isAboutPage || isJournalPage ? "site-header-page-title" : undefined}
         scrollWithPage={isJournalPage || isArchivePage ? "always" : isLongGalleryPage ? "mobile" : undefined}
@@ -392,13 +394,13 @@ function App() {
           <ul className="page-draft-status" aria-label="草稿内容提示">{adaptedDraft.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>
         )}
         {activePageContent?.modulesPosition === "before" && supplementalModules}
-        <Suspense fallback={<p className="site-route-loading" role="status">Loading…</p>}>
+        <Suspense fallback={isJournalPage ? <div className="journal-loading" role="status"><span className="sr-only">Loading stories…</span></div> : <p className="site-route-loading" role="status">Loading…</p>}>
           {studioPreview && !studioPreview.documents ? (
             <p className="site-route-loading" role={studioPreview.error ? "alert" : "status"}>
               {studioPreview.error ?? "正在读取 CMS 预览…"}
             </p>
           ) : activeStory ? (
-            <StoryDetail photo={activeStory.photo} story={activeStory.story} />
+            <StoryDetail photo={activeStory.photo} story={activeStory.story} onOpen={openModulePhoto} />
           ) : photoRouteSlug && activePhoto ? (
             <>
               <section className="page-title-band" id="top" aria-labelledby="page-title">
@@ -443,7 +445,9 @@ function App() {
               </a>
             </section>
           ) : isBalconyPage ? (
-            <BalconyView
+            !draftPageKey && !controlledBalcony?.heroPhoto && (content.isLoading || pageContentPreview.isLoading) ? (
+              <div className="balcony-hero" role="status"><span className="sr-only">Loading Balcony View…</span></div>
+            ) : <BalconyView
               photos={photos}
               layout={balconyLayout}
               photoMeta={photoMeta}
@@ -454,7 +458,9 @@ function App() {
           ) : isAboutPage ? (
             <About aboutData={aboutData} />
           ) : isJournalPage ? (
-            <Journal photos={photos} photoStories={photoStories} />
+            <Journal photos={photos} photoStories={photoStories}
+              loading={content.isLoading && content.source !== "cms"}
+              failed={Boolean(content.error) && content.source !== "cms"} />
           ) : isMapPage ? (
             <MapHubDemo photos={photos} onOpen={openPhoto}
               publishedDataStatus={content.source === "static" && (content.isLoading || content.error)

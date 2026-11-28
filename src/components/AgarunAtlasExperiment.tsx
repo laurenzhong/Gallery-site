@@ -138,7 +138,7 @@ export function AgarunAtlasExperiment({ photos, onOpen }: AgarunAtlasExperimentP
               );
             })}
           </div>
-          <a className="atlas-open-link" href="/photography">Open complete archive <ArrowUpRight aria-hidden="true" size={16} /></a>
+          <a className="atlas-open-link" href="/archive">Open complete archive <ArrowUpRight aria-hidden="true" size={16} /></a>
         </section>
       </div>
     </article>

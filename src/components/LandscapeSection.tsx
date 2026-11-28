@@ -282,7 +282,8 @@ export function LandscapeSection({
       </div>
 
       <div className="landscape-thumbs" role="tablist" aria-label={`${title} thumbnails`}>
-        <div ref={trackRef} className="landscape-thumbs-track">
+        <div ref={trackRef} className="landscape-thumbs-track"
+          style={{ "--selected-thumb": Math.min(activeIndex, total - 1) } as CSSProperties}>
           {landscapePhotos.map((photo, index) => (
             <button
               key={photo.id}

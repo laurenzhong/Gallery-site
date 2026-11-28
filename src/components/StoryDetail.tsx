@@ -8,6 +8,7 @@ import { internalPageHref } from "../lib/pageContentPages";
 type StoryDetailProps = {
   photo: Photo;
   story: PhotoStory;
+  onOpen: (photo: Photo, group: Photo[]) => void;
 };
 
 const storyComponents: PortableTextComponents = {
@@ -27,7 +28,7 @@ const storyComponents: PortableTextComponents = {
   },
 };
 
-export function StoryDetail({ photo, story }: StoryDetailProps) {
+export function StoryDetail({ photo, story, onOpen }: StoryDetailProps) {
   const relatedPhotos = [photo, ...(story.relatedPhotos ?? [])];
   return (
     <article className="detail-page story-detail-page">
@@ -61,7 +62,13 @@ export function StoryDetail({ photo, story }: StoryDetailProps) {
         <h2>{relatedPhotos.length > 1 ? "Related Photos" : "Related Photo"}</h2>
         <div className="detail-related-list">
           {relatedPhotos.map((item) => (
-            <a className="detail-related-link" href={photoPath(item)} key={item.id}>
+            <a className="detail-related-link" href={photoPath(item)} key={item.id}
+              onClick={(event) => {
+                if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                event.currentTarget.focus({ preventScroll: true });
+                onOpen(item, relatedPhotos);
+              }}>
               <span>{item.title}</span>
               <small>{item.category} / {item.filename}</small>
             </a>
