@@ -115,6 +115,13 @@ main:has(.chronicle-loading) + .site-footer { display: none; }
   width: min(1.45 * var(--column-width), 240px * var(--photo-ratio), 360px);
   max-width: none;
 }
+.chronicle-grid--justified { flex-flow: column nowrap; }
+.chronicle-row { display: flex; gap: var(--grid-gap); max-width: 100%; }
+.chronicle-row button {
+  flex: var(--photo-ratio) 1 0px;
+  max-width: none;
+  height: 100%;
+}
 .chronicle-grid img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity 180ms ease; }
 .photo-chronicle :focus-visible { outline: 2px solid #527b58; outline-offset: 3px; }
 @media (hover: hover) { .chronicle-grid button:hover img { opacity: .9; } }

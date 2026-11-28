@@ -424,6 +424,7 @@ function App() {
             <Suspense fallback={<p className="chronicle-loading" role="status">Loading photo archive…</p>}>
               <YearArchiveExperiment
                 includeLocal={isLocalArchivePreview}
+                justifyRows={isArchivePage}
                 cmsPhotos={content.source === "cms" ? photos : undefined}
                 photoMeta={photoMeta}
                 photoStories={photoStories}

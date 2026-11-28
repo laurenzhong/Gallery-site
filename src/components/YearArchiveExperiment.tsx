@@ -12,14 +12,61 @@ type Month = { key: string; label: string; photos: ArchivePhoto[] };
 type Year = { label: string; count: number; months: Map<string, Month> };
 type Props = {
   includeLocal: boolean;
+  justifyRows: boolean;
   cmsPhotos?: Photo[];
   photoMeta: Record<string, PhotoMeta>;
   photoStories: Record<string, PhotoStory[]>;
   showBackToTop?: boolean;
 };
 
+type GridSize = { width: number; gap: number };
+type ArchiveRow = { photos: ArchivePhoto[]; width: number; height: number };
+
 const gridSizes = "(max-width: 640px) 54vw, (max-width: 1000px) 33vw, (max-width: 1680px) 22vw, 340px";
 const singleSizes = "(max-width: 640px) min(66vw, 360px), (max-width: 1000px) min(36vw, 360px), 360px";
+const gridWidths = [320, 640, 960];
+const justifiedWidths = [...gridWidths, 1440];
+
+function photoRatio(photo: Photo) {
+  const ratio = photo.width / photo.height;
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+}
+
+function layoutRows(photos: ArchivePhoto[], { width, gap }: GridSize) {
+  const targetHeight = Math.min(320, Math.max(Math.min(220, width * 0.64), width * 0.25));
+  const rows: ArchiveRow[] = [];
+  let row: ArchivePhoto[] = [];
+  let ratioSum = 0;
+
+  function finishRow(justify: boolean) {
+    const gaps = gap * (row.length - 1);
+    const fittedHeight = (width - gaps) / ratioSum;
+    const height = justify ? fittedHeight : Math.min(targetHeight, fittedHeight);
+    rows.push({ photos: row, width: justify ? width : height * ratioSum + gaps, height });
+    row = [];
+    ratioSum = 0;
+  }
+
+  for (const photo of photos) {
+    const ratio = photoRatio(photo);
+    const nextHeight = (width - gap * row.length) / (ratioSum + ratio);
+
+    if (row.length && nextHeight <= targetHeight) {
+      const currentHeight = (width - gap * (row.length - 1)) / ratioSum;
+      // Wrap before adding the next photo when the current row is closer to the target height.
+      if (currentHeight <= targetHeight * 1.25 && currentHeight - targetHeight < targetHeight - nextHeight) {
+        finishRow(true);
+      }
+    }
+
+    row.push(photo);
+    ratioSum += ratio;
+    if ((width - gap * (row.length - 1)) / ratioSum <= targetHeight) finishRow(true);
+  }
+
+  if (row.length) finishRow(false);
+  return rows;
+}
 
 function ArchiveBackToTop() {
   const [visible, setVisible] = useState(false);
@@ -89,11 +136,13 @@ function readSelection() {
   return { year: params.get("year"), frame: params.get("frame") };
 }
 
-export default function YearArchiveExperiment({ includeLocal, cmsPhotos, photoMeta, photoStories, showBackToTop }: Props) {
+export default function YearArchiveExperiment({ includeLocal, justifyRows, cmsPhotos, photoMeta, photoStories, showBackToTop }: Props) {
   const archive = useMemo(() => collectArchive(includeLocal, cmsPhotos), [includeLocal, cmsPhotos]);
   const [selection, setSelection] = useState(readSelection);
+  const [gridSize, setGridSize] = useState<GridSize>({ width: 0, gap: 0 });
   const toolbarRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLDetailsElement>(null);
+  const firstYearPhotosRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const read = () => setSelection(readSelection());
     window.addEventListener("popstate", read);
@@ -150,6 +199,27 @@ export default function YearArchiveExperiment({ includeLocal, cmsPhotos, photoMe
 
   const activeYear = archive.years.find((year) => year.label === selection.year);
   const visibleYears = activeYear ? [activeYear] : archive.years;
+  const firstYearLabel = visibleYears[0]?.label;
+
+  useLayoutEffect(() => {
+    const track = firstYearPhotosRef.current;
+    if (!justifyRows || !track) return;
+
+    const updateSize = () => {
+      const width = track.getBoundingClientRect().width;
+      const grid = track.querySelector(".chronicle-grid");
+      const gap = grid ? Number.parseFloat(getComputedStyle(grid).columnGap) || 0 : 0;
+      setGridSize((current) => current.width === width && current.gap === gap ? current : { width, gap });
+    };
+
+    updateSize();
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [justifyRows, firstYearLabel]);
+
   const frames = activeYear ? [...activeYear.months.values()].flatMap((month) => month.photos) : archive.frames;
   const index = selection.frame ? frames.findIndex((photo) => photo.hash === selection.frame) : -1;
   const active = frames[index];
@@ -168,6 +238,25 @@ export default function YearArchiveExperiment({ includeLocal, cmsPhotos, photoMe
     if (!picker) return;
     picker.open = false;
     picker.querySelector("summary")?.focus({ preventScroll: true });
+  }
+
+  function renderPhoto(photo: ArchivePhoto, sizes: string) {
+    const eager = eagerPhotos.includes(photo);
+    return (
+      <button type="button" key={photo.hash} data-frame={photo.hash}
+        style={{ "--photo-ratio": photoRatio(photo) } as CSSProperties}
+        aria-label={"Open " + photo.title + (photo.capturedAt ? ", " + photo.capturedAt.slice(0, 10) : "")}
+        onClick={(event) => {
+          event.currentTarget.focus({ preventScroll: true });
+          select(activeYear?.label ?? null, photo.hash);
+        }}>
+        <img src={photo.previewSrc ?? sizedImageUrl(photo.src, 640)}
+          srcSet={photo.previewSrc ? undefined : imageSrcSet(photo.src, justifyRows ? justifiedWidths : gridWidths)}
+          sizes={(eager ? "" : "auto, ") + sizes}
+          width={photo.width} height={photo.height} loading={eager ? "eager" : "lazy"}
+          fetchPriority={eagerPhotos[0] === photo ? "high" : undefined} decoding="async" alt="" />
+      </button>
+    );
   }
 
   return (
@@ -233,28 +322,25 @@ export default function YearArchiveExperiment({ includeLocal, cmsPhotos, photoMe
                   aria-label={month.label + " " + year.label}>{month.label.slice(0, 3)}</a>)}
               </nav>}
             </div>
-            <div>{[...year.months.values()].map((month) => (
-              <div className="chronicle-month" key={month.key} id={"month-" + month.key}>
-                {month.label && <h3>{month.label}<span>{month.photos.length}</span></h3>}
-                <div className={month.photos.length === 1 ? "chronicle-grid chronicle-grid--single" : "chronicle-grid"}>
-                  {month.photos.map((photo) => (
-                    <button type="button" key={photo.hash} data-frame={photo.hash}
-                      style={{ "--photo-ratio": photo.width / photo.height } as CSSProperties}
-                      aria-label={"Open " + photo.title + (photo.capturedAt ? ", " + photo.capturedAt.slice(0, 10) : "")}
-                      onClick={(event) => {
-                        event.currentTarget.focus({ preventScroll: true });
-                        select(activeYear?.label ?? null, photo.hash);
-                      }}>
-                      <img src={photo.previewSrc ?? sizedImageUrl(photo.src, 640)}
-                        srcSet={photo.previewSrc ? undefined : imageSrcSet(photo.src, [320, 640, 960])}
-                        sizes={(eagerPhotos.includes(photo) ? "" : "auto, ") + (month.photos.length === 1 ? singleSizes : gridSizes)}
-                        width={photo.width} height={photo.height} loading={eagerPhotos.includes(photo) ? "eager" : "lazy"}
-                        fetchPriority={eagerPhotos[0] === photo ? "high" : undefined} decoding="async" alt="" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}</div>
+            <div ref={year.label === firstYearLabel ? firstYearPhotosRef : undefined}>
+              {[...year.months.values()].map((month) => {
+                const rows = justifyRows && gridSize.width > 0 ? layoutRows(month.photos, gridSize) : undefined;
+                const single = month.photos.length === 1;
+
+                return (
+                  <div className="chronicle-month" key={month.key} id={"month-" + month.key}>
+                    {month.label && <h3>{month.label}<span>{month.photos.length}</span></h3>}
+                    <div className={rows ? "chronicle-grid chronicle-grid--justified" : single ? "chronicle-grid chronicle-grid--single" : "chronicle-grid"}>
+                      {rows ? rows.map((row) => (
+                        <div className="chronicle-row" key={row.photos[0].hash} style={{ width: row.width, height: row.height }}>
+                          {row.photos.map((photo) => renderPhoto(photo, `${Math.ceil(row.height * photoRatio(photo))}px`))}
+                        </div>
+                      )) : month.photos.map((photo) => renderPhoto(photo, single ? singleSizes : gridSizes))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </section>
         ))}
         {!archive.frames.length && <p>No photographs in the archive yet.</p>}
