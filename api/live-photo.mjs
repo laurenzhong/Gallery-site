@@ -1,17 +1,10 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { createClient } from "@sanity/client";
+import { deviceAuthorized, send, serviceClient } from "../server/iphone-devices.mjs";
 
 const maxBodyBytes = 4_400_000;
 
 function hash(value) {
   return createHash("sha256").update(value).digest();
-}
-
-function send(response, status, body) {
-  response.statusCode = status;
-  response.setHeader("Content-Type", "application/json; charset=utf-8");
-  response.setHeader("Cache-Control", "no-store");
-  response.end(JSON.stringify(body));
 }
 
 async function readForm(request, contentType) {
@@ -46,16 +39,17 @@ export default async function handler(request, response) {
   }
 
   const uploadKey = process.env.GALLERY_LIVE_UPLOAD_KEY?.trim();
-  const token = process.env.SANITY_WRITE_TOKEN?.trim() || process.env.SANITY_AUTH_TOKEN?.trim();
-  const projectId = process.env.SANITY_STUDIO_PROJECT_ID || process.env.VITE_SANITY_PROJECT_ID;
-  const dataset = process.env.SANITY_STUDIO_DATASET || process.env.VITE_SANITY_DATASET || "production";
-  if (!uploadKey || !token || !projectId) {
-    return send(response, 503, { error: "网站尚未开启实况照片上传。" });
+  const client = serviceClient();
+  if (!client) return send(response, 503, { error: "网站尚未开启实况照片上传。" });
+  const header = request.headers.authorization ?? "";
+  const legacyAuthorized = uploadKey && timingSafeEqual(hash(header), hash(`Bearer ${uploadKey}`));
+  try {
+    if (!legacyAuthorized && !await deviceAuthorized(client, header)) {
+      return send(response, 401, { error: "请在 Gallery CMS 授权这台 iPhone。" });
+    }
+  } catch {
+    return send(response, 502, { error: "暂时无法检查设备授权，请稍后重试。" });
   }
-  if (!timingSafeEqual(hash(request.headers.authorization ?? ""), hash(`Bearer ${uploadKey}`))) {
-    return send(response, 401, { error: "上传密钥无效，请在设置中检查。" });
-  }
-
   const contentType = request.headers["content-type"] ?? "";
   if (!contentType.startsWith("multipart/form-data;")) {
     return send(response, 415, { error: "需要同时发送实况照片封面和视频。" });
@@ -91,7 +85,6 @@ export default async function handler(request, response) {
   const title = date ? `实况照片 · ${date}` : sourceFilename.replace(/\.[^.]+$/, "") || "实况照片";
 
   try {
-    const client = createClient({ projectId, dataset, token, apiVersion: "2025-02-19", useCdn: false });
     const existing = await client.getDocument(documentId);
     if (existing?.slug?.current) return send(response, 200, { path: photoPath(existing) });
 

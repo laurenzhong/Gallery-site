@@ -1,18 +1,19 @@
 # Gallery iPhone 实况照片上传
 
-安装并配置一次后，在「Gallery 上传」中选一张实况照片即可发布。App 会从系统相册获取封面和视频，并将两者写入同一条 Sanity 照片记录。上传完成后可以直接打开公开的照片链接。归档页会在刷新 CMS 内容后显示新照片。
+在「Gallery 上传」里选一张实况照片，App 会读取系统相册里的封面和配对视频，并将两者发布为同一条 CMS 照片记录。重复上传同一份原始素材会返回原来的链接。
 
-## 启用上传
+## Windows 安装和首次授权
 
-1. 在 Vercel 服务端环境设置 `GALLERY_LIVE_UPLOAD_KEY` 为随机密钥，例如用 `openssl rand -hex 32` 生成。上传接口还使用已有的 Sanity 项目、数据集和服务端写入凭据 `SANITY_WRITE_TOKEN`。这些密钥不要添加到 `VITE_` 变量或提交到 Git。
-2. 部署包含 `/api/live-photo` 和 Studio 实况字段的版本。App 默认使用 `https://www.queenstown.top/api/live-photo`。为测试站部署时，在 App 设置里填对应的 HTTPS 地址。
-3. 在 Mac 上用 Xcode 16 或更新版本打开 `GalleryUploader.xcodeproj`，为 `GalleryUploader` 目标选择签名团队，然后连接一台运行 iOS 18 或更新版本的 iPhone 并点 Run。这里提供的是可以签名安装的工程源码。
-4. 首次打开 App 时输入 Vercel 上设置的上传密钥。App 会把它保存在这台 iPhone 的钥匙串中。
+1. 在 GitHub Actions 的「Build Gallery iPhone uploader」构建中下载 GalleryUploader-iPhone，解压得到 GalleryUploader.ipa。适用于 iOS 18 及以上的 iPhone。
+2. 用 USB 将 iPhone 连接到 Windows，并在手机上信任电脑。在爱思助手的「工具箱 → IPA 签名」中添加 IPA，使用自己的 Apple ID 和已连接的设备签名，再安装签名后的 IPA。按 iOS 提示启用开发者模式或信任开发者。免费个人签名通常有效 7 天，到期需要重新签名并安装。
+3. 在手机上打开「Gallery 上传」，点「打开 CMS 授权这台 iPhone」。用 Gallery 的 CMS 管理员账号登录，核对 App 中的识别码并点「授权这台 iPhone」。返回 App，点「选择并上传实况照片」。
+
+CMS 的「iPhone 上传」页面可以撤销单台设备。设备凭据保存在手机钥匙串内。服务端使用现有 Sanity 项目、数据集和写入凭据，轮换服务端写入凭据后需要重新授权设备。
 
 ## 真机验收
 
-1. 在 App 里选一张包含声音的实况照片。确认它在 Sanity「全部照片」中只新增一条记录，该记录有图片和实况视频。
-2. 打开 App 返回的链接，再打开归档里的同一张照片。「Live」按钮轻点会带声音播放，触屏按住可预览画面，松开后回到封面。切换到其他照片时应停止播放。
-3. 从手机重复上传同一张照片。确认复用原来的公开链接和照片记录。
+1. 选择一张在系统相册里播放时有声音的实况照片。上传成功后打开照片链接，点「Live」播放并确认声音，按住照片预览，松手后应回到封面。
+2. 在 Sanity「全部照片」中确认照片同时有图片和实况视频，重复上传同一份素材应返回原链接。
+3. 在 CMS 撤销这台设备的授权，返回 App 后应再次看到授权入口。
 
-Web 版封面最长边为 2560 像素，视频会自动编码成兼容网页浏览器的 MP4。App 根据文件大小选择输出分辨率，以适配 Vercel 的默认请求大小限制。
+网页封面最长边为 2560 像素。App 根据文件大小选择视频输出分辨率，并导出 MP4 以适配 Vercel 请求大小限制。

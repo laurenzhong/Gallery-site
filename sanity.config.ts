@@ -1,4 +1,6 @@
 import { zhHansLocale } from "@sanity/locale-zh-hans";
+import { IPhoneDevices } from "./sanity/components/IPhoneDevices";
+import { route } from "sanity/router";
 import { visionTool } from "@sanity/vision";
 import { defineConfig } from "sanity";
 import { presentationTool } from "sanity/presentation";
@@ -19,6 +21,15 @@ export default defineConfig({
   projectId,
   dataset,
   basePath: "/studio",
+  // The pairing callback needs a project user token even on browsers that accept
+  // Sanity cookies. Keep ordinary Studio sessions on the default dual login.
+  auth: { loginMethod: typeof window !== "undefined" && /^\/studio\/iphone(?:\/|$)/.test(window.location.pathname) ? "token" : "dual" },
+  tools: [{
+    name: "iphone",
+    title: "iPhone 上传",
+    component: IPhoneDevices,
+    router: route.create("/", [route.create("/:device")]),
+  }],
   // Env vars SANITY_STUDIO_PROJECT_ID + SANITY_STUDIO_DATASET must be present at build time
   plugins: [
     zhHansLocale(),
