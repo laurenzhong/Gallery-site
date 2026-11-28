@@ -16,6 +16,21 @@ const dataset = process.env.SANITY_STUDIO_DATASET ?? "production";
 // the editor's own machine and make Presentation appear unavailable.
 const previewOrigin = process.env.SANITY_STUDIO_PREVIEW_URL ?? "https://www.queenstown.top";
 
+function normalizeIPhoneToolPath() {
+  if (typeof window === "undefined") return false;
+  const url = new URL(window.location.href);
+  const toolPath = /^\/studio\/iphone(?=\/|$)/i;
+  if (!toolPath.test(url.pathname)) return false;
+
+  // Studio matches tool names case-sensitively. Keep the device and login callback when fixing the path.
+  const canonicalPath = url.pathname.replace(toolPath, "/studio/iphone");
+  if (url.pathname !== canonicalPath) {
+    url.pathname = canonicalPath;
+    window.history.replaceState(window.history.state, "", url);
+  }
+  return true;
+}
+
 export default defineConfig({
   name: "default",
   title: "Queenstown.top 内容管理",
@@ -24,7 +39,7 @@ export default defineConfig({
   basePath: "/studio",
   // The pairing callback needs a project user token even on browsers that accept
   // Sanity cookies. Keep ordinary Studio sessions on the default dual login.
-  auth: { loginMethod: typeof window !== "undefined" && /^\/studio\/iphone(?:\/|$)/.test(window.location.pathname) ? "token" : "dual" },
+  auth: { loginMethod: normalizeIPhoneToolPath() ? "token" : "dual" },
   tools: [{
     name: "iphone",
     title: "iPhone 上传",
