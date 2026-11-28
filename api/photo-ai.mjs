@@ -49,12 +49,6 @@ function cleanJson(value) {
   return String(value || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
 }
 
-function outputText(response) {
-  if (typeof response.output_text === "string") return response.output_text;
-  const parts = response.output?.flatMap((item) => item.content || []) || [];
-  return parts.find((part) => part.type === "output_text")?.text || "";
-}
-
 function normalize(result) {
   const subjectValues = new Set(subjects.map(([value]) => value));
   const conditionValues = new Set(conditions.map(([value]) => value));
@@ -146,7 +140,35 @@ function modelImageUrl(source) {
   return url.href;
 }
 
-const upstreamBusy = [502, 503, 504];
+const upstreamBusy = [500, 502, 503, 504];
+
+class ModelAttemptError extends Error {
+  constructor(message, reason, { retryable = true } = {}) {
+    super(message);
+    this.reason = reason;
+    this.retryable = retryable;
+  }
+}
+
+function readModelResult(payload) {
+  const output = Array.isArray(payload?.output) ? payload.output : [];
+  const parts = output.flatMap((item) => Array.isArray(item?.content) ? item.content : []);
+  if (parts.some((part) => part?.type === "refusal")) {
+    throw new ModelAttemptError("AI 未能为这张照片生成内容，照片已保存。", "refusal", { retryable: false });
+  }
+  if (payload?.status === "incomplete") {
+    throw new ModelAttemptError("AI 响应中途结束，请稍后重试 AI。", "incomplete-response");
+  }
+
+  const text = typeof payload?.output_text === "string" && payload.output_text.trim()
+    ? payload.output_text
+    : parts.filter((part) => part?.type === "output_text" && typeof part.text === "string").map((part) => part.text).join("");
+  const result = JSON.parse(cleanJson(text));
+  if (typeof result?.title !== "string" || !result.title.trim() || typeof result?.altText !== "string" || !result.altText.trim()) {
+    throw new ModelAttemptError("AI 返回的照片信息不完整，请稍后重试 AI。", "missing-fields");
+  }
+  return normalize(result);
+}
 
 function modelError(status) {
   if (upstreamBusy.includes(status)) return `AI 服务暂时不可用（${status}），请稍后重试 AI。`;
@@ -163,42 +185,63 @@ async function requestModel(endpoint, request) {
 
   for (let attempt = 0; ; attempt += 1) {
     const model = attempt === 0 ? request.model : retryModel;
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ ...request, model }),
-      signal: AbortSignal.timeout(20_000),
-      redirect: "error",
-    }).catch(() => undefined);
-
-    if (attempt === 0 && (!response || upstreamBusy.includes(response.status))) {
-      await response?.body?.cancel().catch(() => undefined);
+    const signal = AbortSignal.timeout(20_000);
+    const started = Date.now();
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ...request, model }),
+        signal,
+        redirect: "error",
+      });
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new ModelAttemptError(modelError(response.status), "http", { retryable: upstreamBusy.includes(response.status) });
+      }
+      return { ...readModelResult(await response.json()), model };
+    } catch (error) {
+      const failure = error instanceof ModelAttemptError ? error
+        : signal.aborted || ["AbortError", "TimeoutError"].includes(error?.name)
+          ? new ModelAttemptError("AI 响应超时，请稍后重试 AI。", "timeout")
+          : error instanceof SyntaxError
+            ? new ModelAttemptError("AI 返回的内容无法读取，请稍后重试 AI。", "invalid-json")
+            : new ModelAttemptError("连接 AI 服务失败，请稍后重试 AI。", "connection");
+      failure.model = model;
+      const requestId = response?.headers.get("x-request-id");
+      console.warn("Photo AI model attempt failed", {
+        model,
+        reason: failure.reason,
+        status: response?.status,
+        durationMs: Date.now() - started,
+        ...(/^(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|req_[a-z0-9]{6,64})$/i.test(requestId ?? "") ? { requestId } : {}),
+      });
+      if (attempt > 0 || !failure.retryable) throw failure;
       await new Promise((resolve) => setTimeout(resolve, 750));
-      continue;
     }
-    if (!response) throw new Error("连接 AI 服务失败，请稍后重试 AI。");
-    if (!response.ok) throw new Error(modelError(response.status));
-    return { payload: await response.json(), model };
   }
 }
 
-async function callModel(photo, prompt, styleExamples, model) {
+async function storyInstructions(prompt) {
+  const examples = await sanityQuery(`*[_type == "story" && isHidden != true && defined(body) && (!defined(publishedAt) || dateTime(publishedAt) <= dateTime(now()))] | order(publishedAt desc)[0...3]{title,excerpt,"body":body[0...3]}`).catch(() => []);
+  const style = (examples ?? []).map((story) => {
+    const body = (story.body || []).map((block) => block.children?.map((child) => child.text || "").join("") || "").join("\n");
+    return [story.title, story.excerpt, body].filter(Boolean).join("\n").slice(0, 600);
+  }).join("\n\n");
+  return `为这张照片写一段第一人称摄影手记。${prompt ? `\n用户补充提示词：${prompt}` : ""}\n\n手记风格参考：\n${style || "使用具体、克制、第一人称的摄影现场记录。"}`;
+}
+
+async function callModel(photo, options, model) {
   const endpoint = env("OPENAI_API_ENDPOINT") || `${env("OPENAI_BASE_URL", "https://api.openai.com").replace(/\/$/, "")}/v1/responses`;
   const locationText = [photo.place, photo.spot].filter(Boolean).join(" / ") || "未知";
-  const styleText = styleExamples.map((story) => `标题：${story.title}\n摘要：${story.excerpt || ""}\n正文：${(story.body || []).map((block) => block.children?.map((child) => child.text || "").join("") || "").join("\n")}`).join("\n\n");
-  const instruction = `你是摄影档案的写作者和分类助手。请直接观察图片，并结合 EXIF 和地点信息，以摄影者第一人称写作。${prompt ? `\n用户补充提示词：${prompt}` : ""}\n\n地点标签用于归档：${locationText}。不要把宽泛地点和具体拍摄点混淆。\n\n主体标签只能使用：${subjects.map(([value, title]) => `${value}（${title}）`).join(", ")}\n时间 / 天气标签只能使用：${conditions.map(([value, title]) => `${value}（${title}）`).join(", ")}\n\n照片文件名：${photo.sourceFilename || "未知"}\n原始标题：${photo.title || "未命名"}\n拍摄日期：${photo.date || "未知"}\nEXIF 地点：${photo.location || "未知"}\n相机：${photo.camera || "未知"}\n镜头：${photo.lens || "未知"}\n光圈：${photo.aperture || "未知"}\n快门：${photo.shutter || "未知"}\nISO：${photo.iso || "未知"}\n焦距：${photo.focalLength || "未知"}\n\n现有手记风格参考：\n${styleText || "使用具体、克制、第一人称的摄影现场记录。"}`;
-  const { payload, model: usedModel } = await requestModel(endpoint, {
+  const storyTask = options.generateStory ? await storyInstructions(options.prompt) : "只填写照片标签、标题及说明。story 必须为 null。";
+  const instruction = `你是摄影档案的分类助手。请直接观察图片，并参考 EXIF 和地点信息。\n\n地点标签用于归档：${locationText}。不要把宽泛地点和具体拍摄点混淆。\n\n主体标签只能使用：${subjects.map(([value, title]) => `${value}（${title}）`).join(", ")}\n时间 / 天气标签只能使用：${conditions.map(([value, title]) => `${value}（${title}）`).join(", ")}\n\n照片文件名：${photo.sourceFilename || "未知"}\n原始标题：${photo.title || "未命名"}\n拍摄日期：${photo.date || "未知"}\nEXIF 地点：${photo.location || "未知"}\n相机：${photo.camera || "未知"}\n镜头：${photo.lens || "未知"}\n光圈：${photo.aperture || "未知"}\n快门：${photo.shutter || "未知"}\nISO：${photo.iso || "未知"}\n焦距：${photo.focalLength || "未知"}\n\n${storyTask}`;
+  return requestModel(endpoint, {
     model,
     input: [{ role: "user", content: [{ type: "input_text", text: instruction }, { type: "input_image", image_url: modelImageUrl(photo.imageUrl), detail: "low" }] }],
     text: { format: { type: "json_schema", name: "photo_ai_result", strict: true, schema: responseSchema } },
   });
-  try {
-    const result = normalize(JSON.parse(cleanJson(outputText(payload))));
-    if (result.title && result.altText) return { ...result, model: usedModel };
-  } catch {
-    // Malformed model replies are retriable without affecting the imported photo.
-  }
-  throw new Error("AI 返回的照片信息不完整，请稍后重试 AI。");
 }
 
 async function processPhoto(photo, options) {
@@ -212,7 +255,7 @@ async function processPhoto(photo, options) {
     throw error;
   }
   try {
-    const result = await callModel(photo, options.prompt, options.styleExamples, model);
+    const result = await callModel(photo, options, model);
     const existingSubjects = Array.isArray(photo.subjects) ? photo.subjects : [];
     const existingConditions = Array.isArray(photo.conditions) ? photo.conditions : [];
     const nextSubjects = [...new Set([...existingSubjects, ...result.subjects.map((item) => item.value)])].slice(0, 5);
@@ -239,7 +282,7 @@ async function processPhoto(photo, options) {
   } catch (error) {
     const message = error instanceof SyntaxError ? "AI 返回的内容无法读取，请重试 AI。"
       : error instanceof Error ? error.message : "AI 处理失败，请稍后重试 AI。";
-    await sanityRequest(mutationPath, { method: "POST", body: JSON.stringify({ mutations: [{ patch: { id: photo._id, set: { aiClassification: { ...task, status: "error", error: message, processedAt: new Date().toISOString() } } } }] }) });
+    await sanityRequest(mutationPath, { method: "POST", body: JSON.stringify({ mutations: [{ patch: { id: photo._id, set: { aiClassification: { ...task, model: error instanceof ModelAttemptError ? error.model : model, status: "error", error: message, processedAt: new Date().toISOString() } } } }] }) });
     return { id: photo._id, status: "error", error: message };
   }
 }
@@ -258,8 +301,7 @@ export default async function handler(req, res) {
     const query = `${pick}{_id,_rev,title,sourceFilename,subjects,conditions,altText,date,location,camera,lens,aperture,shutter,iso,focalLength,"imageUrl": image.asset->url,"place": place->title,spot,aiClassification}`;
     const photo = await sanityQuery(query, photoId ? { id: photoId } : {});
     if (!photo) return json(res, 200, { status: "empty" });
-    const styleExamples = await sanityQuery(`*[_type == "story" && defined(body)] | order(publishedAt desc)[0...3]{title,excerpt,body}`) || [];
-    const result = await processPhoto(photo, { dataset, prompt: photo.aiClassification?.prompt || "", generateStory: photo.aiClassification?.generateStory === true, styleExamples });
+    const result = await processPhoto(photo, { dataset, prompt: photo.aiClassification?.prompt || "", generateStory: photo.aiClassification?.generateStory === true });
     return json(res, 200, result);
   } catch (error) {
     return json(res, 500, { error: error instanceof Error ? error.message : String(error) });
