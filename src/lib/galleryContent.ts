@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { initialHeroPhoto as staticHeroPhoto, photos as staticPhotos, type Photo } from "../data/photos";
 import {
   aboutData as staticAboutData,
@@ -24,6 +24,7 @@ import {
 import type { HomepageLayout } from "./homepageLayout";
 import type { PhotobalconyLayout } from "./photobalconyLayout";
 import { fetchCms, fetchPreloadedCms, isSanityConfigured } from "./sanity";
+import { isStudioPreview, type StudioPreview } from "./studioPreview";
 
 export type GalleryContent = {
   photos: Photo[];
@@ -64,6 +65,7 @@ const LEGACY_CMS_CONTENT_CACHE_KEYS = [
 function shouldUseRemoteImages() {
   return (
     import.meta.env.PROD ||
+    isStudioPreview ||
     import.meta.env.VITE_SANITY_REMOTE_ONLY === "true" ||
     (typeof window !== "undefined" && (() => {
       const params = new URLSearchParams(window.location.search);
@@ -441,6 +443,14 @@ function toPhotobalconyLayout(
   };
 }
 
+export type CmsGalleryDocuments = {
+  photos: CmsPhoto[];
+  stories: CmsStory[];
+  siteSettings: CmsSiteSettings | null;
+  homepageLayout: CmsHomepageLayout | null;
+  photobalconyLayout: CmsPhotobalconyLayout | null;
+};
+
 async function loadCmsContent(onPublishedHero?: (photo: Photo | undefined) => void): Promise<GalleryContent> {
   const siteSettings = onPublishedHero
     ? fetchPreloadedCms<CmsSiteSettings | null>(cmsSiteSettingsQuery).then(
@@ -454,7 +464,7 @@ async function loadCmsContent(onPublishedHero?: (photo: Photo | undefined) => vo
         },
       )
     : fetchCms<CmsSiteSettings | null>(cmsSiteSettingsQuery);
-  const [cmsPhotos, cmsStories, cmsSiteSettings, cmsHomepageLayout, cmsPhotobalconyLayout] = await Promise.all([
+  const [photos, stories, settings, homepageLayout, photobalconyLayout] = await Promise.all([
     fetchCms<CmsPhoto[]>(cmsPhotosQuery),
     fetchCms<CmsStory[]>(cmsStoriesQuery),
     siteSettings,
@@ -462,6 +472,20 @@ async function loadCmsContent(onPublishedHero?: (photo: Photo | undefined) => vo
     fetchCms<CmsPhotobalconyLayout | null>(cmsPhotobalconyLayoutQuery),
   ]);
 
+  const content = toGalleryContent({ photos, stories, siteSettings: settings, homepageLayout, photobalconyLayout });
+  if (content.photos.length === 0) {
+    throw new Error("Sanity returned no publishable photos");
+  }
+  return content;
+}
+
+function toGalleryContent({
+  photos: cmsPhotos,
+  stories: cmsStories,
+  siteSettings: cmsSiteSettings,
+  homepageLayout: cmsHomepageLayout,
+  photobalconyLayout: cmsPhotobalconyLayout,
+}: CmsGalleryDocuments): GalleryContent {
   const cmsPhotoEntries = cmsPhotos.map(toPhoto).filter((photo): photo is Photo => photo !== null);
   const harborFallbackPhoto = staticPhotos.find((photo) => photo.filename === "DSC_5026.JPG");
   const needsHarborFallback =
@@ -476,10 +500,6 @@ async function loadCmsContent(onPublishedHero?: (photo: Photo | undefined) => vo
     photos.find((photo) => photo.id === cmsSiteSettings?.heroPhoto?.id) ??
     toReferencedPhoto(cmsSiteSettings?.heroPhoto) ??
     photos.find((photo) => photo.isHero);
-
-  if (photos.length === 0) {
-    throw new Error("Sanity returned no publishable photos");
-  }
 
   return {
     photos,
@@ -552,16 +572,27 @@ function writeCachedCmsContent(content: GalleryContent) {
   }
 }
 
-export function useGalleryContent({ useCacheInDevelopment = false, loadPublishedHeroEarly = false } = {}) {
-  const [loadHeroOnMount] = useState(loadPublishedHeroEarly);
+export function useGalleryContent({
+  useCacheInDevelopment = false,
+  loadPublishedHeroEarly = false,
+  studioPreview,
+}: {
+  useCacheInDevelopment?: boolean;
+  loadPublishedHeroEarly?: boolean;
+  studioPreview?: StudioPreview;
+} = {}) {
+  const useStudioDocuments = studioPreview !== undefined;
+  const [loadHeroOnMount] = useState(loadPublishedHeroEarly && !useStudioDocuments);
   const [content, setContent] = useState<GalleryContent>(() => ({
-    ...(isSanityConfigured() ? (readCachedCmsContent(useCacheInDevelopment) ?? staticContent) : staticContent),
+    ...(!useStudioDocuments && isSanityConfigured()
+      ? readCachedCmsContent(useCacheInDevelopment) ?? staticContent
+      : staticContent),
     isLoading: isSanityConfigured(),
   }));
   const [publishedHero, setPublishedHero] = useState<{ photo?: Photo }>();
 
   useEffect(() => {
-    if (!isSanityConfigured()) {
+    if (useStudioDocuments || !isSanityConfigured()) {
       return;
     }
 
@@ -591,10 +622,16 @@ export function useGalleryContent({ useCacheInDevelopment = false, loadPublished
     return () => {
       isMounted = false;
     };
-  }, [loadHeroOnMount]);
+  }, [loadHeroOnMount, useStudioDocuments]);
+
+  const previewContent = useMemo(() => {
+    if (!studioPreview) return undefined;
+    if (studioPreview.documents) return toGalleryContent(studioPreview.documents);
+    return { ...staticContent, isLoading: !studioPreview.error, error: studioPreview.error };
+  }, [studioPreview]);
 
   return {
-    content,
+    content: previewContent ?? content,
     publishedHeroPhoto: publishedHero?.photo,
     isPublishedHeroLoading: loadHeroOnMount && isSanityConfigured() && publishedHero === undefined,
   };

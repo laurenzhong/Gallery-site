@@ -5,6 +5,7 @@ import { toReferencedPhoto } from "./galleryContent";
 import type { HomepageLayout } from "./homepageLayout";
 import { adaptPageContent, type PageContentAdapterResult } from "./pageContentAdapter";
 import { fetchPreloadedCms, isSanityConfigured } from "./sanity";
+import type { StudioPreview } from "./studioPreview";
 
 export type PageContentPreviewState = {
   pages: Partial<Record<"home" | "photobalcony", PageContentAdapterResult>>;
@@ -69,8 +70,8 @@ function getPublishedHomeGallery(home: CmsPageContent) {
   return layout?.sections?.length ? { photos, layout } : undefined;
 }
 
-export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageContentPreviewState {
-  const shouldFetch = enabled && isSanityConfigured();
+export function usePageContentPreview(enabled: boolean, photos: Photo[], studioPreview?: StudioPreview): PageContentPreviewState {
+  const shouldFetch = enabled && !studioPreview && isSanityConfigured();
   const [result, setResult] = useState<{ documents?: CmsPageContent[]; error?: string }>();
 
   useEffect(() => {
@@ -97,10 +98,10 @@ export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageCo
     };
   }, [shouldFetch]);
 
-  const documents = result?.documents;
-  const error = result?.error;
+  const documents = studioPreview ? studioPreview.documents?.pageContent : result?.documents;
+  const error = studioPreview ? studioPreview.error : result?.error;
   return useMemo(() => {
-    if (!shouldFetch) return emptyState;
+    if (!enabled || !isSanityConfigured()) return emptyState;
     if (!documents) {
       return error === undefined ? { pages: {}, isLoading: true } : { ...emptyState, error };
     }
@@ -109,6 +110,7 @@ export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageCo
     for (const document of documents) {
       pages[document.pageKey] = adaptPageContent(document, photos);
     }
+    if (studioPreview) return { ...emptyState, pages };
     const home = documents.findLast((document) => document.pageKey === "home");
     return {
       pages,
@@ -116,5 +118,5 @@ export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageCo
       publishedHomeGallery: home ? getPublishedHomeGallery(home) : undefined,
       isLoading: false,
     };
-  }, [shouldFetch, documents, error, photos]);
+  }, [enabled, documents, error, photos, studioPreview]);
 }

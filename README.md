@@ -143,7 +143,9 @@ must fail instead of using that fallback.
 
 Sanity Studio includes a `网站预览` Presentation tool. Set
 `SANITY_STUDIO_PREVIEW_URL` to the public or local frontend URL before running
-the Studio build. The preview opens the same `?preview=1` visual review mode.
+the Studio build if it differs from the production URL. Open `网站预览` while
+signed in to Studio to see saved drafts with the same site layout. Changes
+update in the preview as Studio saves them.
 
 Photos now support alt text, captions, and credit fields. Public stories must
 have a cover photo, and Portable Text body images, links, and basic marks are

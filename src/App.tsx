@@ -10,6 +10,7 @@ import { useGalleryContent } from "./lib/galleryContent";
 import { imageSrcSet, sizedImageUrl } from "./lib/imageUrl";
 import { usePageContentPreview } from "./lib/pageContentPreview";
 import { matchesPhotoSlug, matchesStorySlug, photoPath } from "./lib/routes";
+import { isStudioPreview, useStudioPreview } from "./lib/studioPreview";
 
 const About = lazy(() => import("./components/About").then((module) => ({ default: module.About })));
 const AgarunAtlasExperiment = lazy(() => import("./components/AgarunAtlasExperiment").then((module) => ({ default: module.AgarunAtlasExperiment })));
@@ -57,9 +58,20 @@ function App() {
   const pathname = currentPath;
   const isBalconyPage = pathname === "/photobalcony";
   const isPhotographyPage = pathname === "/" || pathname === "/photography";
+  const searchParams = new URLSearchParams(window.location.search);
+  const showPreview = !isStudioPreview && searchParams.has("preview");
+  const pageContentMode = import.meta.env.VITE_PAGE_CONTENT_MODE ?? "stable";
+  const pageContentQuery = searchParams.get("page-content-preview");
+  const showPageContentPreview =
+    pageContentMode === "preview" ||
+    pageContentMode === "production" ||
+    pageContentQuery === "1" ||
+    pageContentQuery === "true";
+  const studioPreview = useStudioPreview(showPageContentPreview);
   const { content, publishedHeroPhoto, isPublishedHeroLoading } = useGalleryContent({
     useCacheInDevelopment: pathname === "/about",
     loadPublishedHeroEarly: isPhotographyPage,
+    studioPreview,
   });
   const { photos, photoMeta, photoStories, aboutData, homepageLayout, photobalconyLayout } = content;
   const isLongGalleryPage = isPhotographyPage || isBalconyPage;
@@ -87,15 +99,7 @@ function App() {
   const isGpxTrailDemoPage = pathname === "/experiments/trail-route-gpx-demo";
   const photoRouteSlug = pathname.startsWith("/photos/") ? decodeURIComponent(pathname.slice("/photos/".length)) : "";
   const storyRouteSlug = pathname.startsWith("/stories/") ? decodeURIComponent(pathname.slice("/stories/".length)) : "";
-  const showPreview = new URLSearchParams(window.location.search).has("preview");
-  const pageContentMode = import.meta.env.VITE_PAGE_CONTENT_MODE ?? "stable";
-  const pageContentQuery = new URLSearchParams(window.location.search).get("page-content-preview");
-  const showPageContentPreview =
-    pageContentMode === "preview" ||
-    pageContentMode === "production" ||
-    pageContentQuery === "1" ||
-    pageContentQuery === "true";
-  const pageContentPreview = usePageContentPreview(showPageContentPreview, photos);
+  const pageContentPreview = usePageContentPreview(showPageContentPreview, photos, studioPreview);
   const previewHome = pageContentPreview.pages.home;
   const previewBalcony = pageContentPreview.pages.photobalcony;
   const isPhotographyLoading = content.isLoading || pageContentPreview.isLoading;
@@ -312,7 +316,7 @@ function App() {
 
   return (
     <>
-      {showPreview && (
+      {(showPreview || isStudioPreview) && (
         <Suspense fallback={null}>
           <VisualEditingBridge enabled />
         </Suspense>
@@ -323,11 +327,15 @@ function App() {
         scrollWithPage={isJournalPage || isArchivePage ? "always" : isLongGalleryPage ? "mobile" : undefined}
       />
 
-      {!isAboutPage && <CmsSourceBadge content={content} />}
+      {!isAboutPage && !isStudioPreview && <CmsSourceBadge content={content} />}
 
       <main className={isPhotographyPage && isPhotographyGalleryLoading ? "photography-loading" : undefined}>
         <Suspense fallback={<p className="site-route-loading" role="status">Loading…</p>}>
-          {activeStory ? (
+          {studioPreview && !studioPreview.documents ? (
+            <p className="site-route-loading" role={studioPreview.error ? "alert" : "status"}>
+              {studioPreview.error ?? "正在读取 CMS 预览…"}
+            </p>
+          ) : activeStory ? (
             <StoryDetail photo={activeStory.photo} story={activeStory.story} />
           ) : photoRouteSlug && activePhoto ? (
             <>

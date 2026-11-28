@@ -26,7 +26,7 @@ export default defineConfig({
     visionTool(),
     presentationTool({
       title: "网站预览",
-      previewUrl: { initial: `${previewOrigin.replace(/\/$/, "")}/?preview=1` },
+      previewUrl: { initial: `${previewOrigin.replace(/\/$/, "")}/?studio-preview=1` },
     }),
   ],
   schema: {
