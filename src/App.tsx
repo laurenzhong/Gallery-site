@@ -331,6 +331,10 @@ function App() {
               ? "Interaction lab | Queenstown.top"
               : SITE_TITLE;
     document.title = pageTitle;
+    const shareUrl = new URL(displayedPhoto ? photoPath(displayedPhoto) : pathname, window.location.origin).href;
+    setMeta("og:url", shareUrl, "property");
+    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (canonical) canonical.href = shareUrl;
     setMeta("description", description);
     setMeta("og:title", pageTitle, "property");
     setMeta("og:description", description, "property");
