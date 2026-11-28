@@ -927,6 +927,16 @@ main:has(> .journal-page) {
   }
 }
 
+.gallery-rail-stage--active {
+  overflow-anchor: none;
+  min-height: calc(var(--gallery-frame-height) + min(92svh, var(--gallery-horizontal-distance)) * var(--gallery-scroll-range));
+}
+
+.gallery-rail-stage--active > .gallery-rail-stage-frame {
+  position: sticky;
+  top: clamp(0px, 30svh, calc(100svh - var(--gallery-frame-height)));
+}
+
 .gallery-rail--mixed {
   height: clamp(420px, 48vw, 640px);
   padding: 0 clamp(36px, 8vw, 120px) 38px;

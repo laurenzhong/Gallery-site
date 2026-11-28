@@ -1,8 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { Photo } from "../data/photos";
 import { enableVerticalGalleryScroll } from "../lib/galleryRailScroll";
 import type { HomepageContentSection, HomepageLayout } from "../lib/homepageLayout";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
+import { enableMobileGalleryScroll, mobileGalleryScrollQuery } from "../lib/mobileGalleryScroll";
 import { LandscapeSection } from "./LandscapeSection";
 
 type GallerySectionsProps = {
@@ -57,22 +59,44 @@ function GalleryRail({
   onOpen,
   showTitle = true,
   scrollWithVerticalInput = false,
+  followingBanner,
 }: {
   group: PhotoGroup;
   allPhotos: Photo[];
   onOpen: (index: number, lightboxPhotos?: Photo[]) => void;
   showTitle?: boolean;
   scrollWithVerticalInput?: boolean;
+  followingBanner?: ReactNode;
 }) {
   const railRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [preloadPhotos, setPreloadPhotos] = useState(false);
 
   useEffect(() => {
-    if (scrollWithVerticalInput && railRef.current) {
-      return enableVerticalGalleryScroll(railRef.current);
-    }
-  }, [scrollWithVerticalInput]);
+    const rail = railRef.current;
+    const stage = stageRef.current;
+    const frame = frameRef.current;
+    if (!scrollWithVerticalInput || !rail || !stage || !frame) return;
 
-  return (
+    const mobileScroll = window.matchMedia(mobileGalleryScrollQuery);
+    let disableScroll: (() => void) | undefined;
+    const attachScroll = () => {
+      disableScroll?.();
+      disableScroll = mobileScroll.matches
+        ? enableMobileGalleryScroll(stage, frame, rail, () => setPreloadPhotos(true))
+        : enableVerticalGalleryScroll(rail);
+    };
+
+    attachScroll();
+    mobileScroll.addEventListener("change", attachScroll);
+    return () => {
+      mobileScroll.removeEventListener("change", attachScroll);
+      disableScroll?.();
+    };
+  }, [scrollWithVerticalInput, group.photos.length]);
+
+  const gallery = (
     <section
       className="collection-section"
       id={group.id}
@@ -102,7 +126,8 @@ function GalleryRail({
               srcSet={imageSrcSet(photo.src, group.variant === "square" ? [420, 720, 960] : [640, 980, 1320])}
               sizes={group.variant === "square" ? "(max-width: 640px) 48vw, 25vw" : "(max-width: 640px) 82vw, 34vw"}
               alt={`${photo.category} ${photo.title}`}
-              loading="lazy"
+              loading={preloadPhotos ? "eager" : "lazy"}
+              fetchPriority={preloadPhotos ? "low" : undefined}
               decoding="async"
             />
           </button>
@@ -110,6 +135,15 @@ function GalleryRail({
       </div>
     </section>
   );
+
+  return scrollWithVerticalInput ? (
+    <div className="gallery-rail-stage" ref={stageRef}>
+      <div className="gallery-rail-stage-frame" ref={frameRef}>
+        {gallery}
+        {followingBanner}
+      </div>
+    </div>
+  ) : gallery;
 }
 
 function BannerImage({
@@ -293,6 +327,32 @@ function FeatureCardImage({ photo, title }: { photo: Photo; title: string }) {
   );
 }
 
+function isQuietRail(section: HomepageContentSection | undefined) {
+  return section?.kind === "gallery" && section.presentation === "squareRail" && section.slotKey === "quiet";
+}
+
+function HomepageBanner({ section, photos, onOpen }: {
+  section: Extract<HomepageContentSection, { kind: "banner" }>;
+  photos: Photo[];
+  onOpen: GallerySectionsProps["onOpen"];
+}) {
+  if (section.slotKey === "harbor") {
+    return (
+      <section className="plants-reference" id={section.id} aria-label={`${section.title ?? "Harbor"} gallery`}>
+        <SectionTitle title={section.title} />
+        <ReferencePhoto photo={section.photo} allPhotos={photos} onOpen={onOpen} className="plants-reference-banner" />
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label={section.title ?? "Banner"}>
+      <SectionTitle title={section.title} />
+      <BannerImage photo={section.photo} allPhotos={photos} onOpen={onOpen} />
+    </section>
+  );
+}
+
 function OrderedHomepageSections({
   sections,
   photos,
@@ -305,7 +365,7 @@ function OrderedHomepageSections({
   const firstCarousel = sections.find((section) => section.kind === "gallery" && section.presentation === "landscapeCarousel");
   return (
     <section className="reference-content" id="photography" aria-label="Photography archive">
-      {sections.map((section) => {
+      {sections.map((section, index) => {
         if (section.kind === "featureCards") {
           return (
             <div className="feature-grid" aria-label={section.title ?? "Featured photography groups"} key={section.id}>
@@ -332,26 +392,8 @@ function OrderedHomepageSections({
         }
 
         if (section.kind === "banner") {
-          if (section.slotKey === "harbor") {
-            return (
-              <section className="plants-reference" id={section.id} key={section.id} aria-label={`${section.title ?? "Harbor"} gallery`}>
-                <SectionTitle title={section.title} />
-                <ReferencePhoto
-                  photo={section.photo}
-                  allPhotos={photos}
-                  onOpen={onOpen}
-                  className="plants-reference-banner"
-                />
-              </section>
-            );
-          }
-
-          return (
-            <section key={section.id} aria-label={section.title ?? "Banner"}>
-              <SectionTitle title={section.title} />
-              <BannerImage photo={section.photo} allPhotos={photos} onOpen={onOpen} />
-            </section>
-          );
+          if (section.slotKey === "bannerOne" && isQuietRail(sections[index - 1])) return null;
+          return <HomepageBanner section={section} photos={photos} onOpen={onOpen} key={section.id} />;
         }
 
         if (section.presentation === "landscapeCarousel") {
@@ -370,16 +412,22 @@ function OrderedHomepageSections({
         }
 
         if (section.presentation === "squareRail") {
+          const pinnedOnMobile = isQuietRail(section);
+          const next = sections[index + 1];
+          const followingBanner = pinnedOnMobile && next?.kind === "banner" && next.slotKey === "bannerOne"
+            ? <HomepageBanner section={next} photos={photos} onOpen={onOpen} />
+            : undefined;
+
           return (
-            <div key={section.id}>
-              <GalleryRail
-                group={{ id: section.id, title: section.title ?? "Gallery", photos: section.photos, variant: "square" }}
-                allPhotos={photos}
-                onOpen={onOpen}
-                showTitle={false}
-                scrollWithVerticalInput={section.slotKey === "quiet"}
-              />
-            </div>
+            <GalleryRail
+              key={section.id}
+              group={{ id: section.id, title: section.title ?? "Gallery", photos: section.photos, variant: "square" }}
+              allPhotos={photos}
+              onOpen={onOpen}
+              showTitle={false}
+              scrollWithVerticalInput={pinnedOnMobile}
+              followingBanner={followingBanner}
+            />
           );
         }
 
@@ -561,8 +609,14 @@ export function GallerySections({ photos, homepageLayout, onOpen }: GallerySecti
         prioritizeFirst
         onOpen={(photo, carouselPhotos) => onOpen(photoIndex(photos, photo), carouselPhotos)}
       />
-      <GalleryRail group={groups[1]} allPhotos={photos} onOpen={onOpen} showTitle={false} scrollWithVerticalInput />
-      <BannerImage photo={bannerOne} allPhotos={photos} onOpen={onOpen} />
+      <GalleryRail
+        group={groups[1]}
+        allPhotos={photos}
+        onOpen={onOpen}
+        showTitle={false}
+        scrollWithVerticalInput
+        followingBanner={<BannerImage photo={bannerOne} allPhotos={photos} onOpen={onOpen} />}
+      />
       <LandscapeSection
         id={groups[2].id}
         title={groups[2].title}
