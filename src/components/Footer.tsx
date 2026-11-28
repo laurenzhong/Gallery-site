@@ -57,6 +57,7 @@ type FooterProps = {
   showPreview?: boolean;
   variant?: "default" | "photo";
   deferPhoto?: boolean;
+  photoPreloadDistance?: number | null;
   floatingBackToTop?: "after-header" | "after-viewport";
 };
 
@@ -65,6 +66,7 @@ export function Footer({
   showPreview = false,
   variant = "default",
   deferPhoto = false,
+  photoPreloadDistance = 0,
   floatingBackToTop,
 }: FooterProps) {
   const footerRef = useRef<HTMLElement>(null);
@@ -89,17 +91,20 @@ export function Footer({
 
   useEffect(() => {
     const footer = footerRef.current;
-    if (!footer || !photoDeferred) return;
+    if (!footer || !photoDeferred || photoPreloadDistance === null) return;
 
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setPhotoInView(true);
-        observer.disconnect();
-      }
-    });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setPhotoInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: `${photoPreloadDistance}px 0px` },
+    );
     observer.observe(footer);
     return () => observer.disconnect();
-  }, [photoDeferred]);
+  }, [photoDeferred, photoPreloadDistance]);
 
   const scrollTop = () => {
     if (floatingBackToTop) {

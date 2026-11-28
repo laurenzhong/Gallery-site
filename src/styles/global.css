@@ -340,6 +340,12 @@ main:has(> .journal-page) {
   margin-top: 0;
 }
 
+.site-route-loading {
+  min-height: calc(100svh - var(--header-h));
+  margin: 0;
+  padding: 20px var(--gutter);
+}
+
 .page-title-band {
   position: relative;
   z-index: 2;

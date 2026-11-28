@@ -1,33 +1,34 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { About } from "./components/About";
 import { AdvancedPhotoLightbox } from "./components/AdvancedPhotoLightbox";
-import { AgarunAtlasExperiment } from "./components/AgarunAtlasExperiment";
-import { BalconyView } from "./components/BalconyView";
 import { CmsSourceBadge } from "./components/CmsSourceBadge";
 import { Footer } from "./components/Footer";
-import { GpxTrailDemoExperiment } from "./components/GpxTrailDemoExperiment";
 import { GallerySections } from "./components/GallerySections";
 import { Header } from "./components/Header";
 import "./components/YearArchive.css";
-import { ExperimentIndex } from "./components/ExperimentIndex";
-import { JourneyMapExperiment } from "./components/JourneyMapExperiment";
-import { LookButNoStoppingExperiment } from "./components/LookButNoStoppingExperiment";
-import { Journal } from "./components/Journal";
-import { MetroExperiment } from "./components/MetroExperiment";
-import { MapHubDemo } from "./components/MapHubDemo";
-import { PhotoMapExperiment } from "./components/PhotoMapExperiment";
-import { PhotographyArchiveExperiment } from "./components/PhotographyArchiveExperiment";
-import { ReferenceArchiveExperiment } from "./components/ReferenceArchiveExperiment";
-import { SashaKurmazExperiment } from "./components/SashaKurmazExperiment";
-import { PhotoStory } from "./components/PhotoStory";
-import { StoryDetail } from "./components/StoryDetail";
-import { TrailRouteExperiment } from "./components/TrailRouteExperiment";
-import { VisualEditingBridge } from "./components/VisualEditingBridge";
 import type { Photo } from "./data/photos";
 import { useGalleryContent } from "./lib/galleryContent";
 import { imageSrcSet, sizedImageUrl } from "./lib/imageUrl";
 import { usePageContentPreview } from "./lib/pageContentPreview";
 import { matchesPhotoSlug, matchesStorySlug, photoPath } from "./lib/routes";
+
+const About = lazy(() => import("./components/About").then((module) => ({ default: module.About })));
+const AgarunAtlasExperiment = lazy(() => import("./components/AgarunAtlasExperiment").then((module) => ({ default: module.AgarunAtlasExperiment })));
+const BalconyView = lazy(() => import("./components/BalconyView").then((module) => ({ default: module.BalconyView })));
+const GpxTrailDemoExperiment = lazy(() => import("./components/GpxTrailDemoExperiment").then((module) => ({ default: module.GpxTrailDemoExperiment })));
+const ExperimentIndex = lazy(() => import("./components/ExperimentIndex").then((module) => ({ default: module.ExperimentIndex })));
+const JourneyMapExperiment = lazy(() => import("./components/JourneyMapExperiment").then((module) => ({ default: module.JourneyMapExperiment })));
+const LookButNoStoppingExperiment = lazy(() => import("./components/LookButNoStoppingExperiment").then((module) => ({ default: module.LookButNoStoppingExperiment })));
+const Journal = lazy(() => import("./components/Journal").then((module) => ({ default: module.Journal })));
+const MetroExperiment = lazy(() => import("./components/MetroExperiment").then((module) => ({ default: module.MetroExperiment })));
+const MapHubDemo = lazy(() => import("./components/MapHubDemo").then((module) => ({ default: module.MapHubDemo })));
+const PhotoMapExperiment = lazy(() => import("./components/PhotoMapExperiment").then((module) => ({ default: module.PhotoMapExperiment })));
+const PhotographyArchiveExperiment = lazy(() => import("./components/PhotographyArchiveExperiment").then((module) => ({ default: module.PhotographyArchiveExperiment })));
+const ReferenceArchiveExperiment = lazy(() => import("./components/ReferenceArchiveExperiment").then((module) => ({ default: module.ReferenceArchiveExperiment })));
+const SashaKurmazExperiment = lazy(() => import("./components/SashaKurmazExperiment").then((module) => ({ default: module.SashaKurmazExperiment })));
+const PhotoStory = lazy(() => import("./components/PhotoStory").then((module) => ({ default: module.PhotoStory })));
+const StoryDetail = lazy(() => import("./components/StoryDetail").then((module) => ({ default: module.StoryDetail })));
+const TrailRouteExperiment = lazy(() => import("./components/TrailRouteExperiment").then((module) => ({ default: module.TrailRouteExperiment })));
+const VisualEditingBridge = lazy(() => import("./components/VisualEditingBridge").then((module) => ({ default: module.VisualEditingBridge })));
 
 const PhotoMapMapLibreExperiment = lazy(() =>
   import("./components/PhotoMapMapLibreExperiment").then((module) => ({ default: module.PhotoMapMapLibreExperiment })),
@@ -311,7 +312,11 @@ function App() {
 
   return (
     <>
-      <VisualEditingBridge enabled={showPreview} />
+      {showPreview && (
+        <Suspense fallback={null}>
+          <VisualEditingBridge enabled />
+        </Suspense>
+      )}
       <Header
         pageTitle={isAboutPage ? "About" : isJournalPage ? "Stories" : isYearArchivePage ? <>Photo <em>archive</em></> : undefined}
         pageTitleClassName={isAboutPage || isJournalPage ? "site-header-page-title" : undefined}
@@ -321,166 +326,169 @@ function App() {
       {!isAboutPage && <CmsSourceBadge content={content} />}
 
       <main className={isPhotographyPage && isPhotographyGalleryLoading ? "photography-loading" : undefined}>
-        {activeStory ? (
-          <StoryDetail photo={activeStory.photo} story={activeStory.story} />
-        ) : photoRouteSlug && activePhoto ? (
-          <>
-            <section className="page-title-band" id="top" aria-labelledby="page-title">
-              <h1 id="page-title">Photography</h1>
-            </section>
+        <Suspense fallback={<p className="site-route-loading" role="status">Loading…</p>}>
+          {activeStory ? (
+            <StoryDetail photo={activeStory.photo} story={activeStory.story} />
+          ) : photoRouteSlug && activePhoto ? (
+            <>
+              <section className="page-title-band" id="top" aria-labelledby="page-title">
+                <h1 id="page-title">Photography</h1>
+              </section>
 
-            <section className="hero" aria-label="Featured photograph">
-              {heroPhoto ? (
-                <img
-                  className="hero-image"
-                  src={sizedImageUrl(heroPhoto.src, 2400, 88)}
-                  srcSet={imageSrcSet(heroPhoto.src, [1400, 2000, 2800], 88)}
-                  sizes="100vw"
-                  width={heroPhoto.width}
-                  height={heroPhoto.height}
-                  alt=""
-                  aria-hidden="true"
-                  loading="eager"
-                  fetchPriority="high"
-                  decoding="async"
-                />
-              ) : null}
-            </section>
+              <section className="hero" aria-label="Featured photograph">
+                {heroPhoto ? (
+                  <img
+                    className="hero-image"
+                    src={sizedImageUrl(heroPhoto.src, 2400, 88)}
+                    srcSet={imageSrcSet(heroPhoto.src, [1400, 2000, 2800], 88)}
+                    sizes="100vw"
+                    width={heroPhoto.width}
+                    height={heroPhoto.height}
+                    alt=""
+                    aria-hidden="true"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
+                  />
+                ) : null}
+              </section>
 
-            <GallerySections
-              photos={photos}
-              homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
-              onOpen={openPhoto}
-            />
-          </>
-        ) : (photoRouteSlug || storyRouteSlug) && content.isLoading ? (
-          <section className="detail-page detail-empty" aria-labelledby="detail-loading-title">
-            <p className="detail-kicker">Loading</p>
-            <h1 id="detail-loading-title">Loading this entry.</h1>
-          </section>
-        ) : photoRouteSlug || storyRouteSlug ? (
-          <section className="detail-page detail-empty" aria-labelledby="detail-empty-title">
-            <p className="detail-kicker">Not Found</p>
-            <h1 id="detail-empty-title">This entry is not available.</h1>
-            <a className="detail-related-link" href="/">
-              <span>Back to Queenstown.top</span>
-              <small>Return to the photography archive</small>
-            </a>
-          </section>
-        ) : isBalconyPage ? (
-          <BalconyView
-            photos={photos}
-            layout={previewBalcony?.photobalconyLayout ?? photobalconyLayout}
-            photoMeta={photoMeta}
-            photoStories={photoStories}
-          />
-        ) : isStoryPage ? (
-          <PhotoStory photos={photos} photoMeta={photoMeta} photoStories={photoStories} aboutData={aboutData} />
-        ) : isAboutPage ? (
-          <About aboutData={aboutData} />
-        ) : isJournalPage ? (
-          <Journal photos={photos} photoStories={photoStories} />
-        ) : isMapPage ? (
-          <MapHubDemo photos={photos} onOpen={openPhoto}
-            publishedDataStatus={content.source === "static" && (content.isLoading || content.error)
-              ? (content.isLoading ? "loading" : "error") : undefined}
-          />
-        ) : isExperimentsPage ? (
-          <ExperimentIndex />
-        ) : isJourneyExperimentPage ? (
-          <JourneyMapExperiment photos={photos} onOpen={openPhoto} />
-        ) : isLookButExperimentPage ? (
-          <LookButNoStoppingExperiment photos={photos} onOpen={openPhoto} />
-        ) : isLookButFvmExperimentPage ? (
-          <LookButNoStoppingExperiment
-            photos={photos}
-            onOpen={openPhoto}
-            mapSrc="/lookbut-map-fvm.svg"
-            mapCredit={{ label: "Map by FreeVectorMaps.com", href: "https://freevectormaps.com/hong-kong/HK-EPS-02-0003" }}
-          />
-        ) : isMetroExperimentPage ? (
-          <MetroExperiment photos={photos} onOpen={openPhoto} />
-        ) : isReferenceArchivePage ? (
-          <ReferenceArchiveExperiment photos={photos} photoStories={photoStories} onOpen={openPhoto} />
-        ) : isPhotographyArchivePage ? (
-          <PhotographyArchiveExperiment photos={photos} photoStories={photoStories} onOpen={openPhoto} />
-        ) : isSashaKurmazPage ? (
-          <SashaKurmazExperiment photos={photos} onOpen={openPhoto} />
-        ) : isYearArchivePage ? (
-          <Suspense fallback={<p className="chronicle-loading" role="status">Loading photo archive…</p>}>
-            <YearArchiveExperiment includeLocal={isLocalArchivePreview} cmsPhotos={content.source === "cms" ? photos : undefined} photoMeta={photoMeta} photoStories={photoStories} />
-          </Suspense>
-        ) : isAgarunAtlasPage ? (
-          <AgarunAtlasExperiment photos={photos} onOpen={openPhoto} />
-        ) : isPhotoMapExperimentPage ? (
-          <PhotoMapExperiment photos={photos} onOpen={openPhoto} />
-        ) : isPhotoMapMapLibrePage ? (
-          <Suspense fallback={<section className="photo-map-experiment-loading" aria-label="Loading MapLibre experiment">Loading MapLibre…</section>}>
-            <PhotoMapMapLibreExperiment photos={photos} onOpen={openPhoto} />
-          </Suspense>
-        ) : isMapRoutePage || isTrailRoutePage ? (
-          <TrailRouteExperiment photos={photos} onOpen={openPhoto} publicStory={isMapRoutePage} />
-        ) : isGpxTrailDemoPage ? (
-          <GpxTrailDemoExperiment photos={photos} onOpen={openPhoto} />
-        ) : isFooterPreviewPage ? (
-          <section className="footer-preview-stage" aria-labelledby="footer-preview-title">
-            <p className="footer-preview-kicker">Design study</p>
-            <h1 id="footer-preview-title">Footer Background</h1>
-          </section>
-        ) : (
-          <>
-            <section className="page-title-band" id="top" aria-labelledby="page-title">
-              <h1 id="page-title">Photography</h1>
-            </section>
-
-            <section className="hero" aria-label="Featured photograph" aria-busy={isPhotographyHeroLoading}>
-              {isPhotographyHeroLoading ? (
-                <div className="hero-image hero-placeholder" aria-hidden="true" />
-              ) : photographyHero ? (
-                <img
-                  className="hero-image"
-                  src={sizedImageUrl(photographyHero.src, 2400, 88)}
-                  srcSet={imageSrcSet(photographyHero.src, PHOTOGRAPHY_HERO_WIDTHS, 88)}
-                  sizes="100vw"
-                  width={photographyHero.width}
-                  height={photographyHero.height}
-                  alt=""
-                  aria-hidden="true"
-                  loading="eager"
-                  fetchPriority="high"
-                  decoding="async"
-                />
-              ) : null}
-            </section>
-
-            {showPreview && (
-              <a className="story-test-cta" href="/photostory" aria-label="Open photo notes and stories">
-                <span className="story-test-cta-tag">Photo Notes</span>
-                <span className="story-test-cta-text">
-                  Read locations, camera settings, and field notes behind selected photographs.
-                </span>
-                <span className="story-test-cta-arrow" aria-hidden="true">-&gt;</span>
-              </a>
-            )}
-
-            {isPhotographyGalleryLoading ? (
-              <p className="sr-only" role="status">Loading photographs…</p>
-            ) : (
               <GallerySections
-                photos={publishedGallery?.photos ?? photos}
-                homepageLayout={publishedGallery?.layout ?? previewHome?.homepageLayout ?? homepageLayout}
-                onOpen={(index, carouselPhotos) => openPhoto(index, carouselPhotos, publishedGallery?.photos)}
+                photos={photos}
+                homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
+                onOpen={openPhoto}
               />
-            )}
-          </>
-        )}
+            </>
+          ) : (photoRouteSlug || storyRouteSlug) && content.isLoading ? (
+            <section className="detail-page detail-empty" aria-labelledby="detail-loading-title">
+              <p className="detail-kicker">Loading</p>
+              <h1 id="detail-loading-title">Loading this entry.</h1>
+            </section>
+          ) : photoRouteSlug || storyRouteSlug ? (
+            <section className="detail-page detail-empty" aria-labelledby="detail-empty-title">
+              <p className="detail-kicker">Not Found</p>
+              <h1 id="detail-empty-title">This entry is not available.</h1>
+              <a className="detail-related-link" href="/">
+                <span>Back to Queenstown.top</span>
+                <small>Return to the photography archive</small>
+              </a>
+            </section>
+          ) : isBalconyPage ? (
+            <BalconyView
+              photos={photos}
+              layout={previewBalcony?.photobalconyLayout ?? photobalconyLayout}
+              photoMeta={photoMeta}
+              photoStories={photoStories}
+            />
+          ) : isStoryPage ? (
+            <PhotoStory photos={photos} photoMeta={photoMeta} photoStories={photoStories} aboutData={aboutData} />
+          ) : isAboutPage ? (
+            <About aboutData={aboutData} />
+          ) : isJournalPage ? (
+            <Journal photos={photos} photoStories={photoStories} />
+          ) : isMapPage ? (
+            <MapHubDemo photos={photos} onOpen={openPhoto}
+              publishedDataStatus={content.source === "static" && (content.isLoading || content.error)
+                ? (content.isLoading ? "loading" : "error") : undefined}
+            />
+          ) : isExperimentsPage ? (
+            <ExperimentIndex />
+          ) : isJourneyExperimentPage ? (
+            <JourneyMapExperiment photos={photos} onOpen={openPhoto} />
+          ) : isLookButExperimentPage ? (
+            <LookButNoStoppingExperiment photos={photos} onOpen={openPhoto} />
+          ) : isLookButFvmExperimentPage ? (
+            <LookButNoStoppingExperiment
+              photos={photos}
+              onOpen={openPhoto}
+              mapSrc="/lookbut-map-fvm.svg"
+              mapCredit={{ label: "Map by FreeVectorMaps.com", href: "https://freevectormaps.com/hong-kong/HK-EPS-02-0003" }}
+            />
+          ) : isMetroExperimentPage ? (
+            <MetroExperiment photos={photos} onOpen={openPhoto} />
+          ) : isReferenceArchivePage ? (
+            <ReferenceArchiveExperiment photos={photos} photoStories={photoStories} onOpen={openPhoto} />
+          ) : isPhotographyArchivePage ? (
+            <PhotographyArchiveExperiment photos={photos} photoStories={photoStories} onOpen={openPhoto} />
+          ) : isSashaKurmazPage ? (
+            <SashaKurmazExperiment photos={photos} onOpen={openPhoto} />
+          ) : isYearArchivePage ? (
+            <Suspense fallback={<p className="chronicle-loading" role="status">Loading photo archive…</p>}>
+              <YearArchiveExperiment includeLocal={isLocalArchivePreview} cmsPhotos={content.source === "cms" ? photos : undefined} photoMeta={photoMeta} photoStories={photoStories} />
+            </Suspense>
+          ) : isAgarunAtlasPage ? (
+            <AgarunAtlasExperiment photos={photos} onOpen={openPhoto} />
+          ) : isPhotoMapExperimentPage ? (
+            <PhotoMapExperiment photos={photos} onOpen={openPhoto} />
+          ) : isPhotoMapMapLibrePage ? (
+            <Suspense fallback={<section className="photo-map-experiment-loading" aria-label="Loading MapLibre experiment">Loading MapLibre…</section>}>
+              <PhotoMapMapLibreExperiment photos={photos} onOpen={openPhoto} />
+            </Suspense>
+          ) : isMapRoutePage || isTrailRoutePage ? (
+            <TrailRouteExperiment photos={photos} onOpen={openPhoto} publicStory={isMapRoutePage} />
+          ) : isGpxTrailDemoPage ? (
+            <GpxTrailDemoExperiment photos={photos} onOpen={openPhoto} />
+          ) : isFooterPreviewPage ? (
+            <section className="footer-preview-stage" aria-labelledby="footer-preview-title">
+              <p className="footer-preview-kicker">Design study</p>
+              <h1 id="footer-preview-title">Footer Background</h1>
+            </section>
+          ) : (
+            <>
+              <section className="page-title-band" id="top" aria-labelledby="page-title">
+                <h1 id="page-title">Photography</h1>
+              </section>
+
+              <section className="hero" aria-label="Featured photograph" aria-busy={isPhotographyHeroLoading}>
+                {isPhotographyHeroLoading ? (
+                  <div className="hero-image hero-placeholder" aria-hidden="true" />
+                ) : photographyHero ? (
+                  <img
+                    className="hero-image"
+                    src={sizedImageUrl(photographyHero.src, 2400, 88)}
+                    srcSet={imageSrcSet(photographyHero.src, PHOTOGRAPHY_HERO_WIDTHS, 88)}
+                    sizes="100vw"
+                    width={photographyHero.width}
+                    height={photographyHero.height}
+                    alt=""
+                    aria-hidden="true"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
+                  />
+                ) : null}
+              </section>
+
+              {showPreview && (
+                <a className="story-test-cta" href="/photostory" aria-label="Open photo notes and stories">
+                  <span className="story-test-cta-tag">Photo Notes</span>
+                  <span className="story-test-cta-text">
+                    Read locations, camera settings, and field notes behind selected photographs.
+                  </span>
+                  <span className="story-test-cta-arrow" aria-hidden="true">-&gt;</span>
+                </a>
+              )}
+
+              {isPhotographyGalleryLoading ? (
+                <p className="sr-only" role="status">Loading photographs…</p>
+              ) : (
+                <GallerySections
+                  photos={publishedGallery?.photos ?? photos}
+                  homepageLayout={publishedGallery?.layout ?? previewHome?.homepageLayout ?? homepageLayout}
+                  onOpen={(index, carouselPhotos) => openPhoto(index, carouselPhotos, publishedGallery?.photos)}
+                />
+              )}
+            </>
+          )}
+        </Suspense>
       </main>
 
       <Footer
         aboutData={aboutData}
         showPreview={showPreview}
         variant="photo"
-        deferPhoto={isYearArchivePage}
+        deferPhoto={isPhotographyPage || isYearArchivePage}
+        photoPreloadDistance={isPhotographyPage ? (isPhotographyGalleryLoading ? null : 1500) : 0}
         floatingBackToTop={isJournalPage ? "after-header" : isLongGalleryPage || isArchivePage ? "after-viewport" : undefined}
       />
 
