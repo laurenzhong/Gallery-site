@@ -228,7 +228,7 @@ export function PhotoLibraryDashboard() {
 
   const deleteOne = async (photo: PhotoCard) => { setSelectedIds(new Set([photo._id])); if (photo.usageCount > 0) { setError("这张照片仍被相册、页面或手记使用，请先移除引用后再删除。"); return; } if (!window.confirm(`确定删除“${photo.title}”吗？删除后照片文档将无法恢复。`)) return; setIsDeleting(true); setError(undefined); setMessage(undefined); try { await client.delete(photo._id); setMessage(`已删除“${photo.title}”。`); loadPhotos(); } catch (reason) { setError(reason instanceof Error ? reason.message : "删除失败，请稍后重试。"); } finally { setIsDeleting(false); } };
 
-  const retryAi = async (photo: PhotoCard) => { if (photo.aiClassification?.status !== "error") return; setError(undefined); setMessage(undefined); try { await client.patch(photo._id).set({ aiClassification: { ...photo.aiClassification, status: "queued" } }).unset(["aiClassification.error"]).commit(); setMessage(`已重新提交“${photo.title}”的 AI 处理。`); loadPhotos(); } catch (reason) { setError(reason instanceof Error ? reason.message : "重新提交 AI 处理失败，请稍后重试。"); } };
+  const retryAi = async (photo: PhotoCard) => { if (photo.aiClassification?.status !== "error") return; setError(undefined); setMessage(undefined); try { await client.patch(photo._id).set({ "aiClassification.status": "queued" }).unset(["aiClassification.error"]).commit(); setMessage(`已重新提交“${photo.title}”的 AI 处理。`); loadPhotos(); } catch (reason) { setError(reason instanceof Error ? reason.message : "重新提交 AI 处理失败，请稍后重试。"); } };
 
   const busy = isDeleting || isUpdatingVisibility || isUpdatingClassification || isApplyingAi || isUpdatingAlbum;
   return <main style={{ maxWidth: 1180, padding: 24, color: "#1f2937" }}>
