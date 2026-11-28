@@ -1,8 +1,6 @@
-export const mobileGalleryScrollQuery = "(max-width: 960px) and (pointer: coarse) and (prefers-reduced-motion: no-preference)";
-
 const clampProgress = (progress: number) => Math.max(0, Math.min(1, progress));
 
-export function enableMobileGalleryScroll(stage: HTMLElement, frame: HTMLElement, rail: HTMLElement, preloadPhotos: () => void) {
+export function enablePinnedGalleryScroll(stage: HTMLElement, frame: HTMLElement, rail: HTMLElement, preloadPhotos: () => void) {
   let rangeStart = 0;
   let rangeEnd = 1;
   let horizontalDistance = 0;
@@ -29,7 +27,8 @@ export function enableMobileGalleryScroll(stage: HTMLElement, frame: HTMLElement
 
     const pageProgress = clampProgress((window.scrollY - pinStart()) / verticalDistance);
     const left = horizontalDistance * (rangeStart + pageProgress * (rangeEnd - rangeStart));
-    if (Math.abs(rail.scrollLeft - left) < 1.5) return;
+    const atRailEdge = left === 0 || left === horizontalDistance;
+    if (atRailEdge ? rail.scrollLeft === left : Math.abs(rail.scrollLeft - left) < 1.5) return;
 
     rail.scrollLeft = left;
     writtenLeft = rail.scrollLeft;
@@ -57,6 +56,7 @@ export function enableMobileGalleryScroll(stage: HTMLElement, frame: HTMLElement
     stage.classList.toggle("gallery-rail-stage--active", horizontalDistance > 0);
     stage.style.setProperty("--gallery-horizontal-distance", `${horizontalDistance}px`);
     stage.style.setProperty("--gallery-frame-height", `${frame.offsetHeight}px`);
+    stage.style.setProperty("--gallery-rail-height", `${rail.offsetHeight}px`);
     inset = Number.parseFloat(getComputedStyle(frame).top) || 0;
     setRange(rangeStart, rangeEnd);
     scheduleRailUpdate();
@@ -99,11 +99,12 @@ export function enableMobileGalleryScroll(stage: HTMLElement, frame: HTMLElement
   observer.observe(frame);
   observer.observe(rail);
 
+  const preloadScreens = matchMedia("(max-width: 960px) and (pointer: coarse)").matches ? 1.25 : 0.75;
   const preloadObserver = new IntersectionObserver(([entry]) => {
     if (!entry.isIntersecting) return;
     preloadObserver.disconnect();
     preloadPhotos();
-  }, { rootMargin: `${Math.round(window.innerHeight * 1.25)}px 0px` });
+  }, { rootMargin: `${Math.round(window.innerHeight * preloadScreens)}px 0px` });
   preloadObserver.observe(rail);
 
   window.addEventListener("resize", measure);
@@ -121,6 +122,7 @@ export function enableMobileGalleryScroll(stage: HTMLElement, frame: HTMLElement
     stage.classList.remove("gallery-rail-stage--active");
     stage.style.removeProperty("--gallery-horizontal-distance");
     stage.style.removeProperty("--gallery-frame-height");
+    stage.style.removeProperty("--gallery-rail-height");
     stage.style.removeProperty("--gallery-scroll-range");
   };
 }

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Photo } from "../data/photos";
-import { enableVerticalGalleryScroll } from "../lib/galleryRailScroll";
 import type { HomepageContentSection, HomepageLayout } from "../lib/homepageLayout";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
-import { enableMobileGalleryScroll, mobileGalleryScrollQuery } from "../lib/mobileGalleryScroll";
+import { enablePinnedGalleryScroll } from "../lib/pinnedGalleryScroll";
 import { LandscapeSection } from "./LandscapeSection";
 
 type GallerySectionsProps = {
@@ -79,19 +78,19 @@ function GalleryRail({
     const frame = frameRef.current;
     if (!scrollWithVerticalInput || !rail || !stage || !frame) return;
 
-    const mobileScroll = window.matchMedia(mobileGalleryScrollQuery);
+    const motion = window.matchMedia("(prefers-reduced-motion: no-preference)");
     let disableScroll: (() => void) | undefined;
     const attachScroll = () => {
       disableScroll?.();
-      disableScroll = mobileScroll.matches
-        ? enableMobileGalleryScroll(stage, frame, rail, () => setPreloadPhotos(true))
-        : enableVerticalGalleryScroll(rail);
+      disableScroll = motion.matches
+        ? enablePinnedGalleryScroll(stage, frame, rail, () => setPreloadPhotos(true))
+        : undefined;
     };
 
     attachScroll();
-    mobileScroll.addEventListener("change", attachScroll);
+    motion.addEventListener("change", attachScroll);
     return () => {
-      mobileScroll.removeEventListener("change", attachScroll);
+      motion.removeEventListener("change", attachScroll);
       disableScroll?.();
     };
   }, [scrollWithVerticalInput, group.photos.length]);

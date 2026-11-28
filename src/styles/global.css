@@ -928,13 +928,22 @@ main:has(> .journal-page) {
 }
 
 .gallery-rail-stage--active {
+  --gallery-scroll-span: 50svh;
+  --gallery-pin-height: var(--gallery-rail-height);
   overflow-anchor: none;
-  min-height: calc(var(--gallery-frame-height) + min(92svh, var(--gallery-horizontal-distance)) * var(--gallery-scroll-range));
+  min-height: calc(var(--gallery-frame-height) + min(var(--gallery-scroll-span), var(--gallery-horizontal-distance)) * var(--gallery-scroll-range));
 }
 
 .gallery-rail-stage--active > .gallery-rail-stage-frame {
   position: sticky;
-  top: clamp(0px, 30svh, calc(100svh - var(--gallery-frame-height)));
+  top: clamp(0px, 30svh, calc(100svh - var(--gallery-pin-height)));
+}
+
+@media (max-width: 960px) and (pointer: coarse) {
+  .gallery-rail-stage--active {
+    --gallery-scroll-span: 92svh;
+    --gallery-pin-height: var(--gallery-frame-height);
+  }
 }
 
 .gallery-rail--mixed {
