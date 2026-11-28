@@ -1,37 +1,47 @@
-import type { Photo } from "../data/photos";
-import type { CmsPageSection } from "./cmsQueries";
+import type { Photo } from "../data/photos.ts";
+import type { CmsPageSection } from "./cmsQueries.ts";
+
+export const galleryPresentations = {
+  landscapeCarousel: "横向轮播",
+  squareRail: "方形横向滚动",
+  portraitRail: "阳台竖幅照片行",
+  stack: "纵向堆叠",
+  squareGrid: "方格",
+  grid: "阳台双列网格",
+  leadGrid: "阳台首图通栏网格",
+} as const;
+
+export type GalleryPresentation = keyof typeof galleryPresentations;
 
 export type HomepageFeatureCard = {
+  id?: string;
   title: string;
   photo: Photo;
   href?: string;
+  linkLabel?: string;
 };
 
-export type HomepageContentSection =
+export type HomepageContentSection = { id: string; title?: string; description?: string } & (
   | {
-      id: string;
       kind: "featureCards";
-      title?: string;
       cards: HomepageFeatureCard[];
     }
   | {
-      id: string;
       kind: "gallery";
-      title?: string;
       photos: Photo[];
-      presentation: "landscapeCarousel" | "squareRail" | "stack" | "squareGrid";
+      presentation: GalleryPresentation;
       slotKey?: Extract<CmsPageSection, { type: "gallerySlot" }>["slotKey"];
     }
   | {
-      id: string;
       kind: "banner";
-      title?: string;
       photo: Photo;
-      slotKey: "bannerOne" | "harbor";
-    };
+      slotKey?: "bannerOne" | "harbor";
+      href?: string;
+      linkLabel?: string;
+    }
+);
 
 export type HomepageLayout = {
-  sections?: HomepageContentSection[];
   featureCards?: HomepageFeatureCard[];
   landscapePhotos?: Photo[];
   quietPhotos?: Photo[];

@@ -1,7 +1,7 @@
 import { createClient } from "@sanity/client";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { transform } from "esbuild";
+import { build, transform } from "esbuild";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const publicDir = path.join(projectRoot, "public");
@@ -93,66 +93,27 @@ async function fetchCmsEntries() {
   }
 
   const client = createClient({ projectId, dataset, apiVersion: "2025-02-19", useCdn: false });
-  const photosQuery = `*[_type == "photo" && isHidden != true && category->isVisible != false]{
-      "slug": slug.current,
-      "filename": sourceFilename,
-      title,
-      "hasImage": defined(image.asset),
-      legacyPublicPath,
-      "updatedAt": _updatedAt,
-      date
-    }`;
-  const storiesQuery = `*[
-      _type == "story" &&
-      isHidden != true &&
-      (!defined(publishedAt) || dateTime(publishedAt) <= dateTime(now())) &&
-      defined(coverPhoto._ref) &&
-      coverPhoto->isHidden != true &&
-      count(*[
-        (_type == "pageContent" || _type == "homepageLayout" || _type == "photobalconyLayout" || _type == "siteSettings") &&
-        references(^.coverPhoto._ref)
-      ]) > 0
-    ]{
-      title,
-      "slug": slug.current,
-      "updatedAt": _updatedAt,
-      publishedAt,
-      "coverFilename": coverPhoto->sourceFilename
-    }`;
-
-  let photos;
-  try {
-    photos = await fetchWithRetry("Sanity photo", () => client.fetch(photosQuery));
-  } catch (error) {
-    throw new Error(
-      `Sitemap: Sanity photo query failed (${error instanceof Error ? error.message : "unknown error"}). ` +
-        `Refusing to fall back to static data so the build surfaces the problem instead of producing a misleading sitemap.`,
-    );
-  }
-
-  let stories;
-  try {
-    stories = await fetchWithRetry("Sanity story", () => client.fetch(storiesQuery));
-  } catch (error) {
-    throw new Error(
-      `Sitemap: Sanity story query failed (${error instanceof Error ? error.message : "unknown error"}). ` +
-        `Refusing to fall back to static data so the build surfaces the problem instead of producing a misleading sitemap.`,
-    );
-  }
-
-  const publishablePhotos = photos.filter(
-    (photo) =>
-      photo?.filename &&
-      photo.title &&
-      (photo.hasImage || photo.legacyPublicPath),
-  );
-  const publishableFilenames = new Set(publishablePhotos.map((photo) => photo.filename));
-  const publishableStories = stories.filter((story) => {
-    const filenames = [story.coverFilename].filter(Boolean);
-    return story.title && filenames.some((filename) => publishableFilenames.has(filename));
+  const { outputFiles: [compiled] } = await build({
+    stdin: {
+      contents: `export { cmsPlacementQueryFields, cmsStoryPublicationFilter } from "./src/lib/cmsQueries";
+        export { resolveCmsPlacements } from "./src/lib/pageContentAdapter";
+        export { usesPublishedPageContent } from "./src/lib/pageContentPages";`,
+      resolveDir: projectRoot,
+    },
+    bundle: true, format: "esm", write: false,
   });
-
-  return { photos: publishablePhotos, stories: publishableStories };
+  const { cmsPlacementQueryFields, cmsStoryPublicationFilter, resolveCmsPlacements, usesPublishedPageContent } =
+    await import(`data:text/javascript;base64,${Buffer.from(compiled.contents).toString("base64")}`);
+  const query = `{
+    ${cmsPlacementQueryFields},
+    "stories": *[${cmsStoryPublicationFilter}]{title, "slug": slug.current, "updatedAt": _updatedAt, publishedAt, "coverId": coverPhoto._ref}
+  }`;
+  const snapshot = await fetchWithRetry("Sanity publication", () => client.fetch(query));
+  const used = resolveCmsPlacements(snapshot, usesPublishedPageContent(process.env.VITE_PAGE_CONTENT_MODE));
+  return {
+    photos: snapshot.photos.filter((photo) => photo.filename && photo.title && (photo.src || photo.legacyPublicPath)),
+    stories: snapshot.stories.filter((story) => story.title && used.has(story.coverId)),
+  };
 }
 
 async function loadStaticEntries() {
@@ -200,6 +161,7 @@ const routes = [
   route("/", undefined, "1.0"),
   route("/photography", undefined, "0.9"),
   route("/archive", undefined, "0.9"),
+  route("/map", undefined, "0.7"),
   route("/journal", undefined, "0.7"),
   route("/about", undefined, "0.6"),
   route("/photobalcony", undefined, "0.6"),

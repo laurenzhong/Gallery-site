@@ -1,6 +1,6 @@
-const configuredUrl = import.meta.env.VITE_MAP_TILE_URL?.trim();
-const configuredAttribution = import.meta.env.VITE_MAP_TILE_ATTRIBUTION?.trim();
-const configuredMaxNativeZoom = Number(import.meta.env.VITE_MAP_TILE_MAX_NATIVE_ZOOM);
+const configuredUrl = import.meta.env?.VITE_MAP_TILE_URL?.trim();
+const configuredAttribution = import.meta.env?.VITE_MAP_TILE_ATTRIBUTION?.trim();
+const configuredMaxNativeZoom = Number(import.meta.env?.VITE_MAP_TILE_MAX_NATIVE_ZOOM);
 
 const configuredSource = configuredUrl
   ? {

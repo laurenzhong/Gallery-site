@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const requirePages = process.argv.includes("--require");
 const execFileAsync = promisify(execFile);
+const pageKeys = new Set(["home", "photobalcony", "archive", "map", "journal", "about"]);
 
 async function loadEnvFile(filename) {
   try {
@@ -29,7 +30,12 @@ function fail(message) {
 }
 
 function isInternalPath(value) {
-  return !value || (value.startsWith("/") && !value.startsWith("//"));
+  return !value || (value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") && ![...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127));
+}
+
+function validateLink(section, context) {
+  if (section.linkPage && !pageKeys.has(section.linkPage)) fail(`${context} 链接页面无效`);
+  if (!section.linkPage && !isInternalPath(section.linkTarget)) fail(`${context} 只能使用站内链接`);
 }
 
 function assertPhoto(id, photos, context) {
@@ -73,9 +79,8 @@ async function fetchPayload(url) {
   }
 }
 
-function validateHome(page, photos, categories) {
-  const seenSlots = new Set();
-  for (const [index, section] of (page.sections ?? []).entries()) {
+function validateSections(page, sections, photos, categories) {
+  for (const [index, section] of (sections ?? []).entries()) {
     if (section.isVisible === false) continue;
     const context = `${page._id}/${section._type || "section"}#${index + 1}`;
 
@@ -84,32 +89,25 @@ function validateHome(page, photos, categories) {
       for (const [cardIndex, card] of section.cards.entries()) {
         if (!card.title) fail(`${context}.cards[${cardIndex}] 缺少标题`);
         assertPhoto(card.photo, photos, `${context}.cards[${cardIndex}]`);
-        if (!isInternalPath(card.linkTarget)) fail(`${context}.cards[${cardIndex}] 只能使用站内链接`);
+        validateLink(card, `${context}.cards[${cardIndex}]`);
       }
       continue;
     }
 
     if (section._type === "gallerySlot") {
-      const allowedSlots = new Set(["landscape", "quiet", "city", "harborCarousel", "harborStack", "harborSquare"]);
-      if (!allowedSlots.has(section.slotKey)) fail(`${context} 的 slotKey 无效`);
-      if (seenSlots.has(section.slotKey)) fail(`${context} 重复配置了槽位 ${section.slotKey}`);
-      seenSlots.add(section.slotKey);
-      if (!["landscapeCarousel", "squareRail", "stack", "squareGrid"].includes(section.presentation)) fail(`${context} 的 presentation 无效`);
-      if (!section.title) fail(`${context} 缺少模块标题`);
+      if (!["landscapeCarousel", "squareRail", "portraitRail", "stack", "squareGrid", "grid", "leadGrid"].includes(section.presentation)) fail(`${context} 的 presentation 无效`);
+      if (section.limit != null && (!Number.isInteger(section.limit) || section.limit < 1 || section.limit > 48)) fail(`${context} 的 limit 无效`);
       if (section.sourceMode === "category") {
         if (!section.categoryId || !categories.has(section.categoryId)) fail(`${context} 的分类来源无效`);
-        if (!Number.isInteger(section.limit) || section.limit < 1 || section.limit > 48) fail(`${context} 的 limit 无效`);
       } else {
         assertPhotoList(section.photoIds, photos, context, { required: true });
       }
       continue;
     }
 
-    if (section._type === "bannerSlot") {
+    if (section._type === "bannerSlot" || section._type === "heroSlot") {
       assertPhoto(section.photo, photos, context);
-      if (!["bannerOne", "harbor"].includes(section.slotKey)) fail(`${context} 的 slotKey 无效`);
-      if (section.slotKey === "harbor" && !section.title) fail(`${context} 缺少 Harbor 标题`);
-      if (!isInternalPath(section.linkTarget)) fail(`${context} 只能使用站内链接`);
+      validateLink(section, context);
       continue;
     }
 
@@ -117,17 +115,28 @@ function validateHome(page, photos, categories) {
       fail(`${context} 仍使用已停用的复合模块，请拆分为 Harbor 主图、轮播、纵向堆叠和方格模块`);
     }
 
-    if (section._type === "heroSlot") {
-      assertPhoto(section.photo, photos, context);
-      if (!isInternalPath(section.linkTarget)) fail(`${context} 只能使用站内链接`);
-      continue;
-    }
-
-    fail(`${context} 使用了首页不支持的模块类型 ${section._type}`);
+    fail(`${context} 使用了不支持的模块类型 ${section._type}`);
   }
 }
 
 function validatePhotobalcony(page, photos) {
+  if (Array.isArray(page.balconyChapters)) {
+    const layouts = new Set(["carousel", "portraitRail", "grid", "leadGrid", "stack"]);
+    for (const chapter of page.balconyChapters) {
+      const context = `${page._id}/${chapter._key}`;
+      if (chapter.isVisible === false) continue;
+      if (!chapter.title?.trim()) fail(`${context} 缺少章节标题`);
+      if (!chapter.galleries?.length) fail(`${context} 至少需要一个照片组`);
+      for (const gallery of chapter.galleries) {
+        if (gallery.isVisible === false) continue;
+        const galleryContext = `${context}/${gallery._key}`;
+        if (!layouts.has(gallery.presentation)) fail(`${galleryContext} 的版式无效`);
+        assertPhotoList(gallery.photoIds, photos, galleryContext, { required: true });
+      }
+    }
+    return;
+  }
+
   const allowedPeriods = new Set(["may", "marchPortraits", "marchWide", "february", "january", "winter", "summer"]);
   const seenPeriods = new Set();
 
@@ -156,12 +165,7 @@ if (!projectId || projectId === "your_sanity_project_id" || projectId === "yourp
   fail("Sanity project is not configured");
 }
 
-const query = `{
-  "pages": *[_type == "pageContent" && pageKey in ["home", "photobalcony"]] {
-    _id,
-    pageKey,
-    title,
-    sections[] {
+const sectionFields = `{
       _type,
       _key,
       title,
@@ -172,6 +176,7 @@ const query = `{
       limit,
       periodKey,
       linkTarget,
+      linkPage,
       "photo": photo._ref,
       "photoIds": photos[]._ref,
       "heroPhoto": heroPhoto._ref,
@@ -180,11 +185,20 @@ const query = `{
       "stackPhotoIds": stackPhotos[]._ref,
       "squarePhotoIds": squarePhotos[]._ref,
       "categoryId": category._ref,
-      cards[]{title, linkTarget, "photo": photo._ref}
-    }
+      cards[]{title, linkTarget, linkPage, "photo": photo._ref}
+}`;
+const query = `{
+  "pages": *[_type == "pageContent"] {
+    _id,
+    pageKey,
+    title,
+    "hero": heroPhoto._ref,
+    balconyChapters[]{_key, title, isVisible, galleries[]{_key, presentation, isVisible, "photoIds": photos[]._ref}},
+    sections[] ${sectionFields},
+    extraSections[] ${sectionFields}
   },
-  "photos": *[_type == "photo"]{_id, "hasImage": defined(image.asset), isHidden},
-  "categories": *[_type == "category"]{_id}
+  "photos": *[_type == "photo"]{_id, "hasImage": defined(image.asset->url), "isHidden": isHidden == true || category->isVisible == false},
+  "categories": *[_type == "category" && isVisible != false]{_id}
 }`;
 
 const url = new URL(`https://${projectId}.apicdn.sanity.io/v2025-02-19/data/query/${dataset}`);
@@ -201,12 +215,12 @@ if (pages.length === 0) {
   const categories = new Set((result.categories ?? []).map((category) => category._id));
   const pagesByKey = new Map();
   for (const page of pages) {
+    if (!pageKeys.has(page.pageKey) || page._id !== `pageContent-${page.pageKey}`) fail(`${page._id} 没有使用固定的页面文档 ID`);
     if (pagesByKey.has(page.pageKey)) fail(`pageKey 重复：${page.pageKey}`);
     pagesByKey.set(page.pageKey, page);
-    if (!page.title) fail(`${page._id} 缺少标题`);
-    if (page.pageKey === "home") validateHome(page, photos, categories);
-    else if (page.pageKey === "photobalcony") validatePhotobalcony(page, photos);
-    else fail(`${page._id} 使用了不支持的 pageKey ${page.pageKey}`);
+    if (page.hero) assertPhoto(page.hero, photos, `${page._id} 主视觉`);
+    if (page.pageKey === "photobalcony") validatePhotobalcony(page, photos);
+    validateSections(page, page.pageKey === "photobalcony" ? page.extraSections : page.sections, photos, categories);
   }
 
   if (requirePages) {

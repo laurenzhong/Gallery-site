@@ -15,6 +15,7 @@ import {
   cmsSiteSettingsQuery,
   cmsStoriesQuery,
   type CmsHomepageLayout,
+  type CmsPageContent,
   type CmsPhotobalconyLayout,
   type CmsPhoto,
   type CmsSiteSettings,
@@ -22,8 +23,10 @@ import {
   type PortableTextBlock,
 } from "./cmsQueries";
 import type { HomepageLayout } from "./homepageLayout";
+import { adaptPublishedPages, pagePhotoPlacements } from "./pageContentAdapter";
+import { usesPublishedPageContent } from "./pageContentPages";
 import type { PhotobalconyLayout } from "./photobalconyLayout";
-import { fetchCms, fetchPreloadedCms, isSanityConfigured } from "./sanity";
+import { fetchCms, fetchPreloadedCms, fetchPublishedPageContent, isSanityConfigured } from "./sanity";
 import { isStudioPreview, type StudioPreview } from "./studioPreview";
 
 export type GalleryContent = {
@@ -31,6 +34,8 @@ export type GalleryContent = {
   photoMeta: Record<string, PhotoMeta>;
   photoStories: Record<string, PhotoStory[]>;
   aboutData: AboutData;
+  siteTitle?: string;
+  heroSubtitle?: string;
   heroPhoto?: Photo;
   homepageLayout?: HomepageLayout;
   photobalconyLayout?: PhotobalconyLayout;
@@ -51,9 +56,10 @@ const staticContent: GalleryContent = {
 
 // The previous page-layout rollout stored a different content shape under v4.
 // Never reuse those entries after restoring the native gallery renderer.
-const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v10";
+const CMS_CONTENT_CACHE_KEY = "queenstown.cmsContent.v11";
 const ABOUT_DATA_CACHE_VERSION = 1;
 const LEGACY_CMS_CONTENT_CACHE_KEYS = [
+  "queenstown.cmsContent.v10",
   "queenstown.cmsContent.v9",
   "queenstown.cmsContent.v8",
   "queenstown.cmsContent.v7",
@@ -68,10 +74,7 @@ function shouldUseRemoteImages() {
     isStudioPreview ||
     import.meta.env.VITE_SANITY_REMOTE_ONLY === "true" ||
     (typeof window !== "undefined" && (() => {
-      const params = new URLSearchParams(window.location.search);
-      const mode = import.meta.env.VITE_PAGE_CONTENT_MODE ?? "stable";
-      const query = params.get("page-content-preview");
-      return mode === "preview" || mode === "production" || query === "1" || query === "true";
+      return usesPublishedPageContent(import.meta.env.VITE_PAGE_CONTENT_MODE, window.location.search);
     })())
   );
 }
@@ -153,6 +156,10 @@ function toPhoto(photo: CmsPhoto): Photo | null {
     title: photo.title,
     slug: photo.slug,
     category: photo.category ?? "未分类",
+    categoryId: photo.categoryId ?? undefined,
+    altText: photo.altText ?? undefined,
+    caption: photo.caption ?? undefined,
+    credit: photo.credit ?? undefined,
     filename: photo.filename,
     width: photo.width || 1,
     height: photo.height || 1,
@@ -211,9 +218,9 @@ function toPhotoMeta(photos: CmsPhoto[]) {
   }, {});
 }
 
-export function toReferencedPhoto(photo: CmsSiteSettings["heroPhoto"], options: { allowHidden?: boolean } = {}): Photo | undefined {
+export function toReferencedPhoto(photo: CmsSiteSettings["heroPhoto"]): Photo | undefined {
   const src = resolvePhotoSrc(photo?.src, photo?.legacyPublicPath, photo?.filename);
-  if ((!options.allowHidden && photo?.isHidden) || !photo?.id || !src || !photo.title || !photo.filename) {
+  if (photo?.isHidden || photo?.categoryIsVisible === false || !photo?.id || !src || !photo.title || !photo.filename) {
     return undefined;
   }
 
@@ -224,6 +231,10 @@ export function toReferencedPhoto(photo: CmsSiteSettings["heroPhoto"], options: 
     title: photo.title,
     slug: photo.slug,
     category: photo.category ?? "",
+    categoryId: photo.categoryId ?? undefined,
+    altText: photo.altText ?? undefined,
+    caption: photo.caption ?? undefined,
+    credit: photo.credit ?? undefined,
     filename: photo.filename,
     width: photo.width || 1,
     height: photo.height || 1,
@@ -259,7 +270,7 @@ function collectHomepageReferencedPhotos(layout: CmsHomepageLayout | null | unde
   ];
 
   return referenced.flatMap((photo) => {
-    const resolved = toReferencedPhoto(photo, { allowHidden: true });
+    const resolved = toReferencedPhoto(photo);
     return resolved ? [resolved] : [];
   });
 }
@@ -281,14 +292,16 @@ function collectPhotobalconyReferencedPhotos(layout: CmsPhotobalconyLayout | nul
   ];
 
   return referenced.flatMap((photo) => {
-    const resolved = toReferencedPhoto(photo, { allowHidden: true });
+    const resolved = toReferencedPhoto(photo);
     return resolved ? [resolved] : [];
   });
 }
 
-function toPhotoStories(stories: CmsStory[]) {
+function toPhotoStories(stories: CmsStory[], photos: Photo[], placements: ReturnType<typeof pagePhotoPlacements>) {
+  const photosById = new Map(photos.map((photo) => [photo.id, photo]));
   return stories.reduce<Record<string, PhotoStory[]>>((storiesByFilename, story) => {
-    const filename = story.coverPhoto?.filename ?? story.relatedPhotos?.find((photo) => photo?.filename)?.filename;
+    const cover = story.coverPhoto;
+    const filename = cover?.id && placements.has(cover.id) ? photosById.get(cover.id)?.filename : undefined;
     if (!filename || !story.title) return storiesByFilename;
 
     const entry: PhotoStory = {
@@ -300,6 +313,11 @@ function toPhotoStories(stories: CmsStory[]) {
       pinOrder: story.pinOrder,
       excerpt: story.excerpt ?? "",
       body: blocksToLines(story.body),
+      richBody: story.body?.flatMap((block) => block?._type ? [{ ...block, _type: block._type }] : []),
+      relatedPhotos: [...new Set(story.relatedPhotos?.map((photo) => photo?.id))].flatMap((id) => {
+        const photo = id && id !== cover?.id ? photosById.get(id) : undefined;
+        return photo ? [photo] : [];
+      }),
     };
 
     if (!storiesByFilename[filename]) {
@@ -367,7 +385,7 @@ function resolveLayoutPhotos(
   for (let index = 0; index < maxLength; index += 1) {
     const photo =
       resolvePhotoId(photoMap, ids?.[index]) ??
-      toReferencedPhoto(referencedPhotos?.[index], { allowHidden: true });
+      toReferencedPhoto(referencedPhotos?.[index]);
 
     if (!photo || seen.has(photo.id)) {
       continue;
@@ -426,7 +444,7 @@ function toPhotobalconyLayout(
   const photoMap = photosById(photos);
 
   return {
-    heroPhoto: resolvePhotoId(photoMap, layout.heroPhotoId) ?? toReferencedPhoto(layout.heroPhoto, { allowHidden: true }),
+    heroPhoto: resolvePhotoId(photoMap, layout.heroPhotoId) ?? toReferencedPhoto(layout.heroPhoto),
     mayTitle: layout.mayTitle,
     marchTitle: layout.marchTitle,
     februaryTitle: layout.februaryTitle,
@@ -449,6 +467,7 @@ export type CmsGalleryDocuments = {
   siteSettings: CmsSiteSettings | null;
   homepageLayout: CmsHomepageLayout | null;
   photobalconyLayout: CmsPhotobalconyLayout | null;
+  pageContent?: CmsPageContent[] | null;
 };
 
 async function loadCmsContent(onPublishedHero?: (photo: Photo | undefined) => void): Promise<GalleryContent> {
@@ -464,15 +483,17 @@ async function loadCmsContent(onPublishedHero?: (photo: Photo | undefined) => vo
         },
       )
     : fetchCms<CmsSiteSettings | null>(cmsSiteSettingsQuery);
-  const [photos, stories, settings, homepageLayout, photobalconyLayout] = await Promise.all([
+  const readPages = usesPublishedPageContent(import.meta.env.VITE_PAGE_CONTENT_MODE, window.location.search);
+  const [photos, stories, settings, homepageLayout, photobalconyLayout, pageContent] = await Promise.all([
     fetchCms<CmsPhoto[]>(cmsPhotosQuery),
     fetchCms<CmsStory[]>(cmsStoriesQuery),
     siteSettings,
     fetchCms<CmsHomepageLayout | null>(cmsHomepageLayoutQuery),
     fetchCms<CmsPhotobalconyLayout | null>(cmsPhotobalconyLayoutQuery),
+    readPages ? fetchPublishedPageContent().catch(() => []) : Promise.resolve([]),
   ]);
 
-  const content = toGalleryContent({ photos, stories, siteSettings: settings, homepageLayout, photobalconyLayout });
+  const content = toGalleryContent({ photos, stories, siteSettings: settings, homepageLayout, photobalconyLayout, pageContent });
   if (content.photos.length === 0) {
     throw new Error("Sanity returned no publishable photos");
   }
@@ -485,6 +506,7 @@ function toGalleryContent({
   siteSettings: cmsSiteSettings,
   homepageLayout: cmsHomepageLayout,
   photobalconyLayout: cmsPhotobalconyLayout,
+  pageContent,
 }: CmsGalleryDocuments): GalleryContent {
   const cmsPhotoEntries = cmsPhotos.map(toPhoto).filter((photo): photo is Photo => photo !== null);
   const harborFallbackPhoto = staticPhotos.find((photo) => photo.filename === "DSC_5026.JPG");
@@ -501,11 +523,19 @@ function toGalleryContent({
     toReferencedPhoto(cmsSiteSettings?.heroPhoto) ??
     photos.find((photo) => photo.isHero);
 
+  const pages = adaptPublishedPages(pageContent ?? [], cmsPhotoEntries);
+  const placements = pagePhotoPlacements(pages, cmsPhotoEntries, {
+    home: cmsHomepageLayout,
+    balcony: cmsPhotobalconyLayout,
+    hero: cmsSiteSettings?.heroPhoto,
+  });
   return {
     photos,
     photoMeta: toPhotoMeta(cmsPhotos),
-    photoStories: toPhotoStories(cmsStories),
+    photoStories: toPhotoStories(cmsStories, cmsPhotoEntries, placements),
     aboutData: toAboutData(cmsSiteSettings),
+    siteTitle: cmsSiteSettings?.siteTitle?.trim() || undefined,
+    heroSubtitle: cmsSiteSettings?.heroSubtitle?.trim() || undefined,
     heroPhoto,
     homepageLayout: toHomepageLayout(cmsHomepageLayout, photos),
     photobalconyLayout: toPhotobalconyLayout(cmsPhotobalconyLayout, photos),

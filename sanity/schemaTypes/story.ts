@@ -50,7 +50,7 @@ export const storyType = defineType({
       fieldset: "identity",
       options: { source: "title", maxLength: 96 },
       description:
-        "用于 /journal/<slug> 的 URL 地址段。当前前端同时支持使用此标识，以及根据封面照片文件名推导出的回退值。",
+        "用于 /stories/<slug> 的网址。",
       validation: (Rule) => Rule.required(),
     }),
     defineField({
@@ -93,7 +93,7 @@ export const storyType = defineType({
       ...photoReference,
       fieldset: "cover",
       description:
-        "在 /journal 中作为主图以及手记页的头图。公开手记必须设置封面照片。",
+        "手记使用此照片作为封面。封面照片加入一个公开页面的内容模块后，手记才会出现在网站。",
       validation: (Rule) => Rule.required().error("公开手记必须设置封面照片。"),
     }),
     defineField({
@@ -101,7 +101,7 @@ export const storyType = defineType({
       title: "关联照片",
       ...photoReferenceArray,
       fieldset: "cover",
-      description: "可选的相册，会出现在手记底部。已被隐藏的照片被引用时仍会显示在这里。",
+      description: "已公开的关联照片会在手记底部显示为照片详情链接。",
     }),
     defineField({
       name: "body",

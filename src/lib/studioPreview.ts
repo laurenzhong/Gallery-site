@@ -9,6 +9,7 @@ import {
   type CmsPageContent,
 } from "./cmsQueries";
 import type { CmsGalleryDocuments } from "./galleryContent";
+import { pageDraftParameter } from "./pageDraftPreview";
 
 type PreviewDocuments = CmsGalleryDocuments & { pageContent: CmsPageContent[] | null };
 
@@ -20,7 +21,7 @@ export type StudioPreview = {
 const connecting: StudioPreview = {};
 
 function openedFromStudio() {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined" || new URLSearchParams(window.location.search).get(pageDraftParameter) === "1") return false;
   const studio = window.parent === window ? window.opener as Window | null : window.parent;
   if (!studio) return false;
 

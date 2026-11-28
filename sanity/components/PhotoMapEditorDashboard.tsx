@@ -55,7 +55,7 @@ function parseLocation(value: string | undefined): Coordinate | undefined {
 
 function photoCoordinate(photo: Pick<Photo, "location" | "geo">): Coordinate | undefined {
   const geo = photo.geo;
-  if (validCoordinate(geo?.latitude, geo?.longitude)) return [geo.latitude, geo.longitude];
+  if (typeof geo?.longitude === "number" && validCoordinate(geo.latitude, geo.longitude)) return [geo.latitude, geo.longitude];
   return parseLocation(photo.location);
 }
 
@@ -440,7 +440,7 @@ export function PhotoMapEditorDashboard() {
       const title = file.name.replace(/\.[^.]+$/, "") || "地图照片";
       const baseSlug = slugFor(title);
       const duplicate = await client.fetch<number>(`count(*[_type == "photo" && slug.current == $slug])`, { slug: baseSlug });
-      const created = await client.create<Photo>({
+      const created = await client.create({
         _type: "photo",
         title,
         slug: { _type: "slug", current: duplicate ? `${baseSlug}-${Date.now().toString(36)}` : baseSlug },
@@ -453,7 +453,14 @@ export function PhotoMapEditorDashboard() {
         isFeatured: false,
         ...(albumId ? { album: { _type: "reference", _ref: albumId } } : {}),
       });
-      setPhotos((current) => [{ ...created, _id: created._id, imageUrl: asset.url, geo: { latitude: finalCoordinate[0], longitude: finalCoordinate[1], source: gpsCoordinate ? "exif" : "manual", visibility: "exact" } }, ...current]);
+      setPhotos((current) => [{
+        _id: created._id,
+        title,
+        sourceFilename: file.name,
+        imageUrl: asset.url,
+        album: albums.find((album) => album._id === albumId),
+        geo: { latitude: finalCoordinate[0], longitude: finalCoordinate[1], source: gpsCoordinate ? "exif" : "manual", visibility: "exact" },
+      }, ...current]);
       setSelectedPhotoId(created._id);
       setCoordinate(finalCoordinate);
       setMessage(gpsCoordinate ? "照片已上传，并使用照片 GPS 位置。" : "照片已上传，并使用地图点击位置。");

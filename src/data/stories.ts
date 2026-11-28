@@ -1,3 +1,6 @@
+import type { PortableTextBlock } from "../lib/cmsQueries";
+import type { Photo } from "./photos";
+
 export type PhotoMeta = {
   date?: string;
   location?: string;
@@ -18,6 +21,8 @@ export type PhotoStory = {
   pinOrder?: number;
   excerpt: string;
   body: string[];
+  richBody?: (PortableTextBlock & { _type: string })[];
+  relatedPhotos?: Photo[];
 };
 
 export type AboutData = {

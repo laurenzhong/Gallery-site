@@ -15,6 +15,7 @@ const IMAGE_SIZES = "(max-width: 640px) calc(100vw - 32px), (max-width: 1440px) 
 type LandscapeSectionProps = {
   id: string;
   title: string;
+  description?: string;
   photos: Photo[];
   onOpen: (photo: Photo, carouselPhotos: Photo[]) => void;
   className?: string;
@@ -26,6 +27,7 @@ type LandscapeSectionProps = {
 export function LandscapeSection({
   id,
   title,
+  description,
   photos,
   onOpen,
   className,
@@ -52,7 +54,7 @@ export function LandscapeSection({
 
   const total = landscapePhotos.length;
   const hasMultiplePhotos = total > 1;
-  const active = total > 0 ? landscapePhotos[activeIndex] : undefined;
+  const active = landscapePhotos[Math.min(activeIndex, total - 1)];
   const activeImageSettled = Boolean(active && imageStatus?.src === active.src);
   const activeImageReady = activeImageSettled && imageStatus?.ready === true;
   const previous =
@@ -178,6 +180,7 @@ export function LandscapeSection({
           <h2 id={`${id}-title`}>{title}</h2>
         </div>
       ) : null}
+      {description ? <p className="page-module-description">{description}</p> : null}
 
       <div className="landscape-stage">
         {hasMultiplePhotos && (

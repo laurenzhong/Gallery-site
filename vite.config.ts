@@ -89,7 +89,7 @@ function photographyPreloadPlugin(projectId: string | undefined, dataset: string
       if (!projectId) return
       const settingsUrl = JSON.stringify(sanityReadQueryUrl(projectId, dataset, cmsSiteSettingsQuery))
       const pageContentUrl = JSON.stringify(sanityReadQueryUrl(projectId, dataset, cmsPageContentQuery))
-      const usePageContent = pageContentMode === 'production' || pageContentMode === 'preview'
+      const usePageContent = pageContentMode !== 'stable'
       return [
         { tag: 'link', attrs: { rel: 'preconnect', href: 'https://cdn.sanity.io' }, injectTo: 'head-prepend' },
         {
@@ -139,6 +139,16 @@ export default defineConfig(({ mode }) => {
           agent: cmsProxy ? new Agent({ proxyEnv: { HTTPS_PROXY: cmsProxy }, keepAlive: true }) : undefined,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/sanity/, ""),
+          configure: (proxy) => {
+            proxy.on("start", (incoming) => {
+              // Long GROQ reads use a same-origin POST. Forward it as an anonymous API read.
+              if (incoming.method === "POST" && /^\/v\d{4}-\d{2}-\d{2}\/data\/query\/[^/?]+(?:\?|$)/.test(incoming.url ?? "")) {
+                delete incoming.headers.origin;
+                delete incoming.headers.authorization;
+                delete incoming.headers.cookie;
+              }
+            });
+          },
         },
       },
     },

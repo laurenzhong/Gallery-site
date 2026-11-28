@@ -6,6 +6,7 @@ export type Photo = {
   title: string;
   slug?: string;
   category: string;
+  categoryId?: string;
   filename: string;
   hash?: string;
   capturedAt?: string | null;

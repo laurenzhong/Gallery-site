@@ -1,5 +1,5 @@
 import { createClient, type SanityClient } from "@sanity/client";
-import { sanityApiVersion, sanityReadQueryUrl } from "./cmsQueries";
+import { cmsPageContentQuery, sanityApiVersion, sanityReadQueryUrl, type CmsPageContent } from "./cmsQueries";
 
 const projectId = import.meta.env.VITE_SANITY_PROJECT_ID;
 const dataset = import.meta.env.VITE_SANITY_DATASET ?? "production";
@@ -17,6 +17,7 @@ export function getSanityClient(): SanityClient | null {
     projectId,
     dataset,
     apiVersion: sanityApiVersion,
+    perspective: "published",
     // Public browser reads use Sanity's read CDN in every environment. This
     // keeps local development on the same published content as production.
     useCdn: true,
@@ -38,9 +39,16 @@ export async function fetchCms<T>(query: string): Promise<T> {
   // retry through Sanity's read CDN instead of leaving the app on old static
   // content.
   const url = new URL(`/sanity/v${sanityApiVersion}/data/query/${dataset}`, window.location.origin);
+  url.searchParams.set("perspective", "published");
   url.searchParams.set("query", query);
+  const post = url.href.length > 7500;
+  if (post) url.searchParams.delete("query");
   try {
-    const response = await window.fetch(url);
+    const response = await window.fetch(url, post ? {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    } : undefined);
     if (response.ok) {
       const payload = (await response.json()) as { result: T };
       return payload.result;
@@ -66,4 +74,13 @@ export async function fetchPreloadedCms<T>(query: string): Promise<T> {
   if (!response.ok) throw new Error(`Sanity request failed (${response.status})`);
   const { result } = (await response.json()) as { result: T };
   return result;
+}
+
+let publishedPageRequest: Promise<CmsPageContent[]> | undefined;
+
+export function fetchPublishedPageContent() {
+  publishedPageRequest ??= fetchPreloadedCms<CmsPageContent[]>(cmsPageContentQuery).finally(() => {
+    publishedPageRequest = undefined;
+  });
+  return publishedPageRequest;
 }

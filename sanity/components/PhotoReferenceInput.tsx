@@ -7,6 +7,7 @@ import {
   setIfMissing,
   unset,
   useClient,
+  useFormValue,
   usePerspective,
   type ArrayInputFunctionsProps,
   type ArrayOfObjectsInputProps,
@@ -27,6 +28,7 @@ type Photo = {
   width?: number;
   height?: number;
   isHidden?: boolean;
+  categoryVisible?: boolean;
   album?: { _id: string; title: string };
   category?: { _id: string; title: string };
   subjects?: string[];
@@ -41,6 +43,7 @@ const photosQuery = `*[_type == "photo"] {
   _id, _originalId, _createdAt, title, date, sortOrder, isHidden, subjects, conditions, location, spot,
   "filename": coalesce(sourceFilename, image.asset->originalFilename),
   "imageUrl": image.asset->url,
+  "categoryVisible": category->isVisible,
   "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
   "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height),
   "place": place->title,
@@ -91,9 +94,10 @@ type PhotoPickerProps = {
   onSelect: (photos: Photo[]) => void;
   multiple?: boolean;
   currentIds?: string[];
+  pagePhotos?: boolean;
 };
 
-function PhotoPicker({ onSelect, onDismiss, multiple, currentIds }: PhotoPickerProps & { onDismiss: () => void }) {
+function PhotoPicker({ onSelect, onDismiss, multiple, currentIds, pagePhotos }: PhotoPickerProps & { onDismiss: () => void }) {
   const client = useClient({ apiVersion: "2025-02-19" });
   const { perspectiveStack } = usePerspective();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -234,13 +238,15 @@ function PhotoPicker({ onSelect, onDismiss, multiple, currentIds }: PhotoPickerP
             const existing = current.has(photo._id);
             const selected = selectedIds.has(photo._id);
             const title = photo.title || photo.filename || "未命名照片";
-            const status = existing ? (multiple ? "已添加" : "当前照片") : selected ? "已选" : !photo.published ? "未发布" : photo.isHidden ? "已隐藏" : "";
+            const hidden = photo.isHidden || photo.categoryVisible === false;
+            const unavailable = pagePhotos && (hidden || !photo.imageUrl);
+            const status = hidden ? "已隐藏" : !photo.imageUrl ? "缺少图片" : existing ? (multiple ? "已添加" : "当前照片") : selected ? "已选" : !photo.published ? "未发布" : "";
             return (
               <button
                 className="photo-reference-card"
                 key={photo._id}
                 type="button"
-                disabled={existing}
+                disabled={existing || unavailable}
                 aria-pressed={multiple ? existing || selected : undefined}
                 onClick={() => choosePhoto(photo)}
               >
@@ -308,12 +314,14 @@ function referenceData(photo: Photo, type: string, weak: boolean) {
 
 export function PhotoReferenceInput(props: ReferenceInputProps) {
   const current = props.value?._ref;
+  const pagePhotos = useFormValue(["_type"]) === "pageContent";
   return (
     <>
       {!props.readOnly && (
         <PhotoPickerButton
           label={current ? "从照片库更换" : "从照片库选图"}
           currentIds={current ? [getPublishedId(current)] : []}
+          pagePhotos={pagePhotos}
           onSelect={([photo]) => {
             const reference = referenceData(photo, props.schemaType.name, Boolean(props.schemaType.weak));
             props.onChange([
@@ -336,6 +344,7 @@ export function PhotoReferenceInput(props: ReferenceInputProps) {
 type PhotoReferenceItem = { _key: string; _ref?: string };
 
 function PhotoArrayFunctions(props: ArrayInputFunctionsProps<PhotoReferenceItem, ArrayOfObjectsInputProps["schemaType"]>) {
+  const pagePhotos = useFormValue(["_type"]) === "pageContent";
   const member = props.schemaType.of[0];
   if (props.readOnly || !member || !("to" in member) || props.schemaType.options?.disableActions?.includes("add")) return null;
   const currentIds = (props.value ?? []).flatMap((item) => item._ref ? [getPublishedId(item._ref)] : []);
@@ -344,6 +353,7 @@ function PhotoArrayFunctions(props: ArrayInputFunctionsProps<PhotoReferenceItem,
       label="从照片库添加"
       multiple
       currentIds={currentIds}
+      pagePhotos={pagePhotos}
       onSelect={(photos) => {
         const items = photos.map((photo) => ({
           ...referenceData(photo, member.name, "weak" in member && member.weak === true),

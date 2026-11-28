@@ -1,8 +1,10 @@
+import { contentPages } from "./pageContentPages";
+
 export const siteNavLinks = [
-  { label: "Photography", href: "/" },
-  { label: "Photo archive", href: "/archive" },
-  { label: "Map", href: "/map" },
-  { label: "Balcony View", href: "/photobalcony" },
-  { label: "Journal", href: "/journal" },
-  { label: "About", href: "/about" },
+  { label: "Photography", href: contentPages.home.path },
+  { label: "Photo archive", href: contentPages.archive.path },
+  { label: "Map", href: contentPages.map.path },
+  { label: "Balcony View", href: contentPages.photobalcony.path },
+  { label: "Journal", href: contentPages.journal.path },
+  { label: "About", href: contentPages.about.path },
 ];

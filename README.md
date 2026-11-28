@@ -69,7 +69,9 @@ See `docs/sanity-migration.md` for the import workflow.
 See `docs/photo-ingestion.md` for the current photo import, AI tagging, location, and story visibility workflow.
 See `ios/README.md` for one-selection Live Photo uploads from an iPhone.
 See `docs/ai-photo-processing.md` for the model input/output contract, task states, retries, and server-side secret handling.
-See `docs/sanity-content-control-plan.md` for the homepage and Photobalcony content model. After the first migration, edit `页面内容` in Studio; adding or reordering a section does not require a code change or GitHub push.
+In Studio, open `页面内容` and choose the home gallery, Balcony View, photo archive, map, Journal, or About. Add a full-width image, a wide banner, cards, or a photo gallery. Choose photos from the shared library or pick a category for the gallery, then drag modules into order. Home modules sit below the hero. On the other pages, place the modules before or after the existing content. Balcony chapters remain editable in their own list.
+
+Use `草稿预览` on the page document and publish when the layout is ready. For image and card links, pick another public page or paste a site path for a specific photo, story, or route. `照片库 → 按页面使用` shows photos used by published page content, including category galleries. Stories appear publicly once their published, visible cover is placed through a page module or a configured page hero.
 See `docs/deployment.md` for the GitHub + Vercel deployment workflow.
 See `docs/auto-deploy.md` for wiring Sanity to Vercel auto-rebuilds on CMS changes.
 
@@ -141,11 +143,7 @@ The sitemap generator falls back to the local static content when Sanity is
 temporarily unavailable. Set `SANITY_BUILD_STRICT=1` in CI only when a build
 must fail instead of using that fallback.
 
-Sanity Studio includes a `网站预览` Presentation tool. Set
-`SANITY_STUDIO_PREVIEW_URL` to the public or local frontend URL before running
-the Studio build if it differs from the production URL. Open `网站预览` while
-signed in to Studio to see saved drafts with the same site layout. Changes
-update in the preview as Studio saves them.
+Set `SANITY_STUDIO_PREVIEW_URL` to the frontend URL for the `草稿预览` tab on each page. Use the same site origin when hosting Studio with the website. A local Studio can preview a local site on another loopback port.
 
 Photos now support alt text, captions, and credit fields. Public stories must
 have a cover photo, and Portable Text body images, links, and basic marks are

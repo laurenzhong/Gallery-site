@@ -1,5 +1,9 @@
+import { contentPageKeys, type ContentPageKey } from "./pageContentPages.ts";
+import type { GalleryPresentation } from "./homepageLayout.ts";
+
 export type CmsPhoto = {
   id: string;
+  updatedAt?: string;
   legacyId?: string;
   src: string;
   liveVideoUrl?: string | null;
@@ -8,6 +12,7 @@ export type CmsPhoto = {
   title: string;
   slug?: string;
   category?: string;
+  categoryId?: string;
   subjects?: string[];
   conditions?: string[];
   place?: { id?: string; title?: string };
@@ -31,6 +36,9 @@ export type CmsPhoto = {
   shutter?: string;
   iso?: number;
   focalLength?: string;
+  altText?: string;
+  caption?: string;
+  credit?: string;
 };
 
 export type CmsMapRoute = {
@@ -66,6 +74,7 @@ export type CmsStory = {
   slug?: string;
   excerpt?: string;
   publishedAt?: string;
+  updatedAt?: string;
   orderRank?: string;
   isPinned?: boolean;
   pinOrder?: number;
@@ -139,13 +148,24 @@ export type CmsPhotobalconyLayout = {
   summerPhotos?: CmsStoryPhoto[];
 };
 
+export type CmsBalconyChapter = {
+  id: string;
+  title?: string;
+  isVisible?: boolean;
+  galleries?: { id: string; presentation?: string; isVisible?: boolean; photos?: CmsStoryPhoto[] }[];
+};
+
 export type CmsPageContent = {
   id: string;
-  pageKey: "home" | "photobalcony";
+  pageKey: ContentPageKey;
   title: string;
   subtitle?: string;
   heroPhoto?: CmsStoryPhoto;
+  modulesPosition?: "before" | "after";
   sections?: CmsPageSection[];
+  extraSections?: CmsPageSection[];
+  photoModules?: CmsPageSection[];
+  balconyChapters?: CmsBalconyChapter[] | null;
 };
 
 type CmsPageSectionBase = {
@@ -159,26 +179,28 @@ export type CmsPageSection =
   | (CmsPageSectionBase & {
       type: "heroSlot";
       photo?: CmsStoryPhoto;
+      linkPage?: ContentPageKey;
       linkLabel?: string;
       linkTarget?: string;
     })
   | (CmsPageSectionBase & {
       type: "featureCardsSlot";
-      cards?: { title?: string; photo?: CmsStoryPhoto; linkLabel?: string; linkTarget?: string }[];
+      cards?: { id?: string; title?: string; photo?: CmsStoryPhoto; linkPage?: ContentPageKey; linkLabel?: string; linkTarget?: string }[];
     })
   | (CmsPageSectionBase & {
       type: "gallerySlot";
       slotKey?: "landscape" | "quiet" | "city" | "harborCarousel" | "harborStack" | "harborSquare";
-      presentation?: "landscapeCarousel" | "squareRail" | "stack" | "squareGrid";
+      presentation?: GalleryPresentation;
       sourceMode?: "manual" | "category";
       photos?: CmsStoryPhoto[];
-      category?: { id?: string; title?: string };
+      category?: { id?: string; title?: string; isVisible?: boolean };
       limit?: number;
     })
   | (CmsPageSectionBase & {
       type: "bannerSlot";
       slotKey?: "bannerOne" | "harbor";
       photo?: CmsStoryPhoto;
+      linkPage?: ContentPageKey;
       linkLabel?: string;
       linkTarget?: string;
     })
@@ -208,16 +230,20 @@ export type CmsStoryPhoto = {
   src?: string;
   liveVideoUrl?: string | null;
   isHidden?: boolean;
+  categoryIsVisible?: boolean;
   legacyPublicPath?: string;
   filename?: string;
   category?: string;
-  categoryIsVisible?: boolean | null;
+  categoryId?: string;
   subjects?: string[];
   conditions?: string[];
   place?: { id?: string; title?: string };
   spot?: string;
   width?: number;
   height?: number;
+  altText?: string;
+  caption?: string;
+  credit?: string;
 };
 
 const cmsReferencedPhotoFields = `
@@ -228,25 +254,32 @@ const cmsReferencedPhotoFields = `
     "src": image.asset->url,
     "liveVideoUrl": liveVideo.asset->url,
     isHidden,
+    "categoryIsVisible": category->isVisible,
     "legacyPublicPath": legacyPublicPath,
     "category": category->title,
-    "categoryIsVisible": category->isVisible,
+    "categoryId": category._ref,
+    altText,
+    caption,
+    credit,
     subjects,
     conditions,
     "place": place->{"id": _id, title},
     spot,
-    "filename": sourceFilename,
+    "filename": coalesce(sourceFilename, image.asset->originalFilename),
     "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
     "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
 `;
 
-export const cmsPhotosQuery = `*[
+const cmsVisiblePhotos = `*[
   _type == "photo" &&
   isHidden != true &&
-  defined(image.asset) &&
+  defined(image.asset->url) &&
   category->isVisible != false
-] | order(sortOrder asc, date desc) {
+] | order(sortOrder asc, date desc, _id asc)`;
+
+export const cmsPhotosQuery = `${cmsVisiblePhotos} {
   "id": _id,
+  "updatedAt": _updatedAt,
   "legacyId": legacyId,
   "src": image.asset->url,
   "liveVideoUrl": liveVideo.asset->url,
@@ -255,11 +288,15 @@ export const cmsPhotosQuery = `*[
   title,
   "slug": slug.current,
   "category": category->title,
+  "categoryId": category._ref,
+  altText,
+  caption,
+  credit,
   subjects,
   conditions,
   "place": place->{"id": _id, title},
   spot,
-  "filename": sourceFilename,
+  "filename": coalesce(sourceFilename, image.asset->originalFilename),
   "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
   "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height),
   isHero,
@@ -314,18 +351,17 @@ export const cmsCategoriesQuery = `*[_type == "category" && isVisible != false] 
   "coverPhotoId": coverPhoto->_id
 }`;
 
-export const cmsStoriesQuery = `*[
+export const cmsStoryPublicationFilter = `
   _type == "story" &&
   isHidden != true &&
   (!defined(publishedAt) || dateTime(publishedAt) <= dateTime(now())) &&
-  defined(coverPhoto._ref) &&
+  defined(coverPhoto->image.asset->url) &&
   coverPhoto->isHidden != true &&
-  count(*[
-    (_type == "pageContent" || _type == "homepageLayout" || _type == "photobalconyLayout" || _type == "siteSettings") &&
-    references(^.coverPhoto._ref)
-  ]) > 0
-] | order(coalesce(orderRank, "zzzzzz") asc, publishedAt desc) {
+  coverPhoto->category->isVisible != false`;
+
+export const cmsStoriesQuery = `*[${cmsStoryPublicationFilter}] | order(coalesce(orderRank, "zzzzzz") asc, publishedAt desc) {
   "id": _id,
+  "updatedAt": _updatedAt,
   title,
   "slug": slug.current,
   excerpt,
@@ -333,47 +369,21 @@ export const cmsStoriesQuery = `*[
   orderRank,
   isPinned,
   pinOrder,
-  body,
-  "coverPhoto": coverPhoto->{
-    "id": _id,
-    title,
-    "slug": slug.current,
-    "src": image.asset->url,
-    isHidden,
-    "legacyPublicPath": legacyPublicPath,
-    "place": place->{"id": _id, title},
-    spot,
-    "filename": sourceFilename,
-    "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
-    "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
+  body[] {
+    ...,
+    _type == "image" => {
+      "src": asset->url,
+      "width": asset->metadata.dimensions.width,
+      "height": asset->metadata.dimensions.height
+    }
   },
-  "relatedPhotos": relatedPhotos[]->{
-    "id": _id,
-    title,
-    "slug": slug.current,
-    "src": image.asset->url,
-    "legacyPublicPath": legacyPublicPath,
-    "place": place->{"id": _id, title},
-    spot,
-    "filename": sourceFilename,
-    "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
-    "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
-  }
+  "coverPhoto": coverPhoto->{${cmsReferencedPhotoFields}},
+  "relatedPhotos": relatedPhotos[]->{${cmsReferencedPhotoFields}}
 }`;
 
-export const cmsSiteSettingsQuery = `*[_type == "siteSettings"][0] {
+export const cmsSiteSettingsQuery = `*[_type == "siteSettings"] | order((_id == "siteSettings-main") desc, _id asc)[0] {
   siteTitle,
-  "heroPhoto": heroPhoto->{
-    "id": _id,
-    title,
-    "slug": slug.current,
-    "src": image.asset->url,
-    isHidden,
-    "legacyPublicPath": legacyPublicPath,
-    "filename": sourceFilename,
-    "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
-    "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
-  },
+  "heroPhoto": heroPhoto->{${cmsReferencedPhotoFields}},
   heroSubtitle,
   aboutName,
   aboutLocation,
@@ -450,13 +460,27 @@ export const cmsPhotobalconyLayoutQuery = `*[_type == "photobalconyLayout"][0] {
   "summerPhotos": summerPhotos[]->{${cmsReferencedPhotoFields}}
 }`;
 
-export const cmsPageContentQuery = `*[_type == "pageContent" && pageKey in ["home", "photobalcony"]] | order(pageKey asc) {
+const cmsPagePhotoFields = `
   "id": _id,
-  pageKey,
   title,
-  subtitle,
-  "heroPhoto": heroPhoto->{${cmsReferencedPhotoFields}},
-  "sections": sections[] {
+  "slug": slug.current,
+  "src": image.asset->url,
+  "liveVideoUrl": liveVideo.asset->url,
+  isHidden,
+  "categoryIsVisible": category->isVisible,
+  "category": category->title,
+  "categoryId": category._ref,
+  "filename": coalesce(sourceFilename, image.asset->originalFilename),
+  altText,
+  caption,
+  credit,
+  "width": coalesce(image.asset->metadata.dimensions.width, dimensions.width),
+  "height": coalesce(image.asset->metadata.dimensions.height, dimensions.height)
+`;
+
+const cmsPagePhotoRefFields = cmsPagePhotoFields;
+
+const cmsPageSectionFields = `{
     "id": _key,
     "type": _type,
     title,
@@ -468,20 +492,75 @@ export const cmsPageContentQuery = `*[_type == "pageContent" && pageKey in ["hom
     limit,
     linkLabel,
     linkTarget,
+    linkPage,
     periodKey,
-    "photo": photo->{${cmsReferencedPhotoFields}},
-    "photos": photos[]->{${cmsReferencedPhotoFields}},
-    "category": category->{"id": _id, title},
-    "heroPhoto": heroPhoto->{${cmsReferencedPhotoFields}},
-    "carouselPhotos": carouselPhotos[]->{${cmsReferencedPhotoFields}},
-    "featurePhoto": featurePhoto->{${cmsReferencedPhotoFields}},
-    "stackPhotos": stackPhotos[]->{${cmsReferencedPhotoFields}},
-    "squarePhotos": squarePhotos[]->{${cmsReferencedPhotoFields}},
+    "photo": photo->{${cmsPagePhotoRefFields}},
+    "photos": photos[]->{${cmsPagePhotoRefFields}},
+    "category": category->{"id": _id, title, isVisible},
+    _type == "harborSlot" => {
+      "heroPhoto": heroPhoto->{${cmsPagePhotoRefFields}},
+      "carouselPhotos": carouselPhotos[]->{${cmsPagePhotoRefFields}},
+      "featurePhoto": featurePhoto->{${cmsPagePhotoRefFields}},
+      "stackPhotos": stackPhotos[]->{${cmsPagePhotoRefFields}},
+      "squarePhotos": squarePhotos[]->{${cmsPagePhotoRefFields}}
+    },
     cards[] {
+      "id": _key,
       title,
       linkLabel,
       linkTarget,
-      "photo": photo->{${cmsReferencedPhotoFields}}
+      linkPage,
+      "photo": photo->{${cmsPagePhotoRefFields}}
     }
-  }
 }`;
+
+const cmsPageContentFields = `{
+  "id": _id,
+  pageKey,
+  title,
+  subtitle,
+  modulesPosition,
+  "heroPhoto": heroPhoto->{${cmsPagePhotoRefFields}},
+  balconyChapters[] {
+    "id": _key,
+    title,
+    isVisible,
+    galleries[] {
+      "id": _key,
+      presentation,
+      isVisible,
+      "photos": photos[]->{${cmsPagePhotoRefFields}}
+    }
+  },
+  "sections": select(pageKey == "photobalcony" => sections[]{
+    "id": _key, "type": _type, title, isVisible, periodKey,
+    "photo": photo->{${cmsPagePhotoRefFields}},
+    "photos": photos[]->{${cmsPagePhotoRefFields}}
+  }),
+  "photoModules": select(pageKey == "photobalcony" => extraSections, sections)[] ${cmsPageSectionFields}
+}`;
+
+export const cmsPageContentQuery = `*[_type == "pageContent" && _id in ${JSON.stringify(contentPageKeys.map((key) => `pageContent-${key}`))}] ${cmsPageContentFields}`;
+
+export const cmsPageDraftQuery = `{
+  "document": *[_type == "pageContent" && _id == $id][0] ${cmsPageContentFields},
+  "photos": ${cmsVisiblePhotos} {${cmsPagePhotoFields}}
+}`;
+
+export type CmsPageDraft = { document: CmsPageContent | null; photos: CmsPhoto[] };
+
+export const cmsPlacementQueryFields = `
+  "photos": ${cmsPhotosQuery},
+  "pages": ${cmsPageContentQuery},
+  "home": ${cmsHomepageLayoutQuery},
+  "balcony": ${cmsPhotobalconyLayoutQuery},
+  "settings": ${cmsSiteSettingsQuery}
+`;
+
+export type CmsPlacementSnapshot = {
+  photos: CmsPhoto[];
+  pages: CmsPageContent[];
+  home: CmsHomepageLayout | null;
+  balcony: CmsPhotobalconyLayout | null;
+  settings: CmsSiteSettings | null;
+};

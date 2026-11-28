@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Photo } from "../data/photos";
 import type { PhotoMeta, PhotoStory } from "../data/stories";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
-import type { PhotobalconyLayout, PhotobalconyPeriod } from "../lib/photobalconyLayout";
+import { chaptersFromLegacyBalcony, type BalconyGallery, type PhotobalconyLayout, type PhotobalconyPeriod } from "../lib/photobalconyLayout";
 import { photoPath } from "../lib/routes";
 import { AdvancedPhotoLightbox } from "./AdvancedPhotoLightbox";
 
@@ -14,6 +14,8 @@ type BalconyViewProps = {
   photoMeta?: Record<string, PhotoMeta>;
   photoStories?: Record<string, PhotoStory[]>;
 };
+
+export const DEFAULT_BALCONY_TITLE = "Balcony View";
 
 type BalconyCarouselProps = {
   title: string;
@@ -51,15 +53,6 @@ const byFilenames = (photos: Photo[], filenames: string[]) =>
 const configuredPhotos = (layout: PhotobalconyLayout | undefined, configured: Photo[] | undefined, fallback: Photo[]) =>
   layout ? (configured ?? []) : fallback;
 
-function uniquePhotos(...groups: Photo[][]) {
-  const seen = new Set<string>();
-  return groups.flat().filter((photo) => {
-    if (seen.has(photo.src)) return false;
-    seen.add(photo.src);
-    return true;
-  });
-}
-
 function PhotoButton({
   photo,
   className,
@@ -85,39 +78,29 @@ function PhotoButton({
   );
 }
 
-function MonthTitle({ title }: { title: string }) {
-  return (
-    <header className="balcony-month-title">
-      <h2>{title}</h2>
-    </header>
-  );
-}
-
 function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [previousIndex, setPreviousIndex] = useState<number | null>(null);
-  const [transitionDirection, setTransitionDirection] = useState<"next" | "prev">("next");
+  const [activeId, setActiveId] = useState(photos[0]?.id);
+  const [transition, setTransition] = useState<{ previous: Photo; direction: "next" | "prev" }>();
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const ignoreNextClickRef = useRef(false);
+  const activeIndex = Math.max(0, photos.findIndex((photo) => photo.id === activeId));
   const active = photos[activeIndex];
-  const previous = previousIndex === null ? undefined : photos[previousIndex];
 
   useEffect(() => {
-    if (previousIndex === null) return undefined;
-    const timer = window.setTimeout(() => setPreviousIndex(null), CAROUSEL_TRANSITION_MS);
+    if (!transition) return;
+    const timer = window.setTimeout(() => setTransition(undefined), CAROUSEL_TRANSITION_MS);
     return () => window.clearTimeout(timer);
-  }, [previousIndex]);
+  }, [transition]);
 
   const changeSlide = (direction: "next" | "prev") => {
-    setTransitionDirection(direction);
-    setActiveIndex((index) => {
-      setPreviousIndex(index);
-      return direction === "next" ? (index + 1) % photos.length : (index - 1 + photos.length) % photos.length;
-    });
+    const offset = direction === "next" ? 1 : -1;
+    setTransition({ previous: active, direction });
+    setActiveId(photos[(activeIndex + offset + photos.length) % photos.length].id);
   };
   const goPrev = () => changeSlide("prev");
   const goNext = () => changeSlide("next");
   const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    ignoreNextClickRef.current = false;
     if (event.pointerType === "touch") {
       touchStartRef.current = { x: event.clientX, y: event.clientY };
     }
@@ -143,15 +126,13 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
       goNext();
     }
   };
-  const handleOpen = () => {
-    if (ignoreNextClickRef.current) {
+  const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (event.detail && ignoreNextClickRef.current) {
       ignoreNextClickRef.current = false;
       return;
     }
     onOpen(active);
   };
-
-  if (photos.length === 0) return null;
 
   return (
     <section className="balcony-carousel" aria-label={`${title} slideshow`}>
@@ -175,27 +156,27 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
         }}
         aria-label={`Open ${active.title}`}
       >
-        {previous ? (
+        {transition ? (
           <img
-            key={`previous-${previous.id}`}
-            className={`balcony-carousel-image balcony-carousel-image--previous balcony-carousel-image--${transitionDirection}`}
-            src={sizedImageUrl(previous.src, 1500, 86)}
-            srcSet={`${sizedImageUrl(previous.src, 1100)} 1100w, ${sizedImageUrl(previous.src, 1700, 86)} 1700w`}
-            sizes="(max-width: 900px) 100vw, 76vw"
+            key={`previous-${transition.previous.id}`}
+            className={`balcony-carousel-image balcony-carousel-image--previous balcony-carousel-image--${transition.direction}`}
+            src={sizedImageUrl(transition.previous.src, 1500, 86)}
+            srcSet={imageSrcSet(transition.previous.src, [700, 1100, 1700], 86)}
+            sizes="(max-width: 900px) 100vw, 92vw"
             alt=""
             decoding="async"
           />
         ) : null}
         <img
           key={`active-${active.id}`}
-          className={`balcony-carousel-image${previous ? ` balcony-carousel-image--active balcony-carousel-image--${transitionDirection}` : ""}`}
+          className={`balcony-carousel-image${transition ? ` balcony-carousel-image--active balcony-carousel-image--${transition.direction}` : ""}`}
           src={sizedImageUrl(active.src, 1500, 86)}
-          srcSet={`${sizedImageUrl(active.src, 1100)} 1100w, ${sizedImageUrl(active.src, 1700, 86)} 1700w`}
-          sizes="(max-width: 900px) 92vw, 76vw"
+          srcSet={imageSrcSet(active.src, [700, 1100, 1700], 86)}
+          sizes="(max-width: 900px) 100vw, 92vw"
           alt={`${active.category} ${active.title}`}
           width={active.width}
           height={active.height}
-          loading="eager"
+          loading={transition ? "eager" : "lazy"}
           decoding="async"
         />
       </button>
@@ -208,6 +189,9 @@ function BalconyCarousel({ title, photos, onOpen }: BalconyCarouselProps) {
       >
         <ChevronRight size={42} strokeWidth={1.3} aria-hidden="true" />
       </button>
+      <span className="balcony-carousel-count" aria-live="polite" aria-atomic="true">
+        <span className="sr-only">Photo </span>{activeIndex + 1} / {photos.length}
+      </span>
     </section>
   );
 }
@@ -249,119 +233,50 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
 
     return {
       hero: layout?.heroPhoto ?? fallbackHero,
-      periods: layout?.periods?.length ? layout.periods : fallbackPeriods,
-      may,
-      marchPortraits,
-      marchWide,
-      february,
-      january,
-      winter,
-      summer,
-      lightboxPhotos: uniquePhotos(may, marchPortraits, marchWide, february, january, winter, summer),
+      chapters: layout?.chapters ?? chaptersFromLegacyBalcony(fallbackPeriods.filter((period) => period.photos.length)),
     };
   }, [layout, photos]);
 
-  if (!content.hero) return null;
-
   const openPhoto = (photo: Photo, lightboxPhotos: Photo[]) => {
-    const index = lightboxPhotos.findIndex((item) => item.src === photo.src);
+    const index = lightboxPhotos.findIndex((item) => item.id === photo.id);
     if (index >= 0) {
       setLightboxState({ photos: lightboxPhotos, index });
     }
   };
 
-  const renderPeriod = (period: PhotobalconyPeriod) => {
-    const onOpen = (photo: Photo) => openPhoto(photo, period.photos);
-
-    if (period.key === "marchPortraits") {
-      return (
-        <section className="balcony-portrait-row" aria-label={`${period.title} portrait photos`}>
-          {period.photos.map((photo) => (
-            <PhotoButton key={photo.id} photo={photo} className="balcony-portrait-photo" onOpen={onOpen} />
-          ))}
-        </section>
-      );
-    }
-
-    if (period.key === "marchWide" || period.key === "may" || period.key === "february") {
-      return <BalconyCarousel title={period.title} photos={period.photos} onOpen={onOpen} />;
-    }
-
-    if (period.key === "january") {
-      return (
-        <section className="balcony-grid" aria-label={`${period.title} photo grid`}>
-          {period.photos.map((photo) => (
-            <PhotoButton key={photo.id} photo={photo} className="balcony-grid-photo" onOpen={onOpen} />
-          ))}
-        </section>
-      );
-    }
-
-    if (period.key === "winter") {
-      return (
-        <section className="balcony-grid balcony-grid--wide" aria-label={`${period.title} photo grid`}>
-          {period.photos.map((photo, index) => (
-            <PhotoButton
-              key={photo.id}
-              photo={photo}
-              className="balcony-grid-photo"
-              src={sizedImageUrl(photo.src, 1800, 86)}
-              srcSet={imageSrcSet(photo.src, [1200, 1800, 2400], 86)}
-              sizes={index === 0 ? "100vw" : "(max-width: 700px) 100vw, 50vw"}
-              onOpen={onOpen}
-            />
-          ))}
-        </section>
-      );
-    }
-
-    return (
-      <section className="balcony-final-stack" aria-label={`${period.title} photo stack`}>
-        {period.photos.map((photo, index) => (
-          <PhotoButton
-            key={photo.id}
-            photo={photo}
-            className={index === 0 ? "balcony-final-photo balcony-final-photo--large" : "balcony-final-photo"}
-            src={sizedImageUrl(photo.src, 1800, 86)}
-            srcSet={imageSrcSet(photo.src, [1200, 1800, 2400], 86)}
-            sizes="100vw"
-            onOpen={onOpen}
-          />
-        ))}
-      </section>
-    );
-  };
-
   return (
     <article className="balcony-page" aria-labelledby="balcony-title">
-      <h1 id="balcony-title" className="sr-only">
-        Balcony View
-      </h1>
-
-      <section className="balcony-hero" aria-label="Balcony View hero">
+      {content.hero && <div className="balcony-hero">
         <img
           src={sizedImageUrl(content.hero.src, 1800, 88)}
-          srcSet={`${sizedImageUrl(content.hero.src, 1200)} 1200w, ${sizedImageUrl(content.hero.src, 2200, 88)} 2200w`}
+          srcSet={imageSrcSet(content.hero.src, [1200, 2200], 88)}
           sizes="100vw"
-          alt={`${content.hero.category} ${content.hero.title}`}
+          alt={content.hero.altText || `${content.hero.category} ${content.hero.title}`}
           width={content.hero.width}
           height={content.hero.height}
           loading="eager"
           fetchPriority="high"
           decoding="async"
         />
-      </section>
+      </div>}
 
-      {content.periods.map((period, index) => {
-        const previous = content.periods[index - 1];
-        const showTitle = !previous || previous.title !== period.title;
-        return (
-          <Fragment key={`${period.key}-${index}`}>
-            {showTitle ? <MonthTitle title={period.title} /> : null}
-            {renderPeriod(period)}
-          </Fragment>
-        );
-      })}
+      <header className="balcony-intro">
+        <h1 id="balcony-title">{layout?.title?.trim() || DEFAULT_BALCONY_TITLE}</h1>
+        {layout?.subtitle?.trim() ? <p>{layout.subtitle}</p> : null}
+      </header>
+
+      {content.chapters.map((chapter) => (
+        <section className="balcony-chapter" key={chapter.id} aria-labelledby={`balcony-${chapter.id}`}>
+          <header className="balcony-month-title">
+            <h2 id={`balcony-${chapter.id}`}>{chapter.title}</h2>
+          </header>
+          {chapter.galleries.map((gallery) => (
+            <div className="balcony-gallery" key={gallery.id}>
+              <BalconyPhotoGroup title={chapter.title} photos={gallery.photos} presentation={gallery.presentation} onOpen={(photo) => openPhoto(photo, gallery.photos)} />
+            </div>
+          ))}
+        </section>
+      ))}
 
       <AdvancedPhotoLightbox
         photos={lightboxState?.photos ?? []}
@@ -373,12 +288,80 @@ export function BalconyView({ photos, layout, photoMeta, photoStories }: Balcony
         }}
         photoMeta={photoMeta}
         photoStories={photoStories}
-        shareUrl={
-          lightboxState
-            ? `${window.location.origin}${photoPath(lightboxState.photos[lightboxState.index])}`
-            : undefined
-        }
+        shareUrl={lightboxState ? `${window.location.origin}${photoPath(lightboxState.photos[lightboxState.index])}` : undefined}
       />
     </article>
+  );
+}
+
+export function BalconyPhotoGroup({ photos, presentation, title, onOpen }: Pick<BalconyGallery<Photo>, "photos" | "presentation"> & {
+  title: string;
+  onOpen: (photo: Photo) => void;
+}) {
+  if (photos.length === 1 && presentation === "carousel") {
+    return (
+      <div className="balcony-carousel balcony-carousel--single">
+        <PhotoButton
+          photo={photos[0]}
+          className="balcony-carousel-main"
+          sizes="(max-width: 900px) 100vw, 92vw"
+          src={sizedImageUrl(photos[0].src, 1500, 86)}
+          srcSet={imageSrcSet(photos[0].src, [700, 1100, 1700], 86)}
+          onOpen={onOpen}
+        />
+      </div>
+    );
+  }
+
+  if (presentation === "carousel") {
+    return <BalconyCarousel title={title} photos={photos} onOpen={onOpen} />;
+  }
+
+  if (presentation === "portraitRail") {
+    return (
+      <div className="balcony-portrait-row" role="group" aria-label={`${title} portrait photos`}>
+        {photos.map((photo) => (
+          <PhotoButton key={photo.id} photo={photo} className="balcony-portrait-photo" onOpen={onOpen} />
+        ))}
+      </div>
+    );
+  }
+
+  if (presentation === "grid" || presentation === "leadGrid") {
+    const featured = presentation === "leadGrid";
+    return (
+      <div className={`balcony-grid${featured ? " balcony-grid--wide" : ""}`} role="group" aria-label={`${title} photo grid`}>
+        {photos.map((photo, index) => {
+          const wide = featured && (index === 0 || (index === photos.length - 1 && photos.length % 2 === 0));
+          return (
+            <PhotoButton
+              key={photo.id}
+              photo={photo}
+              className={`balcony-grid-photo${wide ? " balcony-grid-photo--wide" : ""}`}
+              src={sizedImageUrl(photo.src, wide ? 1700 : 900, 86)}
+              srcSet={imageSrcSet(photo.src, wide ? [700, 1100, 1700, 2200] : [500, 900, 1300], 86)}
+              sizes={wide ? "100vw" : featured ? "50vw" : "(max-width: 700px) 100vw, 50vw"}
+              onOpen={onOpen}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="balcony-final-stack" role="group" aria-label={`${title} photo stack`}>
+      {photos.map((photo, index) => (
+        <PhotoButton
+          key={photo.id}
+          photo={photo}
+          className={index === 0 ? "balcony-final-photo balcony-final-photo--large" : "balcony-final-photo"}
+          src={sizedImageUrl(photo.src, 1800, 86)}
+          srcSet={imageSrcSet(photo.src, [1200, 1800, 2400], 86)}
+          sizes="100vw"
+          onOpen={onOpen}
+        />
+      ))}
+    </div>
   );
 }

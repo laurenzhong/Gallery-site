@@ -1,0 +1,78 @@
+.page-title-subtitle {
+  margin: 0;
+  padding-inline: 16px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 1px 8px #000;
+}
+
+.page-module-description {
+  margin: 0;
+  padding: 12px clamp(16px, 4vw, 64px) 24px;
+  color: #e2e0db;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.feature-card small {
+  display: block;
+  margin-top: 0.3em;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.page-module-link-label {
+  position: absolute;
+  z-index: 1;
+  inset: auto auto 1rem 1rem;
+  padding: 0.5em 0.9em;
+  color: #fff;
+  background: #181818;
+}
+
+.page-module-balcony-gallery {
+  --balcony-gallery-gap: 32px;
+}
+
+@media (min-width: 641px) {
+  .feature-grid[data-card-count="1"] { grid-template-columns: minmax(0, 1fr); }
+  .feature-grid[data-card-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.balcony-intro {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: clamp(30px, 4.5vw, 64px) 24px clamp(18px, 2.5vw, 34px);
+  text-align: center;
+}
+
+.balcony-intro h1 {
+  margin: 0;
+  font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(36px, 4.2vw, 56px);
+  font-weight: 500;
+  line-height: 1.12;
+}
+
+.balcony-intro p {
+  max-width: 55ch;
+  margin: 0;
+  color: #d0cdca;
+}
+
+.page-draft-status {
+  margin: 0;
+  padding: 140px 24px 48px;
+  text-align: center;
+}
+
+.story-detail-inline-image {
+  margin: 1.5em 0;
+}
+
+.story-detail-inline-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+}

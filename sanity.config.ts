@@ -6,7 +6,8 @@ import { defineConfig } from "sanity";
 import { presentationTool } from "sanity/presentation";
 import { structureTool } from "sanity/structure";
 import { schemaTypes } from "./sanity/schemaTypes";
-import { structure } from "./sanity/structure";
+import { galleryStructure } from "./sanity/structure";
+import { contentPageKeys, contentPages } from "./src/lib/pageContentPages";
 
 const projectId = process.env.SANITY_STUDIO_PROJECT_ID ?? "yourprojectid";
 const dataset = process.env.SANITY_STUDIO_DATASET ?? "production";
@@ -33,7 +34,7 @@ export default defineConfig({
   // Env vars SANITY_STUDIO_PROJECT_ID + SANITY_STUDIO_DATASET must be present at build time
   plugins: [
     zhHansLocale(),
-    structureTool({ structure }),
+    structureTool({ structure: galleryStructure(previewOrigin) }),
     visionTool(),
     presentationTool({
       title: "网站预览",
@@ -42,5 +43,20 @@ export default defineConfig({
   ],
   schema: {
     types: schemaTypes,
+    templates: (templates) => [
+      ...templates.filter(({ schemaType }) => !["pageContent", "siteCopy", "pageLayout", "homepageLayout", "photobalconyLayout"].includes(schemaType)),
+      ...contentPageKeys.map((key) => ({
+        id: `pageContent-${key}`,
+        title: contentPages[key].label,
+        schemaType: "pageContent",
+        value: { pageKey: key },
+      })),
+    ],
+  },
+  document: {
+    newDocumentOptions: (options) => options.filter(({ templateId }) => !templateId.startsWith("pageContent-")),
+    actions: (actions, { schemaType }) => schemaType === "pageContent"
+      ? actions.filter(({ action }) => action !== "duplicate")
+      : actions,
   },
 });

@@ -2,12 +2,16 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AdvancedPhotoLightbox } from "./components/AdvancedPhotoLightbox";
 import { CmsSourceBadge } from "./components/CmsSourceBadge";
 import { Footer } from "./components/Footer";
-import { GallerySections } from "./components/GallerySections";
+import { GallerySections, PageSections } from "./components/GallerySections";
 import { Header } from "./components/Header";
 import "./components/YearArchive.css";
+import "./components/pageModules.css";
 import type { Photo } from "./data/photos";
 import { useGalleryContent } from "./lib/galleryContent";
 import { imageSrcSet, sizedImageUrl } from "./lib/imageUrl";
+import { adaptPageContent, photosForPlacement } from "./lib/pageContentAdapter";
+import { contentPageKey, usesPublishedPageContent } from "./lib/pageContentPages";
+import { pageDraftParameter, usePageDraftPreview } from "./lib/pageDraftPreview";
 import { usePageContentPreview } from "./lib/pageContentPreview";
 import { matchesPhotoSlug, matchesStorySlug, photoPath } from "./lib/routes";
 import { isStudioPreview, useStudioPreview } from "./lib/studioPreview";
@@ -41,6 +45,23 @@ const PHOTOGRAPHY_HERO_WIDTHS = [640, 960, 1400, 2000, 2800];
 const DEFAULT_DESCRIPTION =
   "Queenstown.top 是 JiaKaiZhong 的摄影档案，记录山野、海港、森林、城市边缘与旅行片段。";
 
+type GalleryHistory = { returnPath: string; photoIds: string[] };
+
+function lightboxFromHistory(photos: Photo[], slug: string, entry?: GalleryHistory) {
+  if (!Array.isArray(entry?.photoIds)) {
+    const index = photos.findIndex((photo) => matchesPhotoSlug(photo, slug));
+    return index >= 0 ? { photos, index } : null;
+  }
+
+  const photosById = new Map(photos.map((photo) => [photo.id, photo]));
+  const group = entry.photoIds.flatMap((id) => photosById.get(id) ?? []);
+  const index = group.findIndex((item) => matchesPhotoSlug(item, slug));
+  if (index >= 0) return { photos: group, index };
+
+  const photo = photos.find((item) => matchesPhotoSlug(item, slug));
+  return photo ? { photos: [photo], index: 0 } : null;
+}
+
 function setMeta(name: string, content: string, attribute: "name" | "property" = "name") {
   let tag = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${name}"]`);
   if (!tag) {
@@ -51,22 +72,31 @@ function setMeta(name: string, content: string, attribute: "name" | "property" =
   tag.content = content;
 }
 
+function detailSlug(path: string, prefix: string) {
+  if (!path.startsWith(prefix)) return "";
+  const slug = path.slice(prefix.length);
+  try {
+    return decodeURIComponent(slug);
+  } catch {
+    return slug;
+  }
+}
+
 function App() {
   const [lightboxState, setLightboxState] = useState<{ photos: Photo[]; index: number } | null>(null);
   const lightboxReturnPath = useRef<string | null>(null);
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/$/, "") || "/");
   const pathname = currentPath;
-  const isBalconyPage = pathname === "/photobalcony";
-  const isPhotographyPage = pathname === "/" || pathname === "/photography";
+  const pageKey = contentPageKey(pathname);
+  const isBalconyPage = pageKey === "photobalcony";
+  const isPhotographyPage = pageKey === "home";
   const searchParams = new URLSearchParams(window.location.search);
   const showPreview = !isStudioPreview && searchParams.has("preview");
-  const pageContentMode = import.meta.env.VITE_PAGE_CONTENT_MODE ?? "stable";
-  const pageContentQuery = searchParams.get("page-content-preview");
-  const showPageContentPreview =
-    pageContentMode === "preview" ||
-    pageContentMode === "production" ||
-    pageContentQuery === "1" ||
-    pageContentQuery === "true";
+  const draftPageKey = window.parent !== window && searchParams.get(pageDraftParameter) === "1" ? pageKey : undefined;
+  const draft = usePageDraftPreview(draftPageKey);
+  const draftPage = draft?.document;
+  const adaptedDraft = useMemo(() => draft?.document && adaptPageContent(draft.document, photosForPlacement(draft.photos), { draft: true }), [draft]);
+  const showPageContentPreview = usesPublishedPageContent(import.meta.env.VITE_PAGE_CONTENT_MODE, window.location.search);
   const studioPreview = useStudioPreview(showPageContentPreview);
   const { content, publishedHeroPhoto, isPublishedHeroLoading } = useGalleryContent({
     useCacheInDevelopment: pathname === "/about",
@@ -97,19 +127,26 @@ function App() {
   const isPhotoMapMapLibrePage = pathname === "/experiments/photo-map-maplibre";
   const isTrailRoutePage = pathname === "/experiments/trail-route";
   const isGpxTrailDemoPage = pathname === "/experiments/trail-route-gpx-demo";
-  const photoRouteSlug = pathname.startsWith("/photos/") ? decodeURIComponent(pathname.slice("/photos/".length)) : "";
-  const storyRouteSlug = pathname.startsWith("/stories/") ? decodeURIComponent(pathname.slice("/stories/".length)) : "";
+  const photoRouteSlug = detailSlug(pathname, "/photos/");
+  const storyRouteSlug = detailSlug(pathname, "/stories/");
   const pageContentPreview = usePageContentPreview(showPageContentPreview, photos, studioPreview);
-  const previewHome = pageContentPreview.pages.home;
-  const previewBalcony = pageContentPreview.pages.photobalcony;
-  const isPhotographyLoading = content.isLoading || pageContentPreview.isLoading;
-  const publishedGallery = isPhotographyPage && (content.isLoading || content.error)
+  const activePageContent = draftPageKey && draftPage !== null ? adaptedDraft : pageKey ? pageContentPreview.pages[pageKey] : undefined;
+  const previewHome = draftPageKey === "home" && draftPage !== null ? adaptedDraft : pageContentPreview.pages.home;
+  const controlledBalcony = activePageContent?.photobalconyLayout;
+  const balconyLayout = useMemo(() => controlledBalcony ? {
+    ...photobalconyLayout,
+    ...controlledBalcony,
+    heroPhoto: controlledBalcony.heroPhoto ?? photobalconyLayout?.heroPhoto,
+  } : photobalconyLayout, [controlledBalcony, photobalconyLayout]);
+  const homeSubtitle = previewHome?.subtitle || content.heroSubtitle;
+  const siteTitle = content.siteTitle || "Queenstown.top";
+  const isPhotographyLoading = draftPageKey ? draftPage === undefined : content.isLoading || pageContentPreview.isLoading;
+  const publishedGallery = isPhotographyPage && !draftPageKey && (content.isLoading || content.error)
     ? pageContentPreview.publishedHomeGallery
     : undefined;
   const isPhotographyGalleryLoading = isPhotographyLoading && !publishedGallery;
-
   const heroPhoto = useMemo(() => {
-    if (content.isLoading && content.source === "static") {
+    if (content.isLoading && content.source === "static" && !previewHome?.heroPhoto) {
       return content.heroPhoto;
     }
 
@@ -122,7 +159,7 @@ function App() {
   }, [content.heroPhoto, content.isLoading, content.source, photos, previewHome?.heroPhoto]);
 
   const useSiteSettingsHero = pageContentPreview.publishedHomeHero === null;
-  const earlyPhotographyHero = isPhotographyPage
+  const earlyPhotographyHero = isPhotographyPage && !draftPageKey
     ? useSiteSettingsHero ? publishedHeroPhoto : pageContentPreview.publishedHomeHero
     : undefined;
   const isPhotographyHeroLoading = !earlyPhotographyHero && (
@@ -170,10 +207,6 @@ function App() {
     setCurrentPath(path.replace(/\/$/, "") || "/");
   };
 
-  const setLightboxPath = (path: string, mode: "push" | "replace") => {
-    window.history[mode === "push" ? "pushState" : "replaceState"]({}, "", path);
-  };
-
   useEffect(() => {
     if (!photoRouteSlug || !activePhoto) return;
 
@@ -183,17 +216,21 @@ function App() {
     }
   }, [activePhoto, photoRouteSlug, pathname]);
 
-  const openPhoto = (index: number, carouselPhotos?: Photo[], sourcePhotos = photos) => {
-    const photo = sourcePhotos[index];
-    if (!photo) return;
-
-    const lightboxPhotos = carouselPhotos ?? sourcePhotos;
+  const openModulePhoto = (photo: Photo, lightboxPhotos: Photo[]) => {
     const lightboxIndex = lightboxPhotos.findIndex((item) => item.id === photo.id);
     if (lightboxIndex < 0) return;
 
     lightboxReturnPath.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     setLightboxState({ photos: lightboxPhotos, index: lightboxIndex });
-    setLightboxPath(photoPath(photo), "push");
+    if (!draftPageKey) {
+      const galleryLightbox: GalleryHistory = { returnPath: lightboxReturnPath.current, photoIds: lightboxPhotos.map((item) => item.id) };
+      window.history.pushState({ galleryLightbox }, "", photoPath(photo));
+    }
+  };
+
+  const openPhoto = (index: number, lightboxPhotos = photos) => {
+    const photo = photos[index];
+    if (photo) openModulePhoto(photo, lightboxPhotos);
   };
 
   const navigatePhoto = (index: number) => {
@@ -202,13 +239,17 @@ function App() {
     if (!photo) return;
 
     setLightboxState({ photos: activeLightbox.photos, index });
-    setLightboxPath(photoPath(photo), "replace");
+    if (!draftPageKey) window.history.replaceState(window.history.state, "", photoPath(photo));
   };
 
   const closePhoto = () => {
     setLightboxState(null);
     const browserPath = window.location.pathname.replace(/\/$/, "") || "/";
     if (browserPath.startsWith("/photos/")) {
+      if (window.history.state?.galleryLightbox) {
+        window.history.back();
+        return;
+      }
       const rememberedPath = lightboxReturnPath.current;
       const returnPath = rememberedPath && !rememberedPath.startsWith("/photos/")
         ? rememberedPath
@@ -223,15 +264,18 @@ function App() {
   };
 
   useEffect(() => {
-    const onPopState = () => {
+    const onPopState = (event: PopStateEvent) => {
       const nextPath = window.location.pathname.replace(/\/$/, "") || "/";
-      setCurrentPath(nextPath);
+      const entry = event.state?.galleryLightbox as GalleryHistory | undefined;
       if (!nextPath.startsWith("/photos/")) {
+        setCurrentPath(nextPath);
         setLightboxState(null);
+        lightboxReturnPath.current = null;
       } else {
-        const slug = decodeURIComponent(nextPath.slice("/photos/".length));
-        const index = photos.findIndex((photo) => matchesPhotoSlug(photo, slug));
-        setLightboxState(index >= 0 ? { photos, index } : null);
+        const slug = detailSlug(nextPath, "/photos/");
+        const lightbox = lightboxFromHistory(photos, slug, entry);
+        setCurrentPath(entry && lightbox ? new URL(entry.returnPath, window.location.origin).pathname.replace(/\/$/, "") || "/" : nextPath);
+        setLightboxState(lightbox);
       }
     };
 
@@ -240,15 +284,17 @@ function App() {
   }, [photos]);
 
   useEffect(() => {
-    const title = activePhoto?.title ?? activeStory?.story.title ?? (isJournalPage ? "Stories" : undefined);
+    const title = activePhoto?.title ?? activeStory?.story.title ?? (isJournalPage ? "Stories" : isBalconyPage ? balconyLayout?.title : isPhotographyPage ? previewHome?.title : undefined);
     const description =
       activeStory?.story.excerpt ??
       (activePhoto ? `${activePhoto.category} / ${activePhoto.filename}`
+        : isPhotographyPage && homeSubtitle ? homeSubtitle
+        : isBalconyPage && balconyLayout?.subtitle ? balconyLayout.subtitle
         : isYearArchivePage ? "Browse the Queenstown.top photo archive by capture year and month." : DEFAULT_DESCRIPTION);
-    const image = activePhoto?.src ?? activeStory?.photo.src ?? heroPhoto?.src;
+    const image = activePhoto?.src ?? activeStory?.photo.src ?? (isBalconyPage ? balconyLayout?.heroPhoto?.src : undefined) ?? heroPhoto?.src;
 
     const pageTitle = title
-      ? `${title} | Queenstown.top`
+      ? `${title} | ${siteTitle}`
       : isPhotographyPage
         ? "Photography | Queenstown.top"
         : isMapPage
@@ -292,7 +338,12 @@ function App() {
   }, [
     activePhoto,
     activeStory,
+    balconyLayout,
     heroPhoto,
+    homeSubtitle,
+    isBalconyPage,
+    previewHome?.title,
+    siteTitle,
     isAgarunAtlasPage,
     isExperimentsPage,
     isJournalPage,
@@ -314,6 +365,11 @@ function App() {
     pathname,
   ]);
 
+  const homeSections = publishedGallery ?? previewHome?.sections;
+  const supplementalModules = pageKey && pageKey !== "home" && activePageContent?.sections
+    ? <PageSections sections={activePageContent.sections} onOpen={openModulePhoto} />
+    : null;
+
   return (
     <>
       {(showPreview || isStudioPreview) && (
@@ -330,6 +386,12 @@ function App() {
       {!isAboutPage && !isStudioPreview && <CmsSourceBadge content={content} />}
 
       <main className={isPhotographyPage && isPhotographyGalleryLoading ? "photography-loading" : undefined}>
+        {draftPageKey && draftPage === undefined && <p className="page-draft-status" role="status">正在连接 Studio 草稿预览…</p>}
+        {draftPageKey && draftPage === null && <p className="page-draft-status" role="status">尚未保存页面草稿。下方显示当前页面。</p>}
+        {draftPageKey && !!adaptedDraft?.warnings.length && (
+          <ul className="page-draft-status" aria-label="草稿内容提示">{adaptedDraft.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>
+        )}
+        {activePageContent?.modulesPosition === "before" && supplementalModules}
         <Suspense fallback={<p className="site-route-loading" role="status">Loading…</p>}>
           {studioPreview && !studioPreview.documents ? (
             <p className="site-route-loading" role={studioPreview.error ? "alert" : "status"}>
@@ -340,7 +402,8 @@ function App() {
           ) : photoRouteSlug && activePhoto ? (
             <>
               <section className="page-title-band" id="top" aria-labelledby="page-title">
-                <h1 id="page-title">Photography</h1>
+                <h1 id="page-title">{previewHome?.title || "Photography"}</h1>
+                {homeSubtitle && <p className="page-title-subtitle">{homeSubtitle}</p>}
               </section>
 
               <section className="hero" aria-label="Featured photograph">
@@ -361,11 +424,9 @@ function App() {
                 ) : null}
               </section>
 
-              <GallerySections
-                photos={photos}
-                homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
-                onOpen={openPhoto}
-              />
+              {previewHome?.sections ? <PageSections sections={previewHome.sections} onOpen={openModulePhoto} home /> : (
+                <GallerySections photos={photos} homepageLayout={homepageLayout} onOpen={openModulePhoto} />
+              )}
             </>
           ) : (photoRouteSlug || storyRouteSlug) && content.isLoading ? (
             <section className="detail-page detail-empty" aria-labelledby="detail-loading-title">
@@ -384,7 +445,7 @@ function App() {
           ) : isBalconyPage ? (
             <BalconyView
               photos={photos}
-              layout={previewBalcony?.photobalconyLayout ?? photobalconyLayout}
+              layout={balconyLayout}
               photoMeta={photoMeta}
               photoStories={photoStories}
             />
@@ -451,7 +512,8 @@ function App() {
           ) : (
             <>
               <section className="page-title-band" id="top" aria-labelledby="page-title">
-                <h1 id="page-title">Photography</h1>
+                <h1 id="page-title">{previewHome?.title || "Photography"}</h1>
+                {homeSubtitle && <p className="page-title-subtitle">{homeSubtitle}</p>}
               </section>
 
               <section className="hero" aria-label="Featured photograph" aria-busy={isPhotographyHeroLoading}>
@@ -486,16 +548,15 @@ function App() {
 
               {isPhotographyGalleryLoading ? (
                 <p className="sr-only" role="status">Loading photographs…</p>
+              ) : homeSections ? (
+                <PageSections sections={homeSections} onOpen={openModulePhoto} home />
               ) : (
-                <GallerySections
-                  photos={publishedGallery?.photos ?? photos}
-                  homepageLayout={publishedGallery?.layout ?? previewHome?.homepageLayout ?? homepageLayout}
-                  onOpen={(index, carouselPhotos) => openPhoto(index, carouselPhotos, publishedGallery?.photos)}
-                />
+                <GallerySections photos={photos} homepageLayout={homepageLayout} onOpen={openModulePhoto} />
               )}
             </>
           )}
         </Suspense>
+        {activePageContent?.modulesPosition !== "before" && supplementalModules}
       </main>
 
       <Footer

@@ -3,6 +3,9 @@ import { orderableDocumentListDeskItem } from "@sanity/orderable-document-list";
 import { PhotoImportDashboard } from "./components/PhotoImportDashboard";
 import { PhotoLibraryDashboard } from "./components/PhotoLibraryDashboard";
 import { PhotoMapEditorDashboard } from "./components/PhotoMapEditorDashboard";
+import { PageDraftPreview } from "./components/PageDraftPreview";
+import { PagePhotoUsage } from "./components/PhotoUsageInput";
+import { contentPageKeys, contentPages } from "../src/lib/pageContentPages";
 
 const photoOrdering = [{ field: "sortOrder", direction: "asc" as const }];
 const storyOrdering = [{ field: "orderRank", direction: "asc" as const }];
@@ -29,29 +32,13 @@ const pageDocument = (
 ) =>
   S.document().schemaType(schemaType).documentId(documentId).title(title);
 
-// A photo is actionable when it is missing an essential field or is visible but
-// has not been placed on a controlled page or in a story yet.
 const photoNeedsAttentionFilter = `
   _type == "photo" &&
   (
     !defined(image.asset._ref) ||
-    (!defined(category._ref) && count(subjects) == 0) ||
-    !defined(slug.current) ||
-    (
-      isHidden != true &&
-      count(*[_type in ["pageContent", "homepageLayout", "photobalconyLayout", "siteSettings", "story", "mapRoute"] && references(^._id)]) == 0
-    )
+    (!defined(category._ref) && coalesce(count(subjects), 0) == 0) ||
+    !defined(slug.current)
   )
-`;
-
-const pageUsedPhotoFilter = (pageKey: "home" | "photobalcony") => `
-  _type == "photo" &&
-  count(*[
-    ((_type == "pageContent" && pageKey == "${pageKey}") ||
-      (_type == "homepageLayout" && "${pageKey}" == "home") ||
-      (_type == "photobalconyLayout" && "${pageKey}" == "photobalcony")) &&
-    references(^._id)
-  ]) > 0
 `;
 
 const storyUsedPhotoFilter = `
@@ -59,7 +46,7 @@ const storyUsedPhotoFilter = `
   count(*[_type == "story" && references(^._id)]) > 0
 `;
 
-export const structure: StructureResolver = (S, context) =>
+export const galleryStructure = (previewOrigin: string): StructureResolver => (S, context) =>
   S.list()
     .id("gallery")
     .title("Gallery 内容管理")
@@ -71,19 +58,16 @@ export const structure: StructureResolver = (S, context) =>
             .id("pages-list")
             .title("页面内容")
             .items([
-              li(S, "pages.home")
-                .title("首页")
+              ...contentPageKeys.map((key) => li(S, `pages.${key}`)
+                .title(contentPages[key].label)
                 .schemaType("pageContent")
-                .child(pageDocument(S, "pageContent", "pageContent-home", "首页内容")),
-              li(S, "pages.photobalcony")
-                .title("影像阳台")
-                .schemaType("pageContent")
-                .child(pageDocument(S, "pageContent", "pageContent-photobalcony", "影像阳台内容")),
+                .child(pageDocument(S, "pageContent", `pageContent-${key}`, contentPages[key].label)
+                .initialValueTemplate(`pageContent-${key}`)
+                .views([
+                  S.view.form().title("编辑内容"),
+                  S.view.component(PageDraftPreview).id("page-preview").title("草稿预览").options({ origin: previewOrigin, pageKey: key }),
+                ]))),
               S.divider(),
-              li(S, "pages.site-copy")
-                .title("全站文字")
-                .schemaType("siteCopy")
-                .child(pageDocument(S, "siteCopy", "siteCopy-main", "全站文字")),
               li(S, "pages.site-settings")
                 .title("网站设置")
                 .schemaType("siteSettings")
@@ -110,6 +94,7 @@ export const structure: StructureResolver = (S, context) =>
                     .title("全部照片")
                     .child((documentId) => S.defaultDocument({ schemaType: "photo", documentId })),
                 ),
+
               li(S, "photos.albums")
                 .title("相册")
                 .schemaType("album")
@@ -125,18 +110,13 @@ export const structure: StructureResolver = (S, context) =>
                     .id("photos-used-in-list")
                     .title("按页面使用")
                     .items([
-                      li(S, "photos.used-in.home")
-                        .title("首页使用的照片")
+                      ...contentPageKeys.map((key) => li(S, `photos.used-in.page-${key}`)
+                        .title(contentPages[key].label)
+                        .child(S.component(PagePhotoUsage).id(`photos-on-${key}`).title(contentPages[key].label).options({ pageKey: key }))),
+                      li(S, "photos.used-in.stories")
+                        .title("手记文档引用")
                         .schemaType("photo")
-                        .child(photoList(S, "首页使用的照片", pageUsedPhotoFilter("home"))),
-                      li(S, "photos.used-in.photobalcony")
-                        .title("影像阳台使用的照片")
-                        .schemaType("photo")
-                        .child(photoList(S, "影像阳台使用的照片", pageUsedPhotoFilter("photobalcony"))),
-                      li(S, "photos.used-in.journal")
-                        .title("手记使用的照片")
-                        .schemaType("photo")
-                        .child(photoList(S, "手记使用的照片", storyUsedPhotoFilter)),
+                        .child(photoList(S, "手记文档引用", storyUsedPhotoFilter)),
                     ]),
                 ),
               li(S, "photos.places")
@@ -189,12 +169,12 @@ export const structure: StructureResolver = (S, context) =>
             .title("发布检查")
             .items([
               li(S, "publishing.hidden-photos")
-                .title("已隐藏但仍被使用的照片")
+                .title("已隐藏但仍有文档引用")
                 .schemaType("photo")
                 .child(
                   photoList(
                     S,
-                    "已隐藏但仍被使用的照片",
+                    "已隐藏但仍有文档引用",
                     '_type == "photo" && isHidden == true && count(*[_type in ["pageContent", "homepageLayout", "photobalconyLayout", "siteSettings", "story", "mapRoute"] && references(^._id)]) > 0',
                   ),
                 ),

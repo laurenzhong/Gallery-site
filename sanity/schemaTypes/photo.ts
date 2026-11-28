@@ -4,6 +4,7 @@ import { PhotoUsageInput } from "../components/PhotoUsageInput";
 import { photoConditionOptions, photoSubjectOptions } from "../photoTaxonomy";
 
 const usageWarningQuery = `{
+  "pageCount": count(*[_type == "pageContent" && (references($publishedId) || references($draftId))]),
   "homepageCount": count(*[
     _type == "homepageLayout" &&
     (references($publishedId) || references($draftId))
@@ -287,6 +288,7 @@ export const photoType = defineType({
           if (!value) return true;
           const client = context.getClient({ apiVersion: "2025-02-19" });
           const usage = await client.fetch<{
+            pageCount: number;
             homepageCount: number;
             siteHeroCount: number;
             photobalconyCount: number;
@@ -294,6 +296,7 @@ export const photoType = defineType({
           mapRouteCount: number;
           }>(usageWarningQuery, documentIds(context.document?._id));
           const warnings = [];
+          if (usage.pageCount) warnings.push(`${usage.pageCount} 个页面内容文档`);
           if (usage.siteHeroCount) warnings.push("站点设置主视觉");
           if (usage.homepageCount) warnings.push("首页布局");
           if (usage.photobalconyCount) warnings.push("影像阳台布局");

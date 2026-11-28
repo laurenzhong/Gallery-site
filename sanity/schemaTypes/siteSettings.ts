@@ -38,11 +38,11 @@ export const siteSettingsType = defineType({
     }),
     defineField({
       name: "heroPhoto",
-      title: "首页主视觉照片",
+      title: "首页备用主视觉照片",
       ...photoReference,
       fieldset: "hero",
       description:
-        "首页首屏显示的主图，优先级高于任何「主视觉备选」标记。引用已被隐藏的照片时会显示校验提示，但仍可保存。",
+        "页面内容 → 首页未设置主图时使用。",
       validation: (Rule) =>
         Rule.custom(async (value, context) => {
           if (!value?._ref) return true;
@@ -57,10 +57,10 @@ export const siteSettingsType = defineType({
     }),
     defineField({
       name: "heroSubtitle",
-      title: "主视觉副标题",
+      title: "首页备用副标题",
       type: "string",
       fieldset: "hero",
-      description: "预留的主视觉文案字段。当前首页主视觉仅展示图片，尚未使用此字段。",
+      description: "页面内容 → 首页未填写副标题时使用。",
     }),
     defineField({
       name: "aboutName",

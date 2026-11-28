@@ -95,7 +95,7 @@ export function PhotoLibraryDashboard() {
   const { navigate } = useRouter();
   const { groupIndex, routerPanesState } = usePaneRouter();
   const [photos, setPhotos] = useState<PhotoCard[]>([]);
-  const lastSelectedIdRef = useRef<string>();
+  const lastSelectedIdRef = useRef<string | undefined>(undefined);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [isLoading, setIsLoading] = useState(true);

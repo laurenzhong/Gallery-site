@@ -1,14 +1,34 @@
+import { PortableText, type PortableTextComponents } from "@portabletext/react";
 import type { Photo } from "../data/photos";
 import type { PhotoStory } from "../data/stories";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { photoPath } from "../lib/routes";
+import { internalPageHref } from "../lib/pageContentPages";
 
 type StoryDetailProps = {
   photo: Photo;
   story: PhotoStory;
 };
 
+const storyComponents: PortableTextComponents = {
+  types: {
+    image: ({ value }) => value.src ? (
+      <figure className="story-detail-inline-image">
+        <img src={sizedImageUrl(value.src, 1400)} alt={value.alt ?? ""} width={value.width} height={value.height} loading="lazy" decoding="async" />
+      </figure>
+    ) : null,
+  },
+  marks: {
+    link: ({ children, value }) => {
+      const raw = typeof value?.href === "string" ? value.href : "";
+      const href = internalPageHref(raw) ?? (/^(https?:\/\/|mailto:)/i.test(raw) ? raw : undefined);
+      return href ? <a href={href}>{children}</a> : children;
+    },
+  },
+};
+
 export function StoryDetail({ photo, story }: StoryDetailProps) {
+  const relatedPhotos = [photo, ...(story.relatedPhotos ?? [])];
   return (
     <article className="detail-page story-detail-page">
       <header className="detail-hero">
@@ -22,7 +42,7 @@ export function StoryDetail({ photo, story }: StoryDetailProps) {
           src={sizedImageUrl(photo.src, 2200, 88)}
           srcSet={imageSrcSet(photo.src, [1000, 1600, 2400], 88)}
           sizes="100vw"
-          alt={`${photo.category} ${photo.title}`}
+          alt={photo.altText || `${photo.category} ${photo.title}`}
           width={photo.width}
           height={photo.height}
           loading="eager"
@@ -32,17 +52,21 @@ export function StoryDetail({ photo, story }: StoryDetailProps) {
       </figure>
 
       <div className="story-detail-body">
-        {story.body.map((paragraph, index) => (
+        {story.richBody?.length ? <PortableText value={story.richBody} components={storyComponents} /> : story.body.map((paragraph, index) => (
           <p key={index}>{paragraph}</p>
         ))}
       </div>
 
       <footer className="detail-related">
-        <h2>Related Photo</h2>
-        <a className="detail-related-link" href={photoPath(photo)}>
-          <span>{photo.title}</span>
-          <small>{photo.category} / {photo.filename}</small>
-        </a>
+        <h2>{relatedPhotos.length > 1 ? "Related Photos" : "Related Photo"}</h2>
+        <div className="detail-related-list">
+          {relatedPhotos.map((item) => (
+            <a className="detail-related-link" href={photoPath(item)} key={item.id}>
+              <span>{item.title}</span>
+              <small>{item.category} / {item.filename}</small>
+            </a>
+          ))}
+        </div>
       </footer>
     </article>
   );

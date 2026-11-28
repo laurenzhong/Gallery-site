@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Photo } from "../data/photos";
-import { cmsPageContentQuery, type CmsPageContent, type CmsPageSection, type CmsStoryPhoto } from "./cmsQueries";
+import { type CmsPageContent, type CmsPageSection, type CmsStoryPhoto } from "./cmsQueries";
 import { toReferencedPhoto } from "./galleryContent";
-import type { HomepageLayout } from "./homepageLayout";
-import { adaptPageContent, type PageContentAdapterResult } from "./pageContentAdapter";
-import { fetchPreloadedCms, isSanityConfigured } from "./sanity";
+import type { HomepageContentSection } from "./homepageLayout";
+import { adaptPageContent, adaptPublishedPages, type AdaptedPages } from "./pageContentAdapter";
+import { fetchPublishedPageContent, isSanityConfigured } from "./sanity";
 import type { StudioPreview } from "./studioPreview";
 
 export type PageContentPreviewState = {
-  pages: Partial<Record<"home" | "photobalcony", PageContentAdapterResult>>;
+  pages: AdaptedPages;
   publishedHomeHero?: Pick<Photo, "src" | "width" | "height"> | null;
-  publishedHomeGallery?: { photos: Photo[]; layout: HomepageLayout };
+  publishedHomeGallery?: HomepageContentSection[];
   isLoading: boolean;
   error?: string;
 };
@@ -22,10 +22,7 @@ const emptyState: PageContentPreviewState = {
 };
 
 function getPublishedHomeHero(home: CmsPageContent | undefined) {
-  const slotPhotos = home?.sections?.flatMap((section) =>
-    section.type === "heroSlot" && section.isVisible !== false ? [section.photo] : [],
-  ) ?? [];
-  const reference = [home?.heroPhoto, ...slotPhotos].find((photo) => photo?.id && !photo.isHidden);
+  const reference = !home?.heroPhoto?.isHidden ? home?.heroPhoto : undefined;
   if (!reference) return null;
 
   // References outside the public photo catalog need the full gallery lookup.
@@ -52,7 +49,7 @@ function sectionPhotoReferences(section: CmsPageSection): (CmsStoryPhoto | undef
 }
 
 function getPublishedHomeGallery(home: CmsPageContent) {
-  const sections = home.sections?.filter((section) => section.isVisible !== false) ?? [];
+  const sections = (home.photoModules ?? home.sections ?? []).filter((section) => section.isVisible !== false);
   if (sections.some((section) => section.type === "gallerySlot" && section.sourceMode === "category")) return undefined;
 
   // Manual sections can render from their published references before the full catalog arrives.
@@ -66,8 +63,7 @@ function getPublishedHomeGallery(home: CmsPageContent) {
   }
 
   const photos = [...galleryPhotos.values()];
-  const layout = adaptPageContent(home, photos).homepageLayout;
-  return layout?.sections?.length ? { photos, layout } : undefined;
+  return adaptPageContent(home, photos).sections;
 }
 
 export function usePageContentPreview(enabled: boolean, photos: Photo[], studioPreview?: StudioPreview): PageContentPreviewState {
@@ -82,7 +78,7 @@ export function usePageContentPreview(enabled: boolean, photos: Photo[], studioP
 
     let isMounted = true;
 
-    fetchPreloadedCms<CmsPageContent[]>(cmsPageContentQuery)
+    fetchPublishedPageContent()
       .then((documents) => {
         if (isMounted) setResult({ documents });
       })
@@ -106,10 +102,7 @@ export function usePageContentPreview(enabled: boolean, photos: Photo[], studioP
       return error === undefined ? { pages: {}, isLoading: true } : { ...emptyState, error };
     }
 
-    const pages: PageContentPreviewState["pages"] = {};
-    for (const document of documents) {
-      pages[document.pageKey] = adaptPageContent(document, photos);
-    }
+    const pages = adaptPublishedPages(documents, photos);
     if (studioPreview) return { ...emptyState, pages };
     const home = documents.findLast((document) => document.pageKey === "home");
     return {

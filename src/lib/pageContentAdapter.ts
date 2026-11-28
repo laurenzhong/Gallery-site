@@ -1,321 +1,284 @@
 import type { Photo } from "../data/photos";
-import type { HomepageContentSection, HomepageFeatureCard, HomepageLayout } from "./homepageLayout";
-import type { PhotobalconyLayout, PhotobalconyPeriod, PhotobalconyPeriodKey } from "./photobalconyLayout";
-import type { CmsPageContent, CmsPageSection, CmsStoryPhoto } from "./cmsQueries";
+import type { CmsHomepageLayout, CmsPageContent, CmsPageSection, CmsPhoto, CmsPhotobalconyLayout, CmsPlacementSnapshot, CmsStoryPhoto } from "./cmsQueries";
+import { galleryPresentations, type HomepageContentSection } from "./homepageLayout";
+import { contentLink, isContentPageKey, type ContentPageKey } from "./pageContentPages";
+import { chaptersFromLegacyBalcony, isBalconyPresentation, type BalconyChapter, type PhotobalconyLayout, type PhotobalconyPeriod } from "./photobalconyLayout";
 
 export type PageContentAdapterResult = {
   pageKey: CmsPageContent["pageKey"];
-  title: string;
+  title?: string;
   subtitle?: string;
   heroPhoto?: Photo;
-  homepageLayout?: HomepageLayout;
+  modulesPosition: "before" | "after";
+  sections?: HomepageContentSection[];
   photobalconyLayout?: PhotobalconyLayout;
   warnings: string[];
 };
 
-type PhotoMap = Map<string, Photo>;
+function photoResolver(allPhotos: Photo[], draft: boolean) {
+  const photosById = new Map(allPhotos.map((photo) => [photo.id, photo]));
 
-function uniquePhotos(photos: Photo[]) {
-  const seen = new Set<string>();
-  return photos.filter((photo) => {
-    if (seen.has(photo.id)) return false;
-    seen.add(photo.id);
-    return true;
-  });
+  const one = (reference?: CmsStoryPhoto | null): Photo | undefined => {
+    if (!reference?.id || reference.isHidden || reference.categoryIsVisible === false) return undefined;
+    const existing = photosById.get(reference.id);
+    if (!reference.src || !reference.title || (!draft && existing)) return existing;
+    return {
+      ...existing,
+      id: reference.id,
+      src: reference.src,
+      title: reference.title,
+      filename: reference.filename || existing?.filename || reference.id,
+      category: reference.category ?? "",
+      categoryId: reference.categoryId ?? undefined,
+      slug: reference.slug,
+      liveVideoUrl: reference.liveVideoUrl ?? undefined,
+      width: reference.width || 1,
+      height: reference.height || 1,
+      altText: reference.altText,
+      caption: reference.caption,
+      credit: reference.credit,
+    };
+  };
+
+  const many = (references?: CmsStoryPhoto[]) => {
+    const seen = new Set<string>();
+    return (references ?? []).flatMap((reference) => {
+      const photo = one(reference);
+      if (!photo || seen.has(photo.id)) return [];
+      seen.add(photo.id);
+      return [photo];
+    });
+  };
+
+  return { one, many };
 }
 
-function photoFromReference(reference: CmsStoryPhoto | undefined, photos: PhotoMap) {
-  if (!reference?.id || reference.isHidden) return undefined;
-  return photos.get(reference.id);
+type PhotoResolver = ReturnType<typeof photoResolver>;
+
+function defaultPresentation(slot: Extract<CmsPageSection, { type: "gallerySlot" }>["slotKey"]) {
+  if (slot === "quiet") return "squareRail";
+  if (slot === "harborStack") return "stack";
+  if (slot === "harborSquare") return "squareGrid";
+  return "landscapeCarousel";
 }
 
-function photosFromReferences(references: CmsStoryPhoto[] | undefined, photos: PhotoMap) {
-  return uniquePhotos(
-    (references ?? []).flatMap((reference) => {
-      const photo = photoFromReference(reference, photos);
-      return photo ? [photo] : [];
-    }),
-  );
-}
-
-function internalHref(value: string | undefined) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return undefined;
-  return value;
-}
-
-function categoryPhotos(section: Extract<CmsPageSection, { type: "gallerySlot" }>, photos: Photo[]) {
-  const category = section.category?.title;
-  if (!category) return [];
-  const limit = Math.min(Math.max(section.limit ?? 18, 1), 48);
-  return photos.filter((photo) => photo.category === category).slice(0, limit);
-}
-
-function sectionLabel(section: CmsPageSection, index: number) {
-  return section.title || `${section.type} #${index + 1}`;
-}
-
-function addWarning(warnings: string[], section: CmsPageSection, index: number, message: string) {
-  warnings.push(`${sectionLabel(section, index)}：${message}`);
-}
-
-function setOnce<T>(
-  target: Record<string, T>,
-  key: string,
-  value: T | undefined,
-  warnings: string[],
-  section: CmsPageSection,
-  index: number,
-) {
-  if (value === undefined) return;
-  if (target[key] !== undefined) {
-    addWarning(warnings, section, index, `重复配置槽位 ${key}，已保留第一次配置`);
-    return;
-  }
-  target[key] = value;
-}
-
-function adaptFeatureCards(
-  section: Extract<CmsPageSection, { type: "featureCardsSlot" }>,
-  photos: PhotoMap,
-  warnings: string[],
-  index: number,
-) {
-  const cards: HomepageFeatureCard[] = [];
-
-  for (const card of section.cards ?? []) {
-    const photo = photoFromReference(card.photo, photos);
-    if (!card.title || !photo) {
-      addWarning(warnings, section, index, "卡片缺少标题或可用照片，已跳过");
-      continue;
-    }
-    cards.push({ title: card.title, photo, href: internalHref(card.linkTarget) });
-  }
-
-  return cards.length ? cards.slice(0, 3) : undefined;
-}
-
-function adaptGalleryPhotos(
-  section: Extract<CmsPageSection, { type: "gallerySlot" }>,
+function adaptSections(
+  input: CmsPageSection[] | undefined,
+  resolve: PhotoResolver,
   allPhotos: Photo[],
-  photos: PhotoMap,
   warnings: string[],
-  index: number,
 ) {
-  const resolved = section.sourceMode === "category" ? categoryPhotos(section, allPhotos) : photosFromReferences(section.photos, photos);
-  const limit = Math.min(Math.max(section.limit ?? resolved.length, 1), 48);
-  const result = resolved.slice(0, limit);
-
-  if (!result.length) {
-    addWarning(warnings, section, index, "没有可用照片，已跳过");
-    return undefined;
-  }
-
-  return result;
-}
-
-function adaptHomeContent(content: CmsPageContent, allPhotos: Photo[], warnings: string[]) {
-  const photos = new Map(allPhotos.map((photo) => [photo.id, photo]));
-  const layout: HomepageLayout = {};
   const sections: HomepageContentSection[] = [];
-  const slots: Record<string, unknown> = {};
-  const heroPhoto = photoFromReference(content.heroPhoto, photos);
 
-  for (const [index, section] of (content.sections ?? []).entries()) {
+  for (const [index, section] of (input ?? []).entries()) {
     if (section.isVisible === false) continue;
-
-    if (section.type === "heroSlot") {
-      const photo = photoFromReference(section.photo, photos);
-      if (!photo) {
-        addWarning(warnings, section, index, "主视觉缺少可用照片");
-      } else if (!heroPhoto) {
-        returnHomeHero(slots, photo);
-      }
-      continue;
-    }
+    const id = section.id ?? `${section.type}-${index}`;
+    const title = section.title?.trim() || undefined;
+    const description = section.description?.trim() || undefined;
+    const base = { id, title, description };
 
     if (section.type === "featureCardsSlot") {
-      const cards = adaptFeatureCards(section, photos, warnings, index);
-      const hadFeatureCards = layout.featureCards !== undefined;
-      setOnce(layout as unknown as Record<string, HomepageFeatureCard[]>, "featureCards", cards, warnings, section, index);
-      if (cards && !hadFeatureCards) {
-        sections.push({ id: section.id ?? `feature-cards-${index}`, kind: "featureCards", title: section.title, cards });
-      }
+      const cards = (section.cards ?? []).flatMap((card, cardIndex) => {
+        const photo = resolve.one(card.photo);
+        const title = card.title?.trim();
+        if (!title || !photo) {
+          warnings.push(`${section.title || "特色卡片"}：第 ${cardIndex + 1} 张卡片缺少标题或可用照片。`);
+          return [];
+        }
+        return [{ id: card.id ?? String(cardIndex), title, photo, href: contentLink(card.linkPage, card.linkTarget), linkLabel: card.linkLabel?.trim() }];
+      }).slice(0, 3);
+      if (cards.length) sections.push({ ...base, kind: "featureCards", cards });
+      else if (!section.cards?.length) warnings.push(`${title || "特色卡片"}：至少需要一张卡片。`);
       continue;
     }
 
     if (section.type === "gallerySlot") {
-      const slotKey = section.slotKey;
-      if (!slotKey) {
-        addWarning(warnings, section, index, "缺少页面槽位");
+      const category = section.category;
+      const useCategory = section.sourceMode === "category";
+      const limit = Number.isInteger(section.limit) ? Math.min(Math.max(section.limit!, 1), 48) : useCategory ? 18 : 48;
+      const selected = useCategory
+        ? allPhotos.filter((photo) => category?.isVisible !== false && (category?.id ? photo.categoryId === category.id : category?.title === photo.category)).slice(0, limit)
+        : resolve.many(section.photos);
+      const photos = selected.slice(0, limit);
+      const presentation = section.presentation ?? defaultPresentation(section.slotKey);
+      if (!photos.length || !Object.hasOwn(galleryPresentations, presentation)) {
+        warnings.push(`${title || "照片画廊"}：没有可用照片或版式无效。`);
         continue;
       }
-      const resolved = adaptGalleryPhotos(section, allPhotos, photos, warnings, index);
-      const target = {
-        landscape: "landscapePhotos",
-        quiet: "quietPhotos",
-        city: "cityPhotos",
-        harborCarousel: "plantsCarouselPhotos",
-        harborStack: "plantsStackPhotos",
-        harborSquare: "plantsSquarePhotos",
-      }[slotKey];
-      if (resolved && target) {
-        const layoutValues = layout as unknown as Record<string, unknown>;
-        if (layoutValues[target] !== undefined) {
-          addWarning(warnings, section, index, `重复配置槽位 ${target}，已保留第一次配置`);
-        } else {
-          layoutValues[target] = resolved;
-          sections.push({
-            id: section.id ?? `${slotKey}-${index}`,
-            kind: "gallery",
-            title: section.title,
-            photos: resolved,
-            slotKey,
-            presentation:
-              section.presentation ??
-              (slotKey === "harborStack" ? "stack" : slotKey === "harborSquare" ? "squareGrid" : "landscapeCarousel"),
-          });
-        }
+      if (!useCategory && (section.photos?.length ?? 0) > selected.length) {
+        warnings.push(`${title || "照片画廊"}：已跳过重复或不可用的照片。`);
       }
+      sections.push({ ...base, kind: "gallery", slotKey: section.slotKey, presentation, photos });
       continue;
     }
 
-    if (section.type === "bannerSlot") {
-      const photo = photoFromReference(section.photo, photos);
+    if (section.type === "bannerSlot" || section.type === "heroSlot") {
+      const photo = resolve.one(section.photo);
       if (!photo) {
-        addWarning(warnings, section, index, "横幅缺少可用照片，已跳过");
-      } else {
-        const slotKey = section.slotKey ?? "bannerOne";
-        const target = slotKey === "harbor" ? "plantsHeroPhoto" : "bannerOnePhoto";
-        const layoutValues = layout as unknown as Record<string, unknown>;
-        if (layoutValues[target] !== undefined) {
-          addWarning(warnings, section, index, `重复配置槽位 ${target}，已保留第一次配置`);
-        } else {
-          layoutValues[target] = photo;
-          sections.push({
-            id: section.id ?? `${slotKey}-${index}`,
-            kind: "banner",
-            title: section.title,
-            photo,
-            slotKey,
-          });
-        }
+        warnings.push(`${title || "横幅"}：缺少可用照片。`);
+        continue;
       }
+      sections.push({
+        ...base,
+        kind: "banner",
+        photo,
+        slotKey: section.type === "heroSlot" ? "harbor" : section.slotKey,
+        href: contentLink(section.linkPage, section.linkTarget),
+        linkLabel: section.linkLabel?.trim(),
+      });
       continue;
     }
 
     if (section.type === "harborSlot") {
-      setOnce(layout as unknown as Record<string, Photo>, "plantsHeroPhoto", photoFromReference(section.heroPhoto, photos), warnings, section, index);
-      const carouselPhotos = photosFromReferences(section.carouselPhotos, photos);
-      const stackPhotos = photosFromReferences(section.stackPhotos, photos);
-      const squarePhotos = photosFromReferences(section.squarePhotos, photos);
-      if (photoFromReference(section.heroPhoto, photos)) {
-        sections.push({
-          id: `${section.id ?? `harbor-${index}`}-hero`,
-          kind: "banner",
-          title: section.title,
-          photo: photoFromReference(section.heroPhoto, photos)!,
-          slotKey: "harbor",
-        });
-      }
-      if (carouselPhotos.length) {
-        setOnce(layout as unknown as Record<string, Photo[]>, "plantsCarouselPhotos", carouselPhotos, warnings, section, index);
-        sections.push({ id: `${section.id ?? `harbor-${index}`}-carousel`, kind: "gallery", title: `${section.title ?? "Harbor"} carousel`, photos: carouselPhotos, presentation: "landscapeCarousel" });
-      }
-      setOnce(layout as unknown as Record<string, Photo>, "plantsFeaturePhoto", photoFromReference(section.featurePhoto, photos), warnings, section, index);
-      if (stackPhotos.length) {
-        setOnce(layout as unknown as Record<string, Photo[]>, "plantsStackPhotos", stackPhotos, warnings, section, index);
-        sections.push({ id: `${section.id ?? `harbor-${index}`}-stack`, kind: "gallery", title: `${section.title ?? "Harbor"} stack`, photos: stackPhotos, presentation: "stack" });
-      }
-      if (squarePhotos.length) {
-        setOnce(layout as unknown as Record<string, Photo[]>, "plantsSquarePhotos", squarePhotos, warnings, section, index);
-        sections.push({ id: `${section.id ?? `harbor-${index}`}-square`, kind: "gallery", title: `${section.title ?? "Harbor"} squares`, photos: squarePhotos, presentation: "squareGrid" });
-      }
+      const hero = resolve.one(section.heroPhoto);
+      const feature = resolve.one(section.featurePhoto);
+      const carousel = resolve.many(section.carouselPhotos);
+      const stack = resolve.many(section.stackPhotos);
+      const squares = resolve.many(section.squarePhotos);
+      if (hero) sections.push({ ...base, id: `${id}-hero`, kind: "banner", photo: hero, slotKey: "harbor" });
+      if (carousel.length) sections.push({ id: `${id}-carousel`, kind: "gallery", photos: carousel, presentation: "landscapeCarousel" });
+      if (feature) sections.push({ id: `${id}-feature`, kind: "banner", photo: feature });
+      if (stack.length) sections.push({ id: `${id}-stack`, kind: "gallery", photos: stack, presentation: "stack" });
+      if (squares.length) sections.push({ id: `${id}-square`, kind: "gallery", photos: squares, presentation: "squareGrid" });
       continue;
     }
 
-    addWarning(warnings, section, index, "该模块不属于首页受控结构，已跳过");
+    warnings.push(`${title || id}：此页面不支持这个模块。`);
   }
 
-  if (sections.length) layout.sections = sections;
-  return { heroPhoto: heroPhoto ?? (slots.heroPhoto as Photo | undefined), homepageLayout: layout };
+  return sections;
 }
 
-function returnHomeHero(slots: Record<string, unknown>, photo: Photo) {
-  if (!slots.heroPhoto) slots.heroPhoto = photo;
-}
+function adaptBalcony(content: CmsPageContent, resolve: PhotoResolver, warnings: string[]): PhotobalconyLayout {
+  let heroPhoto = resolve.one(content.heroPhoto);
+  const periods: (PhotobalconyPeriod & { id?: string })[] = [];
+  const seen = new Set<string>();
 
-function adaptBalconyContent(content: CmsPageContent, allPhotos: Photo[], warnings: string[]) {
-  const photos = new Map(allPhotos.map((photo) => [photo.id, photo]));
-  const layout: PhotobalconyLayout = {};
-  const periods: PhotobalconyPeriod[] = [];
-  const heroPhoto = photoFromReference(content.heroPhoto, photos);
-  const periodTargets: Record<PhotobalconyPeriodKey, readonly [string, string]> = {
-    may: ["mayTitle", "mayPhotos"],
-    marchPortraits: ["marchTitle", "marchPortraitPhotos"],
-    marchWide: ["marchTitle", "marchWidePhotos"],
-    february: ["februaryTitle", "februaryPhotos"],
-    january: ["januaryTitle", "januaryPhotos"],
-    winter: ["winterTitle", "winterPhotos"],
-    summer: ["summerTitle", "summerPhotos"],
-  } as const;
-
-  for (const [index, section] of (content.sections ?? []).entries()) {
+  for (const section of content.sections ?? []) {
     if (section.isVisible === false) continue;
-
     if (section.type === "heroSlot") {
-      if (!heroPhoto) {
-        const photo = photoFromReference(section.photo, photos);
-        if (photo) returnHomeHero(layout as unknown as Record<string, unknown>, photo);
-      }
+      heroPhoto ??= resolve.one(section.photo);
       continue;
     }
-
-    if (section.type !== "balconyPeriodSlot") {
-      addWarning(warnings, section, index, "该模块不属于 Photobalcony 受控结构，已跳过");
-      continue;
+    if (content.balconyChapters || section.type !== "balconyPeriodSlot" || !section.periodKey || seen.has(section.periodKey)) continue;
+    const photos = resolve.many(section.photos);
+    if (photos.length) {
+      periods.push({ id: section.id, key: section.periodKey, title: section.title || section.periodKey, photos });
+      seen.add(section.periodKey);
     }
-
-    const periodKey = section.periodKey;
-    const target = periodKey ? periodTargets[periodKey] : undefined;
-    if (!target) {
-      addWarning(warnings, section, index, "缺少有效时间段");
-      continue;
-    }
-
-    const [titleKey, photosKey] = target;
-    const layoutValues = layout as Record<string, unknown>;
-    if (layoutValues[photosKey] !== undefined) {
-      addWarning(warnings, section, index, `重复配置时间段 ${periodKey}，已保留第一次配置`);
-      continue;
-    }
-
-    const resolved = photosFromReferences(section.photos, photos);
-    if (!resolved.length) {
-      addWarning(warnings, section, index, "没有可用照片，已跳过");
-      continue;
-    }
-
-    if (layoutValues[titleKey] === undefined) layoutValues[titleKey] = section.title;
-    layoutValues[photosKey] = resolved;
-    periods.push({ key: periodKey as PhotobalconyPeriodKey, title: section.title ?? "", photos: resolved });
   }
 
-  if (heroPhoto) layout.heroPhoto = heroPhoto;
-  if (periods.length) layout.periods = periods;
-  return { heroPhoto: heroPhoto ?? (layout.heroPhoto as Photo | undefined), photobalconyLayout: layout };
+  const chapters = content.balconyChapters?.flatMap((chapter): BalconyChapter<Photo>[] => {
+    if (chapter.isVisible === false) return [];
+    const galleries = (chapter.galleries ?? []).flatMap((gallery) => {
+      if (gallery.isVisible === false) return [];
+      const photos = resolve.many(gallery.photos);
+      if (!isBalconyPresentation(gallery.presentation) || !photos.length) {
+        warnings.push(`${chapter.title || "未命名章节"}：照片组缺少版式或可用照片。`);
+        return [];
+      }
+      return [{ id: gallery.id, presentation: gallery.presentation, photos }];
+    });
+    return galleries.length ? [{ id: chapter.id, title: chapter.title?.trim() || "Untitled", galleries }] : [];
+  }) ?? (Array.isArray(content.sections) ? chaptersFromLegacyBalcony(periods) : undefined);
+
+  return { title: content.title, subtitle: content.subtitle, heroPhoto, chapters };
 }
 
-export function adaptPageContent(content: CmsPageContent, allPhotos: Photo[]): PageContentAdapterResult {
+export function adaptPageContent(content: CmsPageContent, allPhotos: Photo[], { draft = false } = {}): PageContentAdapterResult {
   const warnings: string[] = [];
-  const adapted = content.pageKey === "home" ? adaptHomeContent(content, allPhotos, warnings) : adaptBalconyContent(content, allPhotos, warnings);
+  const resolve = photoResolver(allPhotos, draft);
+  const isBalcony = content.pageKey === "photobalcony";
+  const hasPageHero = isBalcony || content.pageKey === "home";
+  const input = content.photoModules ?? (isBalcony ? content.extraSections : content.sections);
+  const sections = content.pageKey === "home" || Array.isArray(input) ? adaptSections(input, resolve, allPhotos, warnings) : undefined;
+  const heroPhoto = hasPageHero ? resolve.one(content.heroPhoto) : undefined;
+  if (hasPageHero && content.heroPhoto?.id && !heroPhoto) warnings.push("页面主视觉照片不可用。");
+  const photobalconyLayout = isBalcony ? adaptBalcony(content, resolve, warnings) : undefined;
 
   return {
     pageKey: content.pageKey,
-    title: content.title,
-    subtitle: content.subtitle,
-    heroPhoto: adapted.heroPhoto,
-    homepageLayout: "homepageLayout" in adapted ? adapted.homepageLayout : undefined,
-    photobalconyLayout: "photobalconyLayout" in adapted ? adapted.photobalconyLayout : undefined,
+    title: hasPageHero ? content.title?.trim() : undefined,
+    subtitle: hasPageHero ? content.subtitle?.trim() : undefined,
+    heroPhoto: photobalconyLayout?.heroPhoto ?? heroPhoto,
+    modulesPosition: content.modulesPosition === "before" ? "before" : "after",
+    sections,
+    photobalconyLayout,
     warnings,
   };
+}
+
+export type AdaptedPages = Partial<Record<ContentPageKey, PageContentAdapterResult>>;
+
+export function adaptPublishedPages(documents: CmsPageContent[], photos: Photo[]): AdaptedPages {
+  const pages: AdaptedPages = {};
+  for (const document of documents) {
+    if (isContentPageKey(document.pageKey) && document.id === `pageContent-${document.pageKey}`) {
+      pages[document.pageKey] = adaptPageContent(document, photos);
+    }
+  }
+  return pages;
+}
+
+export function pagePhotoPlacements(
+  pages: AdaptedPages,
+  photos: Photo[],
+  fallback: { home?: CmsHomepageLayout | null; balcony?: CmsPhotobalconyLayout | null; hero?: CmsStoryPhoto | null },
+) {
+  const placements = new Map<string, Set<ContentPageKey>>();
+  const publicIds = new Set(photos.map(({ id }) => id));
+  const add = (key: ContentPageKey, id?: string) => {
+    if (!id || !publicIds.has(id)) return;
+    const pagesForPhoto = placements.get(id) ?? new Set<ContentPageKey>();
+    pagesForPhoto.add(key);
+    placements.set(id, pagesForPhoto);
+  };
+
+  for (const page of Object.values(pages)) {
+    if (!page) continue;
+    add(page.pageKey, page.heroPhoto?.id);
+    for (const section of page.sections ?? []) {
+      if (section.kind === "banner") add(page.pageKey, section.photo.id);
+      if (section.kind === "featureCards") section.cards.forEach(({ photo }) => add(page.pageKey, photo.id));
+      if (section.kind === "gallery") section.photos.forEach(({ id }) => add(page.pageKey, id));
+    }
+    for (const chapter of page.photobalconyLayout?.chapters ?? []) {
+      for (const gallery of chapter.galleries) gallery.photos.forEach(({ id }) => add(page.pageKey, id));
+    }
+  }
+
+  const home = fallback.home;
+  const balcony = fallback.balcony;
+  if (!pages.home?.heroPhoto) add("home", fallback.hero?.id);
+  if (!pages.home?.sections && home) {
+    const photos = [...(home.featureCards?.map(({ photoId }) => photoId) ?? []), home.bannerOnePhotoId, home.plantsHeroPhotoId, home.plantsFeaturePhotoId,
+      ...[home.landscapePhotoIds, home.quietPhotoIds, home.cityPhotoIds, home.plantsCarouselPhotoIds, home.plantsStackPhotoIds, home.plantsSquarePhotoIds].flatMap((ids) => ids ?? [])];
+    photos.forEach((id) => add("home", id));
+  }
+  if (!pages.photobalcony?.heroPhoto) add("photobalcony", balcony?.heroPhotoId);
+  if (!pages.photobalcony?.photobalconyLayout?.chapters && balcony) {
+    [balcony.mayPhotoIds, balcony.marchPortraitPhotoIds, balcony.marchWidePhotoIds, balcony.februaryPhotoIds, balcony.januaryPhotoIds, balcony.winterPhotoIds, balcony.summerPhotoIds]
+      .flatMap((ids) => ids ?? []).forEach((id) => add("photobalcony", id));
+  }
+  return placements;
+}
+
+export function photosForPlacement(photos: CmsPhoto[]): Photo[] {
+  return photos.flatMap((photo) => {
+    const src = photo.src || photo.legacyPublicPath;
+    return photo.filename && photo.title && src ? [{
+      id: photo.id, title: photo.title, filename: photo.filename, src,
+      width: photo.width || 1, height: photo.height || 1, category: photo.category ?? "未分类", categoryId: photo.categoryId,
+      slug: photo.slug, altText: photo.altText, caption: photo.caption, credit: photo.credit, liveVideoUrl: photo.liveVideoUrl ?? undefined,
+    }] : [];
+  });
+}
+
+export function resolveCmsPlacements(snapshot: CmsPlacementSnapshot, readPages = true) {
+  const photos = photosForPlacement(snapshot.photos);
+  return pagePhotoPlacements(adaptPublishedPages(readPages ? snapshot.pages : [], photos), photos, {
+    home: snapshot.home,
+    balcony: snapshot.balcony,
+    hero: snapshot.settings?.heroPhoto,
+  });
 }
