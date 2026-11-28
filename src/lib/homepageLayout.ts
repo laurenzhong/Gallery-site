@@ -1,4 +1,5 @@
 import type { Photo } from "../data/photos";
+import type { CmsPageSection } from "./cmsQueries";
 
 export type HomepageFeatureCard = {
   title: string;
@@ -19,6 +20,7 @@ export type HomepageContentSection =
       title?: string;
       photos: Photo[];
       presentation: "landscapeCarousel" | "squareRail" | "stack" | "squareGrid";
+      slotKey?: Extract<CmsPageSection, { type: "gallerySlot" }>["slotKey"];
     }
   | {
       id: string;

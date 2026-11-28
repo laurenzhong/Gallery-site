@@ -169,6 +169,7 @@ function adaptHomeContent(content: CmsPageContent, allPhotos: Photo[], warnings:
             kind: "gallery",
             title: section.title,
             photos: resolved,
+            slotKey,
             presentation:
               section.presentation ??
               (slotKey === "harborStack" ? "stack" : slotKey === "harborSquare" ? "squareGrid" : "landscapeCarousel"),

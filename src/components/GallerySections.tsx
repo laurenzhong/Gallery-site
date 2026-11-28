@@ -1,4 +1,6 @@
+import { useEffect, useRef } from "react";
 import type { Photo } from "../data/photos";
+import { enableVerticalGalleryScroll } from "../lib/galleryRailScroll";
 import type { HomepageContentSection, HomepageLayout } from "../lib/homepageLayout";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
 import { LandscapeSection } from "./LandscapeSection";
@@ -54,12 +56,22 @@ function GalleryRail({
   allPhotos,
   onOpen,
   showTitle = true,
+  scrollWithVerticalInput = false,
 }: {
   group: PhotoGroup;
   allPhotos: Photo[];
   onOpen: (index: number, lightboxPhotos?: Photo[]) => void;
   showTitle?: boolean;
+  scrollWithVerticalInput?: boolean;
 }) {
+  const railRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollWithVerticalInput && railRef.current) {
+      return enableVerticalGalleryScroll(railRef.current);
+    }
+  }, [scrollWithVerticalInput]);
+
   return (
     <section
       className="collection-section"
@@ -73,7 +85,10 @@ function GalleryRail({
         </div>
       ) : null}
 
-      <div className={`gallery-rail gallery-rail--${group.variant ?? "cinema"}`}>
+      <div
+        ref={railRef}
+        className={`gallery-rail gallery-rail--${group.variant ?? "cinema"}${scrollWithVerticalInput ? " gallery-rail--vertical-input" : ""}`}
+      >
         {group.photos.map((photo) => (
           <button
             type="button"
@@ -362,6 +377,7 @@ function OrderedHomepageSections({
                 allPhotos={photos}
                 onOpen={onOpen}
                 showTitle={false}
+                scrollWithVerticalInput={section.slotKey === "quiet"}
               />
             </div>
           );
@@ -545,7 +561,7 @@ export function GallerySections({ photos, homepageLayout, onOpen }: GallerySecti
         prioritizeFirst
         onOpen={(photo, carouselPhotos) => onOpen(photoIndex(photos, photo), carouselPhotos)}
       />
-      <GalleryRail group={groups[1]} allPhotos={photos} onOpen={onOpen} showTitle={false} />
+      <GalleryRail group={groups[1]} allPhotos={photos} onOpen={onOpen} showTitle={false} scrollWithVerticalInput />
       <BannerImage photo={bannerOne} allPhotos={photos} onOpen={onOpen} />
       <LandscapeSection
         id={groups[2].id}
