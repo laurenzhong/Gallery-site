@@ -9,6 +9,8 @@ const ARROW_PATH_PREV = "m15 18-6-6 6-6";
 const AUTOPLAY_MS = 3000;
 const CAROUSEL_TRANSITION_MS = 600;
 const SWIPE_THRESHOLD_PX = 48;
+const IMAGE_WIDTHS = [480, 760, 1100, 1500, 2000];
+const IMAGE_SIZES = "(max-width: 640px) calc(100vw - 32px), (max-width: 1440px) 76.25vw, 1098px";
 
 type LandscapeSectionProps = {
   id: string;
@@ -18,6 +20,7 @@ type LandscapeSectionProps = {
   className?: string;
   showTitle?: boolean;
   filterLandscape?: boolean;
+  prioritizeFirst?: boolean;
 };
 
 export function LandscapeSection({
@@ -28,12 +31,14 @@ export function LandscapeSection({
   className,
   showTitle = true,
   filterLandscape = true,
+  prioritizeFirst = false,
 }: LandscapeSectionProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
   const [transitionDirection, setTransitionDirection] = useState<"next" | "prev">("next");
   const [isPaused, setIsPaused] = useState(false);
   const [isInView, setIsInView] = useState(false);
+  const [imageStatus, setImageStatus] = useState<{ src: string; ready: boolean }>();
   const sectionRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLButtonElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -48,6 +53,8 @@ export function LandscapeSection({
   const total = landscapePhotos.length;
   const hasMultiplePhotos = total > 1;
   const active = total > 0 ? landscapePhotos[activeIndex] : undefined;
+  const activeImageSettled = Boolean(active && imageStatus?.src === active.src);
+  const activeImageReady = activeImageSettled && imageStatus?.ready === true;
   const previous =
     previousIndex !== null && previousIndex !== activeIndex
       ? landscapePhotos[previousIndex]
@@ -67,7 +74,7 @@ export function LandscapeSection({
   }, []);
 
   useEffect(() => {
-    if (!isInView || isPaused || !hasMultiplePhotos) return undefined;
+    if (!isInView || isPaused || !hasMultiplePhotos || !activeImageSettled) return undefined;
     const timer = window.setTimeout(() => {
       if (mainRef.current?.matches(":hover, :focus-visible")) {
         setIsPaused(true);
@@ -77,19 +84,19 @@ export function LandscapeSection({
         const nextIndex = (index + 1) % total;
         if (nextIndex !== index) {
           setTransitionDirection("next");
-          setPreviousIndex(index);
+          if (activeImageReady) setPreviousIndex(index);
         }
         return nextIndex;
       });
     }, AUTOPLAY_MS);
     return () => window.clearTimeout(timer);
-  }, [activeIndex, hasMultiplePhotos, isInView, isPaused, total]);
+  }, [activeImageReady, activeImageSettled, activeIndex, hasMultiplePhotos, isInView, isPaused, total]);
 
   useEffect(() => {
-    if (previousIndex === null) return undefined;
+    if (previousIndex === null || !activeImageReady) return undefined;
     const timer = window.setTimeout(() => setPreviousIndex(null), CAROUSEL_TRANSITION_MS);
     return () => window.clearTimeout(timer);
-  }, [previousIndex]);
+  }, [activeIndex, activeImageReady, previousIndex]);
 
   useEffect(() => {
     const track = trackRef.current;
@@ -113,7 +120,7 @@ export function LandscapeSection({
       const nextIndex = getNextIndex(index);
       if (nextIndex !== index) {
         setTransitionDirection(direction ?? (nextIndex > index ? "next" : "prev"));
-        setPreviousIndex(index);
+        if (activeImageReady) setPreviousIndex(index);
       }
       return nextIndex;
     });
@@ -218,25 +225,31 @@ export function LandscapeSection({
         >
           {previous ? (
             <img
-              key={`previous-${previous.id}`}
-              className={`landscape-image landscape-image--previous landscape-image--${transitionDirection}`}
+              key={`${previousIndex}-${previous.id}`}
+              className={`landscape-image landscape-image--previous${activeImageReady ? ` landscape-image--${transitionDirection}` : ""}`}
               src={sizedImageUrl(previous.src, 1800, 84)}
-              srcSet={imageSrcSet(previous.src, [900, 1400, 2000], 84)}
-              sizes="100vw"
+              srcSet={imageSrcSet(previous.src, IMAGE_WIDTHS, 84)}
+              sizes={IMAGE_SIZES}
               alt=""
               decoding="async"
             />
           ) : null}
           <img
-            key={`active-${active.id}`}
-            className={`landscape-image landscape-image--active${previous ? ` landscape-image--${transitionDirection}` : ""}`}
+            key={`${activeIndex}-${active.id}`}
+            className={`landscape-image landscape-image--active${previous && activeImageReady ? ` landscape-image--${transitionDirection}` : ""}`}
             src={sizedImageUrl(active.src, 1800, 84)}
-            srcSet={imageSrcSet(active.src, [900, 1400, 2000], 84)}
-            sizes="100vw"
+            srcSet={imageSrcSet(active.src, IMAGE_WIDTHS, 84)}
+            sizes={IMAGE_SIZES}
             alt={caption}
-            loading="eager"
+            loading={prioritizeFirst || activeIndex > 0 ? "eager" : "lazy"}
             decoding="async"
+            data-ready={activeImageReady}
+            onLoad={() => setImageStatus({ src: active.src, ready: true })}
+            onError={() => setImageStatus({ src: active.src, ready: false })}
           />
+          {activeImageSettled && !activeImageReady && !previous && (
+            <span className="landscape-image-unavailable">Image unavailable</span>
+          )}
           <span className="landscape-caption">{caption}</span>
         </button>
 

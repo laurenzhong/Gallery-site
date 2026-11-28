@@ -98,6 +98,10 @@ function App() {
   const previewHome = pageContentPreview.pages.home;
   const previewBalcony = pageContentPreview.pages.photobalcony;
   const isPhotographyLoading = content.isLoading || pageContentPreview.isLoading;
+  const publishedGallery = isPhotographyPage && (content.isLoading || content.error)
+    ? pageContentPreview.publishedHomeGallery
+    : undefined;
+  const isPhotographyGalleryLoading = isPhotographyLoading && !publishedGallery;
 
   const heroPhoto = useMemo(() => {
     if (content.isLoading && content.source === "static") {
@@ -174,10 +178,11 @@ function App() {
     }
   }, [activePhoto, photoRouteSlug, pathname]);
 
-  const openPhoto = (index: number, lightboxPhotos = photos) => {
-    const photo = photos[index];
+  const openPhoto = (index: number, carouselPhotos?: Photo[], sourcePhotos = photos) => {
+    const photo = sourcePhotos[index];
     if (!photo) return;
 
+    const lightboxPhotos = carouselPhotos ?? sourcePhotos;
     const lightboxIndex = lightboxPhotos.findIndex((item) => item.id === photo.id);
     if (lightboxIndex < 0) return;
 
@@ -315,7 +320,7 @@ function App() {
 
       {!isAboutPage && <CmsSourceBadge content={content} />}
 
-      <main className={isPhotographyPage && isPhotographyLoading ? "photography-loading" : undefined}>
+      <main className={isPhotographyPage && isPhotographyGalleryLoading ? "photography-loading" : undefined}>
         {activeStory ? (
           <StoryDetail photo={activeStory.photo} story={activeStory.story} />
         ) : photoRouteSlug && activePhoto ? (
@@ -458,13 +463,13 @@ function App() {
               </a>
             )}
 
-            {isPhotographyLoading ? (
+            {isPhotographyGalleryLoading ? (
               <p className="sr-only" role="status">Loading photographs…</p>
             ) : (
               <GallerySections
-                photos={photos}
-                homepageLayout={previewHome?.homepageLayout ?? homepageLayout}
-                onOpen={openPhoto}
+                photos={publishedGallery?.photos ?? photos}
+                homepageLayout={publishedGallery?.layout ?? previewHome?.homepageLayout ?? homepageLayout}
+                onOpen={(index, carouselPhotos) => openPhoto(index, carouselPhotos, publishedGallery?.photos)}
               />
             )}
           </>

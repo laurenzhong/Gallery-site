@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Photo } from "../data/photos";
-import { cmsPageContentQuery, type CmsPageContent } from "./cmsQueries";
+import { cmsPageContentQuery, type CmsPageContent, type CmsPageSection, type CmsStoryPhoto } from "./cmsQueries";
+import { toReferencedPhoto } from "./galleryContent";
+import type { HomepageLayout } from "./homepageLayout";
 import { adaptPageContent, type PageContentAdapterResult } from "./pageContentAdapter";
 import { fetchPreloadedCms, isSanityConfigured } from "./sanity";
 
 export type PageContentPreviewState = {
   pages: Partial<Record<"home" | "photobalcony", PageContentAdapterResult>>;
   publishedHomeHero?: Pick<Photo, "src" | "width" | "height"> | null;
+  publishedHomeGallery?: { photos: Photo[]; layout: HomepageLayout };
   isLoading: boolean;
   error?: string;
 };
@@ -17,8 +20,7 @@ const emptyState: PageContentPreviewState = {
   isLoading: false,
 };
 
-function getPublishedHomeHero(documents: CmsPageContent[]) {
-  const home = documents.findLast((document) => document.pageKey === "home");
+function getPublishedHomeHero(home: CmsPageContent | undefined) {
   const slotPhotos = home?.sections?.flatMap((section) =>
     section.type === "heroSlot" && section.isVisible !== false ? [section.photo] : [],
   ) ?? [];
@@ -30,6 +32,41 @@ function getPublishedHomeHero(documents: CmsPageContent[]) {
     return undefined;
   }
   return { src: reference.src, width: reference.width || 1, height: reference.height || 1 };
+}
+
+function sectionPhotoReferences(section: CmsPageSection): (CmsStoryPhoto | undefined)[] {
+  switch (section.type) {
+    case "featureCardsSlot":
+      return section.cards?.map((card) => card.photo) ?? [];
+    case "gallerySlot":
+      return section.photos ?? [];
+    case "heroSlot":
+    case "bannerSlot":
+      return [section.photo];
+    case "harborSlot":
+      return [section.heroPhoto, section.featurePhoto, ...(section.carouselPhotos ?? []), ...(section.stackPhotos ?? []), ...(section.squarePhotos ?? [])];
+    default:
+      return [];
+  }
+}
+
+function getPublishedHomeGallery(home: CmsPageContent) {
+  const sections = home.sections?.filter((section) => section.isVisible !== false) ?? [];
+  if (sections.some((section) => section.type === "gallerySlot" && section.sourceMode === "category")) return undefined;
+
+  // Manual sections can render from their published references before the full catalog arrives.
+  const galleryPhotos = new Map<string, Photo>();
+  for (const reference of sections.flatMap(sectionPhotoReferences)) {
+    if (!reference?.id || reference.isHidden || galleryPhotos.has(reference.id)) continue;
+    if (!reference.src || reference.categoryIsVisible === false) return undefined;
+    const photo = toReferencedPhoto(reference);
+    if (!photo) return undefined;
+    galleryPhotos.set(photo.id, photo);
+  }
+
+  const photos = [...galleryPhotos.values()];
+  const layout = adaptPageContent(home, photos).homepageLayout;
+  return layout?.sections?.length ? { photos, layout } : undefined;
 }
 
 export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageContentPreviewState {
@@ -72,6 +109,12 @@ export function usePageContentPreview(enabled: boolean, photos: Photo[]): PageCo
     for (const document of documents) {
       pages[document.pageKey] = adaptPageContent(document, photos);
     }
-    return { pages, publishedHomeHero: getPublishedHomeHero(documents), isLoading: false };
+    const home = documents.findLast((document) => document.pageKey === "home");
+    return {
+      pages,
+      publishedHomeHero: getPublishedHomeHero(home),
+      publishedHomeGallery: home ? getPublishedHomeGallery(home) : undefined,
+      isLoading: false,
+    };
   }, [shouldFetch, documents, error, photos]);
 }

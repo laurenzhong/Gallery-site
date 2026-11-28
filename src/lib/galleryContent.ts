@@ -209,7 +209,7 @@ function toPhotoMeta(photos: CmsPhoto[]) {
   }, {});
 }
 
-function toReferencedPhoto(photo: CmsSiteSettings["heroPhoto"], options: { allowHidden?: boolean } = {}): Photo | undefined {
+export function toReferencedPhoto(photo: CmsSiteSettings["heroPhoto"], options: { allowHidden?: boolean } = {}): Photo | undefined {
   const src = resolvePhotoSrc(photo?.src, photo?.legacyPublicPath, photo?.filename);
   if ((!options.allowHidden && photo?.isHidden) || !photo?.id || !src || !photo.title || !photo.filename) {
     return undefined;

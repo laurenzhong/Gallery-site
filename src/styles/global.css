@@ -457,10 +457,6 @@ main:has(> .journal-page) {
   transition: transform 360ms ease, filter 260ms ease;
 }
 
-.feature-card img[data-loaded="false"] {
-  visibility: hidden;
-}
-
 .feature-card::after {
   position: absolute;
   inset: 0;
@@ -592,6 +588,14 @@ main:has(> .journal-page) {
 
 .landscape-image--active {
   z-index: 1;
+}
+
+.landscape-image--active[data-ready="false"] {
+  opacity: 0;
+}
+
+.landscape-image-unavailable {
+  color: #fff;
 }
 
 .landscape-image--previous {

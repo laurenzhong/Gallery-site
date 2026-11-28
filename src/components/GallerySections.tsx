@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { Photo } from "../data/photos";
 import type { HomepageContentSection, HomepageLayout } from "../lib/homepageLayout";
 import { imageSrcSet, sizedImageUrl } from "../lib/imageUrl";
@@ -264,23 +263,17 @@ function SectionTitle({ title }: { title?: string }) {
 }
 
 function FeatureCardImage({ photo, title }: { photo: Photo; title: string }) {
-  const [loaded, setLoaded] = useState(false);
-
   // Production uses Sanity and does not include the local source photos.
   if (import.meta.env.PROD && photo.src.startsWith("/photos/")) return null;
 
   return (
     <img
       src={sizedImageUrl(photo.src, 900, 82)}
-      srcSet={imageSrcSet(photo.src, [520, 820, 1100], 82)}
-      sizes="(max-width: 640px) 100vw, 33vw"
+      srcSet={imageSrcSet(photo.src, [320, 520, 820, 1100], 82)}
+      sizes="(max-width: 640px) 55vw, 33vw"
       alt={`${title} ${photo.title}`}
       loading="eager"
-      fetchPriority="low"
       decoding="async"
-      data-loaded={loaded}
-      onLoad={() => setLoaded(true)}
-      onError={() => setLoaded(false)}
     />
   );
 }
@@ -294,6 +287,7 @@ function OrderedHomepageSections({
   photos: Photo[];
   onOpen: (index: number, lightboxPhotos?: Photo[]) => void;
 }) {
+  const firstCarousel = sections.find((section) => section.kind === "gallery" && section.presentation === "landscapeCarousel");
   return (
     <section className="reference-content" id="photography" aria-label="Photography archive">
       {sections.map((section) => {
@@ -332,7 +326,6 @@ function OrderedHomepageSections({
                   allPhotos={photos}
                   onOpen={onOpen}
                   className="plants-reference-banner"
-                  loading="eager"
                 />
               </section>
             );
@@ -353,6 +346,7 @@ function OrderedHomepageSections({
               key={section.id}
               title={section.title ?? "Gallery"}
               photos={section.photos}
+              prioritizeFirst={section === firstCarousel}
               showTitle={Boolean(section.title && section.title.trim().toLowerCase() !== "carousel")}
               filterLandscape={false}
               onOpen={(photo, carouselPhotos) => onOpen(photoIndex(photos, photo), carouselPhotos)}
@@ -548,6 +542,7 @@ export function GallerySections({ photos, homepageLayout, onOpen }: GallerySecti
         id={groups[0].id}
         title={groups[0].title}
         photos={groups[0].photos}
+        prioritizeFirst
         onOpen={(photo, carouselPhotos) => onOpen(photoIndex(photos, photo), carouselPhotos)}
       />
       <GalleryRail group={groups[1]} allPhotos={photos} onOpen={onOpen} showTitle={false} />
