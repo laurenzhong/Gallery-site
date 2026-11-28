@@ -27,7 +27,7 @@ jobs:
         run: |
           app="$RUNNER_TEMP/product/GalleryUploader.app"
           plutil -lint "$app/Info.plist"
-          lipo -verify_arch arm64 "$app/GalleryUploader"
+          lipo "$app/GalleryUploader" -verify_arch arm64
           mkdir -p "$RUNNER_TEMP/package/Payload"
           ditto "$app" "$RUNNER_TEMP/package/Payload/GalleryUploader.app"
           cd "$RUNNER_TEMP/package"
